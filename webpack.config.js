@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
     mode: 'development',
-    entry: './src/main.ts', // Change this to your main TypeScript file
+    entry: './src/app.ts', // Change this to your main TypeScript file
     devtool: 'inline-source-map',
     module: {
         rules: [

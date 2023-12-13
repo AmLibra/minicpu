@@ -1,38 +1,37 @@
-import * as THREE from 'three';
+import {OrthographicCamera, Scene, WebGLRenderer} from "three";
+import {DrawUtils} from "./DrawUtils";
+import {CPU} from "./actors/CPU";
+import {GameActor} from "./actors/GameActor";
 
-class Main {
-    private scene: THREE.Scene;
-    private camera: THREE.OrthographicCamera;
-    private renderer: THREE.WebGLRenderer;
-    private square: THREE.Mesh;
+class App {
+    private scene: Scene;
+    private camera: OrthographicCamera;
+    private renderer: WebGLRenderer;
 
     constructor() {
         this.init();
         this.animate();
     }
 
-    private init(): void {
-        // Scene setup
-        this.scene = new THREE.Scene();
+    private gameAcors: GameActor[] = [
+        new CPU("CPU", [0, 0])
+    ]
 
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    private init(): void {
+        this.scene = new Scene();
+        this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        // Orthographic Camera
         const aspect = window.innerWidth / window.innerHeight;
-        this.camera = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
+        this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
         this.camera.position.set(0, 0, 10); // Positioned along the Z-axis
 
-        // Background color
-        this.renderer.setClearColor(0x000000, 1); // Black background
+        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1);
 
-        // Square
-        const geometry = new THREE.PlaneGeometry(1, 1); // 1x1 plane
-        const material = new THREE.MeshBasicMaterial({ color: 0xFFFFFF }); // White color
-        this.square = new THREE.Mesh(geometry, material);
-        this.scene.add(this.square);
+        for (let gameActor of this.gameAcors) {
+            gameActor.draw(this.scene);
+        }
 
         // Resize handler
         window.addEventListener('resize', () => {
@@ -46,9 +45,9 @@ class Main {
 
     private animate(): void {
         requestAnimationFrame(() => this.animate());
-        // Render the scene
         this.renderer.render(this.scene, this.camera);
+        this.gameAcors.forEach(gameActor => gameActor.update());
     }
 }
 
-new Main();
+new App();
