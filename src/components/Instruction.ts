@@ -1,21 +1,21 @@
 export class Instruction {
     private readonly opcode: string;
-    private readonly result_reg: string;
-    private readonly op1_reg: string;
-    private readonly op2_reg: string;
+    private readonly resultReg: string;
+    private readonly op1Reg: string;
+    private readonly op2Reg: string;
 
     constructor(opcode: string, result_reg: string, op1_reg: string, op2_reg: string) {
         this.opcode = opcode;
-        this.result_reg = result_reg;
-        this.op1_reg = op1_reg;
-        this.op2_reg = op2_reg;
+        this.resultReg = result_reg;
+        this.op1Reg = op1_reg;
+        this.op2Reg = op2_reg;
     }
 
     public get(): string {
-        return this.opcode + ", " + this.result_reg + ", " + this.op1_reg + ", " + this.op2_reg + ";";
+        return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
     }
 
-    public get_result_reg(): string {
-        return this.result_reg;
+    public getResultReg(): string {
+        return this.resultReg;
     }
 }

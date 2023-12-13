@@ -11,29 +11,29 @@ class App {
     constructor() {
         this.init();
         this.animate();
+        this.startGameLoop()
     }
 
-    private gameAcors: GameActor[] = [
-        new CPU("CPU", [0, 0])
+    private gameActors: GameActor[] = [
     ]
 
     private init(): void {
         this.scene = new Scene();
+        this.gameActors.push(new CPU("CPU", [0, 0], this.scene));
         this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1);
         document.body.appendChild(this.renderer.domElement);
 
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
         this.camera.position.set(0, 0, 10); // Positioned along the Z-axis
 
-        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1);
 
-        for (let gameActor of this.gameAcors) {
+        for (let gameActor of this.gameActors)
             gameActor.draw(this.scene);
-        }
 
-        // Resize handler
+        // browser window resize handler
         window.addEventListener('resize', () => {
             const aspect = window.innerWidth / window.innerHeight;
             this.camera.left = -aspect;
@@ -46,7 +46,12 @@ class App {
     private animate(): void {
         requestAnimationFrame(() => this.animate());
         this.renderer.render(this.scene, this.camera);
-        this.gameAcors.forEach(gameActor => gameActor.update());
+    }
+
+    private startGameLoop(): void {
+        setInterval(() => {
+            this.gameActors.forEach(gameActor => gameActor.update());
+        }, 1000);
     }
 }
 

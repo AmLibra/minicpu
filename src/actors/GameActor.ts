@@ -1,17 +1,14 @@
 import {Scene} from "three";
 
 export abstract class GameActor {
-    private readonly position: [number, number];
+    protected readonly position: { x: number; y: number };
 
     protected constructor(position: [number, number]) {
-        this.position = position
+        this.position = {x: position[0], y: position[1]};
     }
 
     abstract draw(scene: Scene): void;
 
     abstract update(): void;
 
-    public get_position(): [number, number] {
-        return this.position
-    }
 }

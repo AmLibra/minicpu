@@ -2,7 +2,7 @@ const path = require('path');
 
 module.exports = {
     mode: 'development',
-    entry: './src/app.ts', // Change this to your main TypeScript file
+    entry: './src/app.ts',
     devtool: 'inline-source-map',
     module: {
         rules: [
@@ -21,9 +21,15 @@ module.exports = {
         path: path.resolve(__dirname, 'dist')
     },
     devServer: {
-        static: {
-            directory: path.join(__dirname, 'dist'),
-        },
+        static: [
+            {
+                directory: path.join(__dirname, 'dist'),
+            },
+            {
+                directory: path.join(__dirname, 'res'),
+                publicPath: '/res/',
+            }
+        ],
         compress: true,
         port: 8080,
     },
