@@ -51,7 +51,7 @@ class App {
     private startGameLoop(): void {
         setInterval(() => {
             this.gameActors.forEach(gameActor => gameActor.update());
-        }, 1000);
+        }, 1000 / CPU.CLOCK_SPEED);
     }
 }
 

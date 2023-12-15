@@ -1,3 +1,5 @@
+import {CPU} from "../actors/CPU";
+
 export class Instruction {
     private readonly opcode: string;
     private readonly resultReg: string;
@@ -11,7 +13,15 @@ export class Instruction {
         this.op2Reg = op2_reg;
     }
 
-    public get(): string {
+    public isMemoryOperation(): boolean {
+        return this.opcode in CPU.MEMORY_OPCODES
+    }
+
+    public isArithmetic(): boolean {
+        return this.opcode in CPU.ALU_OPCODES
+    }
+
+    public toString(): string {
         return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
     }
 
