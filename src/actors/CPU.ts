@@ -1,15 +1,12 @@
-import {Color, Mesh, MeshBasicMaterial, Scene} from "three";
+import {Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
-import {GameActor} from "./GameActor";
+import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
-import {FontLoader} from "three/examples/jsm/loaders/FontLoader";
-import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 import {ROM} from "./ROM";
 
-export class CPU extends GameActor {
+export class CPU extends ComputerChip {
     public static readonly CLOCK_SPEED: number = 1; // Hz
 
-    public readonly id: string;
     public readonly rom: ROM;
 
     public static readonly INSTRUCTION_BUFFER_SIZE: number = 4; // Words
@@ -27,42 +24,138 @@ export class CPU extends GameActor {
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
 
     private registers: string[];
-    private is_pipelined: boolean;
+    private isPipelined: boolean;
 
-    private readonly scene: Scene;
-    private static readonly COLORS: Map<string, string> = new Map([
-        ["BODY", DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")],
-        ["COMPONENT", DrawUtils.COLOR_PALETTE.get("LIGHT")],
-        ["TEXT", DrawUtils.COLOR_PALETTE.get("DARK")]
-    ]);
-    private graphicComponents: Map<string, Mesh>;
-    private readonly textComponents: Map<string, Mesh>;
+    private static readonly WIDTH: number = .95;
+    private static readonly HEIGHT: number = 1;
+    private static readonly COMPONENTS_INNER_MARGIN = 0.04;
+    private static readonly COMPONENTS_SPACING = 0.02;
+    private static readonly INSTRUCTION_BUFFER_HEIGHT = 0.3;
+    private static readonly DECODER_HEIGHT = 0.15;
+    private static readonly REGISTER_WIDTH = 0.6;
 
     constructor(id: string, position: [number, number], scene: Scene, rom: ROM) {
-        super(position)
-        this.id = id
+        super(id, position, scene)
         this.rom = rom
-        this.scene = scene
-        this.graphicComponents = new Map<string, Mesh>();
-        this.textComponents = new Map<string, Mesh>();
+        this.computeGraphicComponentDimensions();
         this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Array(CPU.DECODER_COUNT)
         this.ALUs = new Array(CPU.ALU_COUNT)
         this.registers = new Array(CPU.REGISTER_SIZE)
+        this.isPipelined = false;
+        this.setPipelined(true); // TODO: for now we are always pipelined
+    }
+
+    public computeGraphicComponentDimensions(): void {
+        const cpuBody = {
+            width: CPU.WIDTH,
+            height: CPU.HEIGHT,
+            xOffset: 0,
+            yOffset: 0,
+            color: CPU.COLORS.get("BODY")
+        };
+
+        // Constants for inner dimensions and component spacings
+        const innerWidth = CPU.WIDTH - (2 * CPU.COMPONENTS_INNER_MARGIN);
+        const innerHeight = CPU.HEIGHT - (2 * CPU.COMPONENTS_INNER_MARGIN);
+
+        // Define dimensions and positions for the instruction buffer
+        const instructionBuffer = {
+            width: innerWidth, // Use the full inner width
+            height: CPU.INSTRUCTION_BUFFER_HEIGHT,
+            xOffset: 0, // Centered horizontally
+            yOffset: -(innerHeight / 2) + (CPU.INSTRUCTION_BUFFER_HEIGHT / 2), // Positioned at the top
+            color: CPU.COLORS.get("COMPONENT")
+        };
+
+        // Define dimensions and positions for the decoder
+        const decoder = {
+            width: instructionBuffer.width, // Match the width of the instruction buffer
+            height: CPU.DECODER_HEIGHT,
+            xOffset: 0, // Centered horizontally
+            yOffset: instructionBuffer.yOffset + (instructionBuffer.height / 2) + CPU.COMPONENTS_SPACING
+                + (CPU.DECODER_HEIGHT / 2), // Positioned below the instruction buffer
+            color: CPU.COLORS.get("COMPONENT")
+        };
+
+        // Define dimensions and positions for the register
+        const register = {
+            width: CPU.REGISTER_WIDTH,
+            height: innerHeight - instructionBuffer.height - decoder.height - (2 * CPU.COMPONENTS_SPACING),
+            xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_WIDTH / 2) - (CPU.WIDTH / 2),
+            yOffset: decoder.yOffset + decoder.height / 2 + CPU.COMPONENTS_SPACING +
+                (innerHeight - instructionBuffer.height - decoder.height - 2 * CPU.COMPONENTS_SPACING) / 2,
+            color: CPU.COLORS.get("COMPONENT")
+        };
+
+        // Compute ALU width dynamically to fit the remaining space
+        const aluWidth = innerWidth - CPU.REGISTER_WIDTH - CPU.COMPONENTS_SPACING;
+
+        // Define dimensions and positions for the ALU
+        const alu = {
+            width: aluWidth,
+            height: register.height, // Match the height of the register
+            xOffset: CPU.WIDTH / 2 - CPU.COMPONENTS_INNER_MARGIN - aluWidth / 2,
+            yOffset: register.yOffset, // Aligned vertically with the register
+            color: CPU.COLORS.get("COMPONENT")
+        };
+
+        this.graphicComponentProperties.set("CPU", cpuBody);
+        this.graphicComponentProperties.set("INSTRUCTION_BUFFER", instructionBuffer);
+        this.graphicComponentProperties.set("DECODER", decoder);
+        this.graphicComponentProperties.set("REGISTER", register);
+        this.graphicComponentProperties.set("ALU", alu);
     }
 
     public update() {
-        this.ALUs.fill(null);
-        this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
-        this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-        if (this.getArrayBufferLength(this.instructionBuffer) == 0) {
-            let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
-            for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i) {
-                this.instructionBuffer[i] = instructions[i]
+        if (this.isPipelined) {
+            this.ALUs.fill(null);
+            this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
+            this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
+            if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
+                let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
+                for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i)
+                    this.instructionBuffer[i] = instructions[i]
             }
         }
+        this.drawUpdate();
+    }
 
-        this.drawUpdate(this.scene);
+    public draw(): void {
+        this.graphicComponentProperties.forEach((_properties, name: string) => {
+            this.drawGraphicComponent(name)
+            this.scene.add(this.graphicComponents.get(name));
+        });
+    }
+
+    public drawUpdate(): void {
+        this.textComponents.forEach(comp => this.scene.remove(comp));
+        this.textComponents.clear();
+
+        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
+        this.drawTextForComponent("DECODER", this.decoders, 0.07);
+        this.drawALUText();
+
+        this.textComponents.forEach(comp => this.scene.add(comp));
+    }
+
+    private drawALUText(): void {
+        const alu = this.ALUs[0];
+        const aluProps = this.graphicComponentProperties.get("ALU");
+        if (!alu) return;
+
+        this.drawALUTextComponent("ALU_OP", alu.getOpcode(), aluProps.xOffset, aluProps.yOffset - 0.07);
+        this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(), aluProps.xOffset + 0.08, aluProps.yOffset - 0.15);
+        this.drawALUTextComponent("ALU_OP2", alu.getOp2Reg(), aluProps.xOffset - 0.08, aluProps.yOffset - 0.15);
+        this.drawALUTextComponent("ALU_RESULT", alu.getResultReg(), aluProps.xOffset, aluProps.yOffset + 0.1);
+    }
+
+    private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
+        this.textComponents.set(key, DrawUtils.drawText(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+    }
+
+    public setPipelined(isPipelined: boolean): void {
+        this.isPipelined = isPipelined;
     }
 
     private moveInstructions(from: Instruction[], to: Instruction[], count: number): void {
@@ -71,117 +164,5 @@ export class CPU extends GameActor {
                 to[i] = from.shift();
                 from.push(null);
             }
-    }
-
-    public draw(): void {
-        this.drawComponent("CPU", 0, 0, 1, 1, "BODY");
-
-        this.drawComponent("INSTRUCTION_BUFFER",
-            0, -0.31, 0.93, 0.3, "COMPONENT");
-        this.drawComponent("DECODER",
-            0, -0.05, 0.93, 0.15, "COMPONENT");
-        this.drawComponent("REGISTER",
-            -0.165, 0.26, 0.6, 0.4, "COMPONENT");
-        this.drawComponent("ALU",
-            0.315, 0.26, 0.3, 0.4, "COMPONENT");
-
-        this.graphicComponents.forEach(comp => this.scene.add(comp));
-    }
-
-    public drawUpdate(scene: Scene): void {
-        this.clearTextComponents(scene);
-
-        this.drawTextForComponents(this.instructionBuffer, "INSTRUCTION_BUFFER", 0, -0.44, 0.07, scene);
-        this.drawTextForComponents(this.decoders, "DECODER", 0, -0.08, 0.07, scene);
-
-        const OP = this.drawText(this.ALUs[0] ? this.ALUs[0].toString().split(",")[0] : "",
-            0.315, 0.17, 0.05, CPU.COLORS.get("TEXT"), scene);
-        this.textComponents.set("ALU_OP", OP)
-        const OP1 = this.drawText(this.ALUs[0] ? this.ALUs[0].toString().split(",")[2] : "",
-            0.2, 0.1, 0.05, CPU.COLORS.get("TEXT"), scene);
-        this.textComponents.set("ALU_OP1", OP1)
-        const OP2 = this.drawText(this.ALUs[0] ? this.ALUs[0]
-                    .toString().split(",")[3].replace(";", "")
-                : "",
-            0.35, 0.1, 0.05, CPU.COLORS.get("TEXT"), scene);
-        this.textComponents.set("ALU_OP2", OP2)
-        const RES = this.drawText(this.ALUs[0] ? this.ALUs[0].toString().split(",")[1] : "",
-            0.27, 0.33, 0.05, CPU.COLORS.get("TEXT"), scene);
-        this.textComponents.set("ALU_RES", RES)
-
-        this.textComponents.forEach(comp => scene.add(comp));
-    }
-
-    private clearTextComponents(scene: Scene): void {
-        this.textComponents.forEach(comp => scene.remove(comp));
-        this.textComponents.clear();
-    }
-
-    private drawTextForComponents(components: Instruction[], componentName: string, xOffset: number, yOffsetStart: number, yOffsetIncrement: number, scene: Scene): void {
-        for (let i = 0; i < components.length; i++) {
-            const instruction = components[components.length - i - 1];
-            if (instruction) {
-                const yPos = yOffsetStart + yOffsetIncrement * i;
-                const instructionGraphic =
-                    this.drawText(instruction.toString(), xOffset, yPos, 0.05, CPU.COLORS.get("TEXT"), scene);
-                this.textComponents.set(`${componentName}_${i}`, instructionGraphic);
-            }
-        }
-    }
-
-    private drawComponent(name: string, xOffset: number, yOffset: number, width: number, height: number, colorKey: string): void {
-        const component = DrawUtils.drawQuadrilateral(width, height, CPU.COLORS.get(colorKey));
-        component.position.set(this.position.x + xOffset, this.position.y + yOffset, 0);
-        this.graphicComponents.set(name, component);
-    }
-
-    private drawText(text: string, xOffset: number, yOffset: number, size: number, color: string, scene: Scene): Mesh {
-        const loader = new FontLoader();
-        const text_graphic = new Mesh();
-        loader.load('../../res/Courier_New_Bold.json', (font) => {
-            const textGeometry = new TextGeometry(text, {
-                font: font,
-                size: size,
-                height: 0.1, // Thickness of the text
-                curveSegments: 12,
-                bevelEnabled: false
-            });
-            const textMaterial = new MeshBasicMaterial({ color: color });
-            const textMesh = new Mesh(textGeometry, textMaterial);
-
-            textGeometry.computeBoundingBox();
-            const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-            textMesh.position.set(xOffset - textWidth / 2, yOffset, 0);
-
-            text_graphic.add(textMesh);
-        });
-        return text_graphic;
-    }
-
-
-    public changeComponentColor(componentName: string, newColor: string | number | Color): void {
-        const component = this.graphicComponents.get(componentName);
-        if (component && component.material instanceof MeshBasicMaterial) {
-            component.material.color.set(newColor);
-            component.material.needsUpdate = true; // This line might be necessary to tell Three.js to update the material
-        } else {
-            console.warn('Component not found or has incompatible material');
-        }
-    }
-
-    public set_pipelined(is_pipelined: boolean): void {
-        this.is_pipelined = is_pipelined;
-    }
-
-    getArrayBufferLength(array: Array<Instruction>): number {
-        return array.reduce((accumulator: number, currentValue: Instruction) => accumulator + (currentValue == null ? 0 : 1), 0);
-    }
-
-    public generate_instruction(): Instruction {
-        const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
-        const result_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
-        const op1_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
-        const op2_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
-        return new Instruction(opcode, result_reg, op1_reg, op2_reg);
     }
 }

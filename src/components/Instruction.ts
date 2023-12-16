@@ -25,6 +25,18 @@ export class Instruction {
         return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
     }
 
+    public getOpcode(): string {
+        return this.opcode;
+    }
+
+    public getOp1Reg(): string {
+        return this.op1Reg;
+    }
+
+    public getOp2Reg(): string {
+        return this.op2Reg;
+    }
+
     public getResultReg(): string {
         return this.resultReg;
     }

@@ -1,7 +1,7 @@
 import {OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
-import {GameActor} from "./actors/GameActor";
+import {ComputerChip} from "./actors/ComputerChip";
 import {ROM} from "./actors/ROM";
 
 class App {
@@ -9,20 +9,23 @@ class App {
     private camera: OrthographicCamera;
     private renderer: WebGLRenderer;
 
+    private gameActors: ComputerChip[] = [
+    ]
+
     constructor() {
         this.init();
         this.animate();
         this.startGameLoop()
     }
 
-    private gameActors: GameActor[] = [
-    ]
-
     private init(): void {
         this.scene = new Scene();
-        const rom = new ROM([0.6, 0], this.scene)
-        const cpu = new CPU("CPU", [0, 0], this.scene, rom)
-        this.gameActors.push(rom, cpu);
+
+        const rom = new ROM("ROM0", [0.6, 0], this.scene)
+        const cpu = new CPU("CPU0", [0, 0], this.scene, rom)
+        this.gameActors.push(rom); // CPU must be pushed first so that it can't instantly read from ROM
+        this.gameActors.push(cpu);
+
         this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1);
@@ -32,12 +35,10 @@ class App {
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
         this.camera.position.set(0, 0, 10); // Positioned along the Z-axis
 
-
         for (let gameActor of this.gameActors)
             gameActor.draw();
 
-        // browser window resize handler
-        window.addEventListener('resize', () => {
+        window.addEventListener('resize', () => { // browser window resize handler
             const aspect = window.innerWidth / window.innerHeight;
             this.camera.left = -aspect;
             this.camera.right = aspect;
