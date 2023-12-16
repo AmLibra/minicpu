@@ -4,11 +4,13 @@ import {GameActor} from "./GameActor";
 import {Instruction} from "../components/Instruction";
 import {FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
+import {ROM} from "./ROM";
 
 export class CPU extends GameActor {
     public static readonly CLOCK_SPEED: number = 1; // Hz
 
     public readonly id: string;
+    public readonly rom: ROM;
 
     public static readonly INSTRUCTION_BUFFER_SIZE: number = 4; // Words
     private readonly instructionBuffer: Instruction[];
@@ -36,9 +38,10 @@ export class CPU extends GameActor {
     private graphicComponents: Map<string, Mesh>;
     private readonly textComponents: Map<string, Mesh>;
 
-    constructor(id: string, position: [number, number], scene: Scene) {
+    constructor(id: string, position: [number, number], scene: Scene, rom: ROM) {
         super(position)
         this.id = id
+        this.rom = rom
         this.scene = scene
         this.graphicComponents = new Map<string, Mesh>();
         this.textComponents = new Map<string, Mesh>();
@@ -52,8 +55,12 @@ export class CPU extends GameActor {
         this.ALUs.fill(null);
         this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
         this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-        if (this.getArrayBufferLength(this.instructionBuffer) == 0)
-            this.refillInstructionBuffer();
+        if (this.getArrayBufferLength(this.instructionBuffer) == 0) {
+            let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
+            for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i) {
+                this.instructionBuffer[i] = instructions[i]
+            }
+        }
 
         this.drawUpdate(this.scene);
     }
@@ -66,13 +73,7 @@ export class CPU extends GameActor {
             }
     }
 
-    private refillInstructionBuffer(): void {
-        for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; i++)
-            if (!this.instructionBuffer[i])
-                this.instructionBuffer[i] = this.generate_instruction();
-    }
-
-    public draw(scene: Scene): void {
+    public draw(): void {
         this.drawComponent("CPU", 0, 0, 1, 1, "BODY");
 
         this.drawComponent("INSTRUCTION_BUFFER",
@@ -84,7 +85,7 @@ export class CPU extends GameActor {
         this.drawComponent("ALU",
             0.315, 0.26, 0.3, 0.4, "COMPONENT");
 
-        this.graphicComponents.forEach(comp => scene.add(comp));
+        this.graphicComponents.forEach(comp => this.scene.add(comp));
     }
 
     public drawUpdate(scene: Scene): void {

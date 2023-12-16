@@ -2,6 +2,7 @@ import {OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {GameActor} from "./actors/GameActor";
+import {ROM} from "./actors/ROM";
 
 class App {
     private scene: Scene;
@@ -19,7 +20,9 @@ class App {
 
     private init(): void {
         this.scene = new Scene();
-        this.gameActors.push(new CPU("CPU", [0, 0], this.scene));
+        const rom = new ROM([0.6, 0], this.scene)
+        const cpu = new CPU("CPU", [0, 0], this.scene, rom)
+        this.gameActors.push(rom, cpu);
         this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1);
@@ -31,7 +34,7 @@ class App {
 
 
         for (let gameActor of this.gameActors)
-            gameActor.draw(this.scene);
+            gameActor.draw();
 
         // browser window resize handler
         window.addEventListener('resize', () => {

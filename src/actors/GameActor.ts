@@ -7,7 +7,7 @@ export abstract class GameActor {
         this.position = {x: position[0], y: position[1]};
     }
 
-    abstract draw(scene: Scene): void;
+    abstract draw(): void;
 
     abstract update(): void;
 
