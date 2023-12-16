@@ -28,6 +28,9 @@ export abstract class ComputerChip {
     protected readonly textComponents: Map<string, Mesh>;
 
     protected constructor(id: string, position: [number, number], scene: Scene) {
+        DrawUtils.onFontLoaded(() => {
+            this.draw();
+        });
         this.id = id;
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
@@ -39,7 +42,6 @@ export abstract class ComputerChip {
             yOffset: number,
             color: string
         }>();
-        DrawUtils.loadFont();
         this.textComponents = new Map<string, Mesh>();
     }
 
@@ -47,7 +49,7 @@ export abstract class ComputerChip {
 
     abstract update(): void;
 
-    protected drawGraphicComponent(name: string): void {
+    protected drawSimpleGraphicComponent(name: string): void {
         const graphicComponent = this.graphicComponentProperties.get(name);
         const component = DrawUtils.drawQuadrilateral(
             graphicComponent.width, graphicComponent.height, graphicComponent.color);

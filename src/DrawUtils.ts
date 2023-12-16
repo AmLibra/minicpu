@@ -13,20 +13,35 @@ export class DrawUtils {
 
     private static fontLoader: FontLoader = new FontLoader();
     private static FONT: string = "../../res/Courier_New_Bold.json";
-    public static font: Font | null = null;
+    public static font: Font = null;
 
     public static drawQuadrilateral(width: number = 1, height: number = 1,
                                     color: string = this.COLOR_PALETTE.get("LIGHT")): Mesh {
         return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({color: color}));
     }
 
-    public static loadFont(): void {
-        this.fontLoader.load(this.FONT, (font) => {
-             this.font = font;
+    public static async loadFont(): Promise<void> {
+        return new Promise<void>(resolve => {
+            this.fontLoader.load(this.FONT, (font: Font) => {
+                this.font = font;
+                resolve();
+            });
         });
     }
 
+    public static async awaitFontLoad(): Promise<void> {
+        if (this.font == null)
+            await this.loadFont();
+    }
+
+    // This is a callback function that gets executed after the font is loaded
+    public static onFontLoaded(callback: Function): void {
+        this.awaitFontLoad().then(() => callback());
+    }
+
     public static drawText(text: string, xOffset: number, yOffset: number, size: number, color: string): Mesh {
+        if (this.font == null)
+            return null;
         const textGeometry = new TextGeometry(text, {
             font: this.font,
             size: size,

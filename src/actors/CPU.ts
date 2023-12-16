@@ -3,9 +3,10 @@ import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
 import {ROM} from "./ROM";
+import {cameraProjectionMatrix} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 1; // Hz
+    public static readonly CLOCK_SPEED: number = 0.5; // Hz
 
     public readonly rom: ROM;
 
@@ -19,20 +20,27 @@ export class CPU extends ComputerChip {
     private readonly ALUs: Instruction[];
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "DIV", "MOD", "AND", "OR", "XOR", "SHL", "SHR"];
 
-    public static readonly REGISTER_SIZE: number = 12;
-    public static readonly REGISTERS = ["R1", "R2", "R3", "R4", "R5", "R6", "R7"];
+    private static readonly REGISTER_FILE_ROW_COUNT = 5;
+    private static readonly REGISTER_FILE_COL_COUNT = 4;
+    private static readonly REGISTER_FILE_MARGIN = 0.01;
+    public static readonly REGISTER_SIZE: number = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_FILE_ROW_COUNT;
+    public static readonly REGISTERS = [];
+    static {
+        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.REGISTERS.push(`R${i}`)
+    }
+
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
 
-    private registers: string[];
+    private readonly registers: Map<string, boolean>; // registers can be either invalid or contain a value
     private isPipelined: boolean;
 
-    private static readonly WIDTH: number = .95;
-    private static readonly HEIGHT: number = 1;
+    private static readonly WIDTH: number = 1.2;
+    private static readonly HEIGHT: number = 1.2;
     private static readonly COMPONENTS_INNER_MARGIN = 0.04;
     private static readonly COMPONENTS_SPACING = 0.02;
     private static readonly INSTRUCTION_BUFFER_HEIGHT = 0.3;
     private static readonly DECODER_HEIGHT = 0.15;
-    private static readonly REGISTER_WIDTH = 0.6;
+    private static readonly REGISTER_WIDTH = 0.8;
 
     constructor(id: string, position: [number, number], scene: Scene, rom: ROM) {
         super(id, position, scene)
@@ -41,7 +49,7 @@ export class CPU extends ComputerChip {
         this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Array(CPU.DECODER_COUNT)
         this.ALUs = new Array(CPU.ALU_COUNT)
-        this.registers = new Array(CPU.REGISTER_SIZE)
+        this.registers = new Map<string, boolean>();
         this.isPipelined = false;
         this.setPipelined(true); // TODO: for now we are always pipelined
     }
@@ -85,7 +93,7 @@ export class CPU extends ComputerChip {
             xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_WIDTH / 2) - (CPU.WIDTH / 2),
             yOffset: decoder.yOffset + decoder.height / 2 + CPU.COMPONENTS_SPACING +
                 (innerHeight - instructionBuffer.height - decoder.height - 2 * CPU.COMPONENTS_SPACING) / 2,
-            color: CPU.COLORS.get("COMPONENT")
+            color: CPU.COLORS.get("BODY")
         };
 
         // Compute ALU width dynamically to fit the remaining space
@@ -105,11 +113,45 @@ export class CPU extends ComputerChip {
         this.graphicComponentProperties.set("DECODER", decoder);
         this.graphicComponentProperties.set("REGISTER", register);
         this.graphicComponentProperties.set("ALU", alu);
+
+        // Calculate dimensions for each individual register file, accounting for margins
+        const registerFileWidth = (register.width - CPU.REGISTER_FILE_MARGIN * (CPU.REGISTER_FILE_ROW_COUNT - 1)) / CPU.REGISTER_FILE_ROW_COUNT;
+        const registerFileHeight = (register.height - CPU.REGISTER_FILE_MARGIN * (CPU.REGISTER_FILE_COL_COUNT - 1)) / CPU.REGISTER_FILE_COL_COUNT;
+
+        for (let i = 0; i < CPU.REGISTER_FILE_ROW_COUNT; i++) {
+            for (let j = 0; j < CPU.REGISTER_FILE_COL_COUNT; j++) {
+                // Calculate xOffset and yOffset for each register file
+                const xOffset = register.xOffset - register.width / 2 + registerFileWidth * i + CPU.REGISTER_FILE_MARGIN * i + registerFileWidth / 2;
+                const yOffset = register.yOffset - register.height / 2 + registerFileHeight * j + CPU.REGISTER_FILE_MARGIN * j + registerFileHeight / 2;
+
+                const registerFile = {
+                    width: registerFileWidth,
+                    height: registerFileHeight,
+                    xOffset: xOffset,
+                    yOffset: yOffset,
+                    color: CPU.COLORS.get("COMPONENT")
+                };
+
+                // Add each register file to the graphicComponentProperties with a unique key
+                this.graphicComponentProperties.set(`R${i* CPU.REGISTER_FILE_COL_COUNT + j}`, registerFile);
+
+                DrawUtils.onFontLoaded(() => {
+                    // write the register file name to the register file
+                    this.textComponents.set(`R${i * CPU.REGISTER_FILE_COL_COUNT + j}`,
+                        DrawUtils.drawText(`R${i * CPU.REGISTER_FILE_COL_COUNT + j}`, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("BODY")));
+                });
+            }
+        }
     }
 
     public update() {
         if (this.isPipelined) {
-            this.ALUs.fill(null);
+            if (this.ALUs[0]) {
+                this.registers.set(this.ALUs[0].getResultReg(), true);
+                this.registers.set(this.ALUs[0].getOp1Reg(), true);
+                this.registers.set(this.ALUs[0].getOp2Reg(), true);
+                this.ALUs.fill(null);
+            }
             this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
             if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
@@ -118,23 +160,39 @@ export class CPU extends ComputerChip {
                     this.instructionBuffer[i] = instructions[i]
             }
         }
+        console.log(this.textComponents)
         this.drawUpdate();
     }
 
     public draw(): void {
         this.graphicComponentProperties.forEach((_properties, name: string) => {
-            this.drawGraphicComponent(name)
+            this.drawSimpleGraphicComponent(name)
             this.scene.add(this.graphicComponents.get(name));
         });
     }
 
     public drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
-        this.textComponents.clear();
+        // this.textComponents.clear();
+        // clear all but the register file names
+        this.textComponents.forEach((value, key) => {
+            if (!key.startsWith("R")) {
+                this.scene.remove(value);
+                this.textComponents.delete(key);
+            }
+        });
 
         this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
         this.drawTextForComponent("DECODER", this.decoders, 0.07);
         this.drawALUText();
+
+        // change the color of the register file if it contains a value
+        this.registers.forEach((value, key) => {
+            if (key && value) {
+                const registerFile = this.graphicComponentProperties.get(key);
+                this.changeComponentColor(key, CPU.COLORS.get("TEXT"));
+            }
+        });
 
         this.textComponents.forEach(comp => this.scene.add(comp));
     }
