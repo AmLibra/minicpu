@@ -6,50 +6,75 @@ import {ComputerChip} from "./ComputerChip";
 
 export class ROM extends ComputerChip {
 
-    public static readonly MEMORY_SIZE: number = 12;
+    public static readonly MEMORY_SIZE: number = 16;
+    private static readonly WIDTH: number = 0.9;
+    private static readonly HEIGHT: number = 1.8;
+    private static readonly COMPONENTS_INNER_MARGIN = 0.03;
+    private static readonly COMPONENTS_SPACING = 0.02;
+
     private readonly instruction_memory: Instruction[];
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
+        this.computeGraphicComponentProperties();
         this.instruction_memory = new Array(ROM.MEMORY_SIZE)
     }
 
-    public update() {
-        if (this.getFixedArrayLength(this.instruction_memory) == 0) {
-            for (let i = 0; i < ROM.MEMORY_SIZE; ++i) {
-                this.instruction_memory[i] = this.generateInstruction();
-            }
+    private computeGraphicComponentProperties(): void {
+        this.graphicComponentProperties.set("ROM", {
+            width: ROM.WIDTH,
+            height: ROM.HEIGHT,
+            xOffset: 0,
+            yOffset: 0,
+            color: ROM.COLORS.get("BODY")
+        });
+
+        for (let i = 0; i < ROM.MEMORY_SIZE; ++i) {
+            const totalAvailableHeight = ROM.HEIGHT - (2 * ROM.COMPONENTS_INNER_MARGIN);
+            const totalSpacing = ROM.COMPONENTS_SPACING * (ROM.MEMORY_SIZE - 1);
+            const rectangleHeight = (totalAvailableHeight - totalSpacing) / ROM.MEMORY_SIZE;
+            const startYOffset =  ROM.COMPONENTS_INNER_MARGIN + rectangleHeight / 2;
+            this.graphicComponentProperties.set(`ROM_TEXT_${i}`, {
+                width: ROM.WIDTH - (2 * ROM.COMPONENTS_INNER_MARGIN),
+                height: rectangleHeight,
+                xOffset: ROM.COMPONENTS_INNER_MARGIN - ROM.COMPONENTS_INNER_MARGIN,
+                yOffset: startYOffset + i * (rectangleHeight + ROM.COMPONENTS_SPACING) - ROM.HEIGHT / 2,
+                color: ROM.COLORS.get("COMPONENT")
+            });
         }
+    }
+
+    public update() {
+        if (this.getFixedArrayLength(this.instruction_memory) == 0)
+            for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
+                this.instruction_memory[i] = this.generateInstruction();
         this.drawUpdate();
     }
 
     public draw(): void {
-        this.drawComponent("ROM", this.position.x, this.position.y, 0.8, 1.5, "BODY");
-        this.graphicComponents.forEach(comp => this.scene.add(comp));
-    }
-
-    // TODO: Make this a static method in a utility class
-    private drawComponent(name: string, xOffset: number, yOffset: number, width: number, height: number, colorKey: string): void {
-        const component = DrawUtils.drawQuadrilateral(width, height, ROM.COLORS.get(colorKey));
-        component.position.set(this.position.x + xOffset, this.position.y + yOffset, 0);
-        this.graphicComponents.set(name, component);
+        this.graphicComponentProperties.forEach((value, key) => {
+            this.drawSimpleGraphicComponent(key)
+            this.scene.add(this.graphicComponents.get(key));
+        });
     }
 
     private drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
         this.textComponents.clear();
+
         for (let i = 0; i < this.instruction_memory.length; ++i) {
             const instruction = this.instruction_memory[i];
-            if (instruction) {
-                const text = instruction.toString();
-                const xOffset = this.position.x + 0.6;
-                const yOffset = this.position.y + 0.6 - (i * 0.1);
-                const size = 0.05;
-                const color = ROM.COLORS.get("TEXT");
-                const text_graphic = DrawUtils.drawText(text, xOffset, yOffset, size, color);
-                this.textComponents.set(`ROM_TEXT_${i}`, text_graphic);
-            }
+            if (instruction)
+                this.textComponents.set(`ROM_TEXT_${i}`,
+                    DrawUtils.drawText(instruction.toString(),
+                        this.graphicComponentProperties.get(`ROM_TEXT_${i}`).xOffset + this.position.x,
+                        this.graphicComponentProperties.get(`ROM_TEXT_${i}`).xOffset + this.position.y
+                        + (ROM.HEIGHT / 2) - (i * (this.graphicComponentProperties.get(`ROM_TEXT_${i}`).height + ROM.COMPONENTS_SPACING)
+                        + this.graphicComponentProperties.get(`ROM_TEXT_${i}`).height / 2),
+                        ROM.TEXT_SIZE,
+                        ROM.COLORS.get("TEXT")));
         }
+
         this.textComponents.forEach(comp => this.scene.add(comp));
     }
 

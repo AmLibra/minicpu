@@ -36,7 +36,7 @@ export class CPU extends ComputerChip {
 
     private static readonly WIDTH: number = 1.2;
     private static readonly HEIGHT: number = 1.2;
-    private static readonly COMPONENTS_INNER_MARGIN = 0.04;
+    private static readonly COMPONENTS_INNER_MARGIN = 0.03;
     private static readonly COMPONENTS_SPACING = 0.02;
     private static readonly INSTRUCTION_BUFFER_HEIGHT = 0.3;
     private static readonly DECODER_HEIGHT = 0.15;
@@ -173,8 +173,6 @@ export class CPU extends ComputerChip {
 
     public drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
-        // this.textComponents.clear();
-        // clear all but the register file names
         this.textComponents.forEach((value, key) => {
             if (!key.startsWith("R")) {
                 this.scene.remove(value);

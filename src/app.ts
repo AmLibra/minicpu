@@ -9,8 +9,7 @@ class App {
     private camera: OrthographicCamera;
     private renderer: WebGLRenderer;
 
-    private gameActors: ComputerChip[] = [
-    ]
+    private gameActors: ComputerChip[] = []
 
     constructor() {
         this.init();
@@ -21,7 +20,13 @@ class App {
     private init(): void {
         this.scene = new Scene();
 
-        const rom = new ROM("ROM0", [0.6, 0], this.scene)
+        DrawUtils.onFontLoaded(() => {
+            this.scene.add(
+                DrawUtils.drawText("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8, 0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
+            );
+        });
+
+        const rom = new ROM("ROM0", [1.2, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom)
         this.gameActors.push(rom); // CPU must be pushed first so that it can't instantly read from ROM
         this.gameActors.push(cpu);
