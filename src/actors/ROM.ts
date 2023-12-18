@@ -44,6 +44,9 @@ export class ROM extends ComputerChip {
         }
     }
 
+    public isEmpty() {
+        return this.getFixedArrayLength(this.instruction_memory) == 0;
+    }
     public update() {
         if (this.getFixedArrayLength(this.instruction_memory) == 0)
             for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
