@@ -160,7 +160,6 @@ export class CPU extends ComputerChip {
                     this.instructionBuffer[i] = instructions[i]
             }
         }
-        console.log(this.textComponents)
         this.drawUpdate();
     }
 
