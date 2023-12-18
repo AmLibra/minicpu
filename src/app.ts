@@ -28,8 +28,10 @@ class App {
 
         const rom = new ROM("ROM0", [1.2, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom)
-        this.gameActors.push(rom); // CPU must be pushed first so that it can't instantly read from ROM
+        cpu.setPipelined(true)
         this.gameActors.push(cpu);
+        this.gameActors.push(rom); // CPU must be pushed first so that it can't instantly read from ROM
+
 
         this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);

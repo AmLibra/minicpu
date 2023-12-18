@@ -3,10 +3,9 @@ import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
 import {ROM} from "./ROM";
-import {cameraProjectionMatrix} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 0.5; // Hz
+    public static readonly CLOCK_SPEED: number = 1; // Hz
 
     public readonly rom: ROM;
 
@@ -20,8 +19,8 @@ export class CPU extends ComputerChip {
     private readonly ALUs: Instruction[];
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "DIV", "MOD", "AND", "OR", "XOR", "SHL", "SHR"];
 
-    private static readonly REGISTER_FILE_ROW_COUNT = 5;
-    private static readonly REGISTER_FILE_COL_COUNT = 4;
+    private static readonly REGISTER_FILE_ROW_COUNT = 4;
+    private static readonly REGISTER_FILE_COL_COUNT = 5;
     private static readonly REGISTER_FILE_MARGIN = 0.01;
     public static readonly REGISTER_SIZE: number = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_FILE_ROW_COUNT;
     public static readonly REGISTERS = [];
@@ -51,7 +50,6 @@ export class CPU extends ComputerChip {
         this.ALUs = new Array(CPU.ALU_COUNT)
         this.registers = new Map<string, boolean>();
         this.isPipelined = false;
-        this.setPipelined(true); // TODO: for now we are always pipelined
     }
 
     public computeGraphicComponentDimensions(): void {
@@ -63,11 +61,9 @@ export class CPU extends ComputerChip {
             color: CPU.COLORS.get("BODY")
         };
 
-        // Constants for inner dimensions and component spacings
         const innerWidth = CPU.WIDTH - (2 * CPU.COMPONENTS_INNER_MARGIN);
         const innerHeight = CPU.HEIGHT - (2 * CPU.COMPONENTS_INNER_MARGIN);
 
-        // Define dimensions and positions for the instruction buffer
         const instructionBuffer = {
             width: innerWidth, // Use the full inner width
             height: CPU.INSTRUCTION_BUFFER_HEIGHT,
@@ -76,7 +72,6 @@ export class CPU extends ComputerChip {
             color: CPU.COLORS.get("COMPONENT")
         };
 
-        // Define dimensions and positions for the decoder
         const decoder = {
             width: instructionBuffer.width, // Match the width of the instruction buffer
             height: CPU.DECODER_HEIGHT,
@@ -86,8 +81,7 @@ export class CPU extends ComputerChip {
             color: CPU.COLORS.get("COMPONENT")
         };
 
-        // Define dimensions and positions for the register
-        const register = {
+        const registerFile = {
             width: CPU.REGISTER_WIDTH,
             height: innerHeight - instructionBuffer.height - decoder.height - (2 * CPU.COMPONENTS_SPACING),
             xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_WIDTH / 2) - (CPU.WIDTH / 2),
@@ -98,50 +92,32 @@ export class CPU extends ComputerChip {
 
         // Compute ALU width dynamically to fit the remaining space
         const aluWidth = innerWidth - CPU.REGISTER_WIDTH - CPU.COMPONENTS_SPACING;
-
-        // Define dimensions and positions for the ALU
         const alu = {
             width: aluWidth,
-            height: register.height, // Match the height of the register
+            height: registerFile.height, // Match the height of the register
             xOffset: CPU.WIDTH / 2 - CPU.COMPONENTS_INNER_MARGIN - aluWidth / 2,
-            yOffset: register.yOffset, // Aligned vertically with the register
+            yOffset: registerFile.yOffset, // Aligned vertically with the register
             color: CPU.COLORS.get("COMPONENT")
         };
 
-        this.graphicComponentProperties.set("CPU", cpuBody);
-        this.graphicComponentProperties.set("INSTRUCTION_BUFFER", instructionBuffer);
-        this.graphicComponentProperties.set("DECODER", decoder);
-        this.graphicComponentProperties.set("REGISTER", register);
-        this.graphicComponentProperties.set("ALU", alu);
+        this.graphicComponentProperties = new Map(
+            [
+                ["CPU", cpuBody],
+                ["INSTRUCTION_BUFFER", instructionBuffer],
+                ["DECODER", decoder],
+                ["REGISTER_FILE", registerFile],
+                ["ALU", alu]
+            ]
+        );
 
-        // Calculate dimensions for each individual register file, accounting for margins
-        const registerFileWidth = (register.width - CPU.REGISTER_FILE_MARGIN * (CPU.REGISTER_FILE_ROW_COUNT - 1)) / CPU.REGISTER_FILE_ROW_COUNT;
-        const registerFileHeight = (register.height - CPU.REGISTER_FILE_MARGIN * (CPU.REGISTER_FILE_COL_COUNT - 1)) / CPU.REGISTER_FILE_COL_COUNT;
-
-        for (let i = 0; i < CPU.REGISTER_FILE_ROW_COUNT; i++) {
-            for (let j = 0; j < CPU.REGISTER_FILE_COL_COUNT; j++) {
-                // Calculate xOffset and yOffset for each register file
-                const xOffset = register.xOffset - register.width / 2 + registerFileWidth * i + CPU.REGISTER_FILE_MARGIN * i + registerFileWidth / 2;
-                const yOffset = register.yOffset - register.height / 2 + registerFileHeight * j + CPU.REGISTER_FILE_MARGIN * j + registerFileHeight / 2;
-
-                const registerFile = {
-                    width: registerFileWidth,
-                    height: registerFileHeight,
-                    xOffset: xOffset,
-                    yOffset: yOffset,
-                    color: CPU.COLORS.get("COMPONENT")
-                };
-
-                // Add each register file to the graphicComponentProperties with a unique key
-                this.graphicComponentProperties.set(`R${i* CPU.REGISTER_FILE_COL_COUNT + j}`, registerFile);
-
-                DrawUtils.onFontLoaded(() => {
-                    // write the register file name to the register file
-                    this.textComponents.set(`R${i * CPU.REGISTER_FILE_COL_COUNT + j}`,
-                        DrawUtils.drawText(`R${i * CPU.REGISTER_FILE_COL_COUNT + j}`, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("BODY")));
-                });
-            }
-        }
+        this.drawGrid(registerFile , CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
+            .forEach((dimensions, name) => {
+                 DrawUtils.onFontLoaded(() => {
+                            this.textComponents.set(name,
+                                DrawUtils.drawText(name, dimensions.xOffset, dimensions.yOffset + dimensions.height/2
+                                    , CPU.TEXT_SIZE/2, CPU.COLORS.get("BODY")));
+                        });
+            });
     }
 
     public update() {
@@ -155,12 +131,13 @@ export class CPU extends ComputerChip {
             this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
             if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
-                let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
-                for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i)
-                    this.instructionBuffer[i] = instructions[i]
+                if(!this.rom.isEmpty()) {
+                    let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
+                    for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i)
+                        this.instructionBuffer[i] = instructions[i]
+                }
             }
         }
-        console.log(this.textComponents)
         this.drawUpdate();
     }
 
@@ -185,10 +162,10 @@ export class CPU extends ComputerChip {
         this.drawALUText();
 
         // change the color of the register file if it contains a value
-        this.registers.forEach((value, key) => {
-            if (key && value) {
-                const registerFile = this.graphicComponentProperties.get(key);
-                this.changeComponentColor(key, CPU.COLORS.get("TEXT"));
+        this.registers.forEach((active, component) => {
+            if (component && active) {
+                this.blink(component, CPU.COLORS.get("TEXT"));
+                this.registers.set(component, false);
             }
         });
 
@@ -197,9 +174,8 @@ export class CPU extends ComputerChip {
 
     private drawALUText(): void {
         const alu = this.ALUs[0];
-        const aluProps = this.graphicComponentProperties.get("ALU");
         if (!alu) return;
-
+        const aluProps = this.graphicComponentProperties.get("ALU");
         this.drawALUTextComponent("ALU_OP", alu.getOpcode(), aluProps.xOffset, aluProps.yOffset - 0.07);
         this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(), aluProps.xOffset + 0.08, aluProps.yOffset - 0.15);
         this.drawALUTextComponent("ALU_OP2", alu.getOp2Reg(), aluProps.xOffset - 0.08, aluProps.yOffset - 0.15);
