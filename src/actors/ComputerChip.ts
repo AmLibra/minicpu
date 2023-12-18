@@ -1,9 +1,10 @@
 import {Color, Mesh, MeshBasicMaterial, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
-import {Callback} from "webpack-cli";
 
 export abstract class ComputerChip {
+    public static readonly ONE_SECOND: number = 1000;
+
     public readonly id: string;
     protected readonly position: { x: number; y: number };
     protected readonly scene: Scene;
@@ -57,6 +58,54 @@ export abstract class ComputerChip {
         this.graphicComponents.set(name, component);
     }
 
+    protected drawBuffer(parent: {
+                           width: number,
+                           height: number,
+                           xOffset: number,
+                           yOffset: number,
+                           color: string
+                       },
+                         memorySize:number, margin: number, spacing: number, color: string
+    ): Map<string, {
+        width: number,
+        height: number,
+        xOffset: number,
+        yOffset: number,
+        color: string
+    }> {
+        const bufferNames: Map<string, {
+            width: number,
+            height: number,
+            xOffset: number,
+            yOffset: number,
+            color: string
+        }> = new Map<string, {
+            width: number,
+            height: number,
+            xOffset: number,
+            yOffset: number,
+            color: string
+        }>();
+
+        const innerHeight = parent.height - (2 * margin);
+        const totalSpacing = spacing * (memorySize - 1);
+        const rectangleHeight = (innerHeight - totalSpacing) / memorySize;
+        const startYOffset = margin + rectangleHeight / 2;
+        for (let i = 0; i < memorySize; ++i) {
+            const bufferName = `BUFFER_${i}`;
+            const buffer = {
+                width: parent.width - (2 * margin),
+                height: rectangleHeight,
+                xOffset: 0,
+                yOffset: startYOffset + i * (rectangleHeight + spacing) - parent.height / 2,
+                color: color
+            }
+            this.graphicComponentProperties.set(bufferName, buffer);
+            bufferNames.set(bufferName, buffer);
+        }
+        return bufferNames;
+    }
+
     protected drawGrid(parent: {
                            width: number,
                            height: number,
@@ -65,12 +114,12 @@ export abstract class ComputerChip {
                            color: string
                        }, rowCount: number, columnCount: number, margin: number
     ): Map<string, {
-                           width: number,
-                           height: number,
-                           xOffset: number,
-                           yOffset: number,
-                           color: string
-                       }> {
+        width: number,
+        height: number,
+        xOffset: number,
+        yOffset: number,
+        color: string
+    }> {
         // Calculate dimensions for each individual register file, accounting for margins
         const registerWidth =
             (parent.width - margin * (columnCount - 1)) / columnCount;
@@ -121,7 +170,7 @@ export abstract class ComputerChip {
     }
 
     protected drawTextForComponent(componentName: string, component_buffer: Instruction[], yOffsetIncrement: number): void {
-            for (let i = 0; i < component_buffer.length; ++i) {
+        for (let i = 0; i < component_buffer.length; ++i) {
             const instruction = component_buffer[i];
             if (instruction)
                 this.textComponents.set(`${componentName}_TEXT_${i}`,
@@ -139,8 +188,8 @@ export abstract class ComputerChip {
     }
 
     protected changeComponentColor(componentName: string, newColor: string | number | Color): void {
-            const component = this.graphicComponents.get(componentName);
-            if (component && component.material instanceof MeshBasicMaterial) {
+        const component = this.graphicComponents.get(componentName);
+        if (component && component.material instanceof MeshBasicMaterial) {
             component.material.color.set(newColor);
             component.material.needsUpdate = true; // This line might be necessary to tell Three.js to update the material
         } else {
@@ -149,11 +198,21 @@ export abstract class ComputerChip {
     }
 
     protected blink(componentName: string, newColor: string | number | Color): void {
-            this.changeComponentColor(componentName, newColor);
-            setTimeout(() => this.changeComponentColor(componentName, this.graphicComponentProperties.get(componentName).color), 500);
+        this.changeComponentColor(componentName, newColor);
+        setTimeout(() =>
+                this.changeComponentColor(componentName, this.graphicComponentProperties.get(componentName).color),
+            ComputerChip.ONE_SECOND);
     }
 
     protected getFixedArrayLength<T>(array: Array<T>): number {
-            return array.filter(item => item != null).length;
-        }
+        return array.filter(item => item != null).length;
     }
+
+    protected moveInstructions(from: Instruction[], to: Instruction[], count: number): void {
+        for (let i = 0; i < count; i++)
+            if (!to[i] && from[0]) {
+                to[i] = from.shift();
+                from.push(null);
+            }
+    }
+}

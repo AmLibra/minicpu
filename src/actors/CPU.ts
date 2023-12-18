@@ -43,12 +43,13 @@ export class CPU extends ComputerChip {
 
     constructor(id: string, position: [number, number], scene: Scene, rom: ROM) {
         super(id, position, scene)
-        this.rom = rom
         this.computeGraphicComponentDimensions();
+        this.rom = rom
         this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Array(CPU.DECODER_COUNT)
         this.ALUs = new Array(CPU.ALU_COUNT)
         this.registers = new Map<string, boolean>();
+        CPU.REGISTERS.forEach(reg => this.registers.set(reg, false));
         this.isPipelined = false;
     }
 
@@ -110,13 +111,13 @@ export class CPU extends ComputerChip {
             ]
         );
 
-        this.drawGrid(registerFile , CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
+        this.drawGrid(registerFile, CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
             .forEach((dimensions, name) => {
-                 DrawUtils.onFontLoaded(() => {
-                            this.textComponents.set(name,
-                                DrawUtils.drawText(name, dimensions.xOffset, dimensions.yOffset + dimensions.height/2
-                                    , CPU.TEXT_SIZE/2, CPU.COLORS.get("BODY")));
-                        });
+                DrawUtils.onFontLoaded(() => {
+                    this.textComponents.set(name,
+                        DrawUtils.drawText(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
+                            CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
+                });
             });
     }
 
@@ -131,7 +132,7 @@ export class CPU extends ComputerChip {
             this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
             if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
-                if(!this.rom.isEmpty()) {
+                if (!this.rom.isEmpty()) {
                     let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
                     for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i)
                         this.instructionBuffer[i] = instructions[i]
@@ -151,23 +152,21 @@ export class CPU extends ComputerChip {
     public drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
         this.textComponents.forEach((value, key) => {
-            if (!key.startsWith("R")) {
+            if (!this.registers.has(key)) {
                 this.scene.remove(value);
                 this.textComponents.delete(key);
             }
         });
-
-        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
-        this.drawTextForComponent("DECODER", this.decoders, 0.07);
-        this.drawALUText();
-
-        // change the color of the register file if it contains a value
         this.registers.forEach((active, component) => {
             if (component && active) {
                 this.blink(component, CPU.COLORS.get("TEXT"));
                 this.registers.set(component, false);
             }
         });
+
+        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
+        this.drawTextForComponent("DECODER", this.decoders, 0.07);
+        this.drawALUText();
 
         this.textComponents.forEach(comp => this.scene.add(comp));
     }
@@ -176,9 +175,12 @@ export class CPU extends ComputerChip {
         const alu = this.ALUs[0];
         if (!alu) return;
         const aluProps = this.graphicComponentProperties.get("ALU");
+        const distanceToCenter = 0.08;
         this.drawALUTextComponent("ALU_OP", alu.getOpcode(), aluProps.xOffset, aluProps.yOffset - 0.07);
-        this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(), aluProps.xOffset + 0.08, aluProps.yOffset - 0.15);
-        this.drawALUTextComponent("ALU_OP2", alu.getOp2Reg(), aluProps.xOffset - 0.08, aluProps.yOffset - 0.15);
+        this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(),
+            aluProps.xOffset + distanceToCenter, aluProps.yOffset - 0.15);
+        this.drawALUTextComponent("ALU_OP2", alu.getOp2Reg(),
+            aluProps.xOffset - distanceToCenter, aluProps.yOffset - 0.15);
         this.drawALUTextComponent("ALU_RESULT", alu.getResultReg(), aluProps.xOffset, aluProps.yOffset + 0.1);
     }
 
@@ -188,13 +190,5 @@ export class CPU extends ComputerChip {
 
     public setPipelined(isPipelined: boolean): void {
         this.isPipelined = isPipelined;
-    }
-
-    private moveInstructions(from: Instruction[], to: Instruction[], count: number): void {
-        for (let i = 0; i < count; i++)
-            if (!to[i] && from[0]) {
-                to[i] = from.shift();
-                from.push(null);
-            }
     }
 }

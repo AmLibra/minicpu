@@ -60,8 +60,7 @@ export class DrawUtils {
             xOffset - textWidth / 2, // Center the text
             yOffset - textHeight, // use top of text as the origin
             0
-        ); // Center the text
-
+        );
         return textMesh;
     }
 }

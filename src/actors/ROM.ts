@@ -9,8 +9,8 @@ export class ROM extends ComputerChip {
     public static readonly MEMORY_SIZE: number = 16;
     private static readonly WIDTH: number = 0.9;
     private static readonly HEIGHT: number = 1.8;
-    private static readonly COMPONENTS_INNER_MARGIN = 0.03;
-    private static readonly COMPONENTS_SPACING = 0.02;
+    private static readonly MARGIN = 0.03;
+    private static readonly COMPONENTS_SPACING = 0.01;
 
     private readonly instruction_memory: Instruction[];
 
@@ -29,24 +29,14 @@ export class ROM extends ComputerChip {
             color: ROM.COLORS.get("BODY")
         });
 
-        for (let i = 0; i < ROM.MEMORY_SIZE; ++i) {
-            const totalAvailableHeight = ROM.HEIGHT - (2 * ROM.COMPONENTS_INNER_MARGIN);
-            const totalSpacing = ROM.COMPONENTS_SPACING * (ROM.MEMORY_SIZE - 1);
-            const rectangleHeight = (totalAvailableHeight - totalSpacing) / ROM.MEMORY_SIZE;
-            const startYOffset =  ROM.COMPONENTS_INNER_MARGIN + rectangleHeight / 2;
-            this.graphicComponentProperties.set(`ROM_TEXT_${i}`, {
-                width: ROM.WIDTH - (2 * ROM.COMPONENTS_INNER_MARGIN),
-                height: rectangleHeight,
-                xOffset: ROM.COMPONENTS_INNER_MARGIN - ROM.COMPONENTS_INNER_MARGIN,
-                yOffset: startYOffset + i * (rectangleHeight + ROM.COMPONENTS_SPACING) - ROM.HEIGHT / 2,
-                color: ROM.COLORS.get("COMPONENT")
-            });
-        }
+        this.drawBuffer(this.graphicComponentProperties.get("ROM"), ROM.MEMORY_SIZE,
+            ROM.MARGIN, ROM.COMPONENTS_SPACING, ROM.COLORS.get("COMPONENT"));
     }
 
     public isEmpty() {
         return this.getFixedArrayLength(this.instruction_memory) == 0;
     }
+
     public update() {
         if (this.getFixedArrayLength(this.instruction_memory) == 0)
             for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
@@ -67,15 +57,15 @@ export class ROM extends ComputerChip {
 
         for (let i = 0; i < this.instruction_memory.length; ++i) {
             const instruction = this.instruction_memory[i];
-            if (instruction)
-                this.textComponents.set(`ROM_TEXT_${i}`,
+            if (instruction) {
+                const bufferReg = this.graphicComponentProperties.get(`BUFFER_${i}`);
+                this.textComponents.set(`BUFFER_${i}`,
                     DrawUtils.drawText(instruction.toString(),
-                        this.graphicComponentProperties.get(`ROM_TEXT_${i}`).xOffset + this.position.x,
-                        this.graphicComponentProperties.get(`ROM_TEXT_${i}`).xOffset + this.position.y
-                        + (ROM.HEIGHT / 2) - (i * (this.graphicComponentProperties.get(`ROM_TEXT_${i}`).height + ROM.COMPONENTS_SPACING)
-                        + this.graphicComponentProperties.get(`ROM_TEXT_${i}`).height / 2),
+                        this.position.x,
+                        this.position.y - bufferReg.yOffset + bufferReg.height / 2 - ROM.COMPONENTS_SPACING,
                         ROM.TEXT_SIZE,
                         ROM.COLORS.get("TEXT")));
+            }
         }
 
         this.textComponents.forEach(comp => this.scene.add(comp));
@@ -86,10 +76,7 @@ export class ROM extends ComputerChip {
             throw new Error("Cannot read " + (n - this.getFixedArrayLength(this.instruction_memory)) + " more instructions than are available in ROM")
 
         const instructions = new Array(n);
-        for (let i = 0; i < n; ++i) {
-            instructions[i] = this.instruction_memory.shift()
-            this.instruction_memory.push(null)
-        }
+        this.moveInstructions(this.instruction_memory, instructions, n)
         return instructions;
     }
 

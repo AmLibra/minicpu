@@ -11,6 +11,8 @@ class App {
 
     private gameActors: ComputerChip[] = []
 
+
+
     constructor() {
         this.init();
         this.animate();
@@ -22,7 +24,8 @@ class App {
 
         DrawUtils.onFontLoaded(() => {
             this.scene.add(
-                DrawUtils.drawText("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8, 0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
+                DrawUtils.drawText("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8,
+                    0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
             );
         });
 
@@ -62,7 +65,7 @@ class App {
     private startGameLoop(): void {
         setInterval(() => {
             this.gameActors.forEach(gameActor => gameActor.update());
-        }, 1000 / CPU.CLOCK_SPEED);
+        }, ComputerChip.ONE_SECOND / CPU.CLOCK_SPEED);
     }
 }
 
