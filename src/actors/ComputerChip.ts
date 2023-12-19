@@ -112,7 +112,7 @@ export abstract class ComputerChip {
                            xOffset: number,
                            yOffset: number,
                            color: string
-                       }, rowCount: number, columnCount: number, margin: number
+                       }, rowCount: number, columnCount: number, margin: number, registerNames?: string[]
     ): Map<string, {
         width: number,
         height: number,
@@ -120,13 +120,16 @@ export abstract class ComputerChip {
         yOffset: number,
         color: string
     }> {
+        if (registerNames && registerNames.length != rowCount * columnCount)
+            throw new Error("Number of register names does not match the number of registers");
+
         // Calculate dimensions for each individual register file, accounting for margins
         const registerWidth =
             (parent.width - margin * (columnCount - 1)) / columnCount;
         const registerHeight =
             (parent.height - margin * (rowCount - 1)) / rowCount;
 
-        const registerNames: Map<string, {
+        const registers: Map<string, {
             width: number,
             height: number,
             xOffset: number,
@@ -161,12 +164,14 @@ export abstract class ComputerChip {
                     color: ComputerChip.COLORS.get("COMPONENT")
                 };
 
-                const registerName = `R${i * columnCount + j}`
+                let registerName = `R${i * columnCount + j}`
+                if (registerNames)
+                    registerName = registerNames[i * columnCount + j];
                 this.graphicComponentProperties.set(registerName, register);
-                registerNames.set(registerName, register);
+                registers.set(registerName, register);
             }
         }
-        return registerNames;
+        return registers;
     }
 
     protected drawTextForComponent(componentName: string, component_buffer: Instruction[], yOffsetIncrement: number): void {

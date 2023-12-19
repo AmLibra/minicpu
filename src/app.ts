@@ -3,6 +3,7 @@ import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
 import {ROM} from "./actors/ROM";
+import {MainMemory} from "./actors/MainMemory";
 
 class App {
     private scene: Scene;
@@ -29,12 +30,14 @@ class App {
             );
         });
 
-        const rom = new ROM("ROM0", [1.2, 0], this.scene)
-        const cpu = new CPU("CPU0", [0, 0], this.scene, rom)
+        const mainMemory = new MainMemory("MAIN_MEMORY0", [-1.5, 0], this.scene)
+        const rom = new ROM("ROM0", [1.5, 0], this.scene)
+        const cpu = new CPU("CPU0", [0, 0], this.scene, rom, mainMemory)
+
         cpu.setPipelined(true)
         this.gameActors.push(cpu);
         this.gameActors.push(rom); // CPU must be pushed first so that it can't instantly read from ROM
-
+        this.gameActors.push(mainMemory);
 
         this.renderer = new WebGLRenderer({antialias: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -44,6 +47,9 @@ class App {
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
         this.camera.position.set(0, 0, 10); // Positioned along the Z-axis
+        // zoom out
+        this.camera.zoom = 0.8;
+        this.camera.updateProjectionMatrix();
 
         for (let gameActor of this.gameActors)
             gameActor.draw();

@@ -3,11 +3,13 @@ import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
 import {ROM} from "./ROM";
+import {MainMemory} from "./MainMemory";
 
 export class CPU extends ComputerChip {
     public static readonly CLOCK_SPEED: number = 1; // Hz
 
     public readonly rom: ROM;
+    public readonly mainMemory: MainMemory;
 
     public static readonly INSTRUCTION_BUFFER_SIZE: number = 4; // Words
     private readonly instructionBuffer: Instruction[];
@@ -20,7 +22,7 @@ export class CPU extends ComputerChip {
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "DIV", "MOD", "AND", "OR", "XOR", "SHL", "SHR"];
 
     private static readonly REGISTER_FILE_ROW_COUNT = 4;
-    private static readonly REGISTER_FILE_COL_COUNT = 5;
+    private static readonly REGISTER_FILE_COL_COUNT = 4;
     private static readonly REGISTER_FILE_MARGIN = 0.01;
     public static readonly REGISTER_SIZE: number = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_FILE_ROW_COUNT;
     public static readonly REGISTERS = [];
@@ -38,13 +40,14 @@ export class CPU extends ComputerChip {
     private static readonly COMPONENTS_INNER_MARGIN = 0.03;
     private static readonly COMPONENTS_SPACING = 0.02;
     private static readonly INSTRUCTION_BUFFER_HEIGHT = 0.3;
-    private static readonly DECODER_HEIGHT = 0.15;
-    private static readonly REGISTER_WIDTH = 0.8;
+    private static readonly DECODER_HEIGHT = 0.1;
+    private static readonly REGISTER_WIDTH = 0.7;
 
-    constructor(id: string, position: [number, number], scene: Scene, rom: ROM) {
+    constructor(id: string, position: [number, number], scene: Scene, rom: ROM, mainMemory: MainMemory) {
         super(id, position, scene)
         this.computeGraphicComponentDimensions();
         this.rom = rom
+        this.mainMemory = mainMemory
         this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Array(CPU.DECODER_COUNT)
         this.ALUs = new Array(CPU.ALU_COUNT)
