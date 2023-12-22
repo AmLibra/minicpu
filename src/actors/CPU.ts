@@ -170,7 +170,12 @@ export class CPU extends ComputerChip {
             this.decoders[decoderIndex] = null;
             this.skipNextInstruction = true;
             if (decoder.getOpcode() == "LOAD") {
-                this.mainMemory.read(decoder.getAddress());
+                this.scene.remove(this.textComponents.get(this.registerValues.get(
+                    decoder.getResultReg()).toString()+ "_CONTENT"));
+                this.registerValues.set(
+                    decoder.getResultReg(), this.mainMemory.read(decoder.getAddress())
+                );
+
             } else if (decoder.getOpcode() == "STORE") {
                 //this.mainMemory.write(decoder.getAddress(), decoder.getResultReg());
             }

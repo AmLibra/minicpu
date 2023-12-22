@@ -85,7 +85,8 @@ export class MainMemory extends ComputerChip {
 
     initialize(): void {
         for (let i = 0; i < MainMemory.SIZE; i++) {
-            this.memory[i] = 0;
+            // randomize memory, max value is 255
+            this.memory[i] = Math.floor(Math.random() * 256);
             const memoryAddressRegister = this.graphicComponentProperties.get(
                 MainMemory.MEMORY_ADDRESS_NAMES[i]);
             DrawUtils.onFontLoaded(() => {
