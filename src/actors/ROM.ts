@@ -3,6 +3,7 @@ import {Instruction} from "../components/Instruction";
 import {CPU} from "./CPU";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
+import {MainMemory} from "./MainMemory";
 
 export class ROM extends ComputerChip {
 
@@ -81,10 +82,25 @@ export class ROM extends ComputerChip {
     }
 
     public generateInstruction(): Instruction {
+        // 50% chance of generating an ALU instruction
+        if (Math.random() < 0.5)
+            return this.generateALUInstruction();
+        else
+            return this.generateMemoryInstruction();
+    }
+
+    public generateMemoryInstruction(): Instruction {
+        const opcode = CPU.MEMORY_OPCODES[Math.floor(Math.random() * CPU.MEMORY_OPCODES.length)];
+        const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
+        const address = Math.floor(Math.random() * MainMemory.SIZE);
+        return new Instruction(opcode, result_reg, undefined, undefined, address);
+    }
+
+    public generateALUInstruction(): Instruction {
         const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
-        const result_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
-        const op1_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
-        const op2_reg = CPU.REGISTERS[Math.floor(Math.random() * CPU.REGISTERS.length)];
+        const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
+        const op1_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
+        const op2_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
         return new Instruction(opcode, result_reg, op1_reg, op2_reg);
     }
 }

@@ -6,7 +6,7 @@ import {ROM} from "./ROM";
 import {MainMemory} from "./MainMemory";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 1; // Hz
+    public static readonly CLOCK_SPEED: number = 0.5; // Hz
 
     public readonly rom: ROM;
     public readonly mainMemory: MainMemory;
@@ -25,14 +25,17 @@ export class CPU extends ComputerChip {
     private static readonly REGISTER_FILE_COL_COUNT = 4;
     private static readonly REGISTER_FILE_MARGIN = 0.01;
     public static readonly REGISTER_SIZE: number = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_FILE_ROW_COUNT;
-    public static readonly REGISTERS = [];
+    public static readonly REGISTER_NAMES = [];
     static {
-        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.REGISTERS.push(`R${i}`)
+        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.REGISTER_NAMES.push(`R${i}`)
     }
+
+    private skipNextInstruction: boolean = false;
 
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
 
-    private readonly registers: Map<string, boolean>; // registers can be either invalid or contain a value
+    private readonly registerStates: Map<string, boolean>; // registers can be either invalid or contain a value
+    private readonly registerValues: Map<string, number>;
     private isPipelined: boolean;
 
     private static readonly WIDTH: number = 1.2;
@@ -51,8 +54,10 @@ export class CPU extends ComputerChip {
         this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Array(CPU.DECODER_COUNT)
         this.ALUs = new Array(CPU.ALU_COUNT)
-        this.registers = new Map<string, boolean>();
-        CPU.REGISTERS.forEach(reg => this.registers.set(reg, false));
+        this.registerStates = new Map<string, boolean>();
+        this.registerValues = new Map<string, number>();
+        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.registerValues.set(`R${i}`, 0)
+        CPU.REGISTER_NAMES.forEach(reg => this.registerStates.set(reg, false));
         this.isPipelined = false;
     }
 
@@ -127,12 +132,17 @@ export class CPU extends ComputerChip {
     public update() {
         if (this.isPipelined) {
             if (this.ALUs[0]) {
-                this.registers.set(this.ALUs[0].getResultReg(), true);
-                this.registers.set(this.ALUs[0].getOp1Reg(), true);
-                this.registers.set(this.ALUs[0].getOp2Reg(), true);
+                this.skipNextInstruction = true;
+                this.registerStates.set(this.ALUs[0].getResultReg(), true);
+                this.registerStates.set(this.ALUs[0].getOp1Reg(), true);
+                this.registerStates.set(this.ALUs[0].getOp2Reg(), true);
                 this.ALUs.fill(null);
             }
-            this.moveInstructions(this.decoders, this.ALUs, CPU.ALU_COUNT);
+
+            for (let i = 0; i < CPU.DECODER_COUNT; ++i)
+                if (this.decoders[i])
+                    this.decode(i);
+
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
             if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
                 if (!this.rom.isEmpty()) {
@@ -145,6 +155,31 @@ export class CPU extends ComputerChip {
         this.drawUpdate();
     }
 
+    private decode(decoderIndex: number): void{
+        const decoder = this.decoders[decoderIndex];
+        if (this.skipNextInstruction) {
+            this.skipNextInstruction = false;
+            return;
+        }
+
+        if (decoder.isArithmetic()) {
+            this.ALUs[0] = decoder;
+            this.decoders[decoderIndex] = null;
+        } else if (decoder.isMemoryOperation()) {
+            if (this.ALUs[0] != null) return;
+            this.decoders[decoderIndex] = null;
+            this.skipNextInstruction = true;
+            if (decoder.getOpcode() == "LOAD") {
+                this.mainMemory.read(decoder.getAddress());
+            } else if (decoder.getOpcode() == "STORE") {
+                //this.mainMemory.write(decoder.getAddress(), decoder.getResultReg());
+            }
+            this.registerStates.set(decoder.getResultReg(), true);
+        } else {
+            throw new Error("Invalid instruction: " + decoder.toString());
+        }
+    }
+
     public draw(): void {
         this.graphicComponentProperties.forEach((_properties, name: string) => {
             this.drawSimpleGraphicComponent(name)
@@ -155,15 +190,26 @@ export class CPU extends ComputerChip {
     public drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
         this.textComponents.forEach((value, key) => {
-            if (!this.registers.has(key)) {
+            if (!this.registerStates.has(key) && !this.registerStates.has(key.replace("_CONTENT", ""))) {
                 this.scene.remove(value);
                 this.textComponents.delete(key);
             }
         });
-        this.registers.forEach((active, component) => {
-            if (component && active) {
-                this.blink(component, CPU.COLORS.get("TEXT"));
-                this.registers.set(component, false);
+        this.registerStates.forEach((active, component) => {
+            if (component) {
+                DrawUtils.onFontLoaded(() => {
+                        this.textComponents.set(component + "_CONTENT",
+                            DrawUtils.drawText(this.registerValues.get(component).toString(),
+                                this.position.x + this.graphicComponentProperties.get(component).xOffset,
+                                this.position.y + this.graphicComponentProperties.get(component).yOffset,
+                                CPU.TEXT_SIZE, CPU.COLORS.get("TEXT") ));
+                    }
+                );
+                if (active) {
+                    this.blink(component, CPU.COLORS.get("TEXT"));
+                    this.registerStates.set(component, false);
+
+                }
             }
         });
 
@@ -172,6 +218,7 @@ export class CPU extends ComputerChip {
         this.drawALUText();
 
         this.textComponents.forEach(comp => this.scene.add(comp));
+        console.log(this.textComponents);
     }
 
     private drawALUText(): void {

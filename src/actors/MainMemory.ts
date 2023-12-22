@@ -77,7 +77,6 @@ export class MainMemory extends ComputerChip {
 
     drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.add(comp));
-        console.log(this.textComponents);
     }
 
     update(): void {
@@ -115,5 +114,25 @@ export class MainMemory extends ComputerChip {
                     ));
             });
         }
+    }
+
+    public read(address: number): number {
+        return this.memory[address];
+    }
+
+    public write(address: number, value: number): void {
+        this.memory[address] = value;
+        const memoryAddressRegister = this.graphicComponentProperties.get(
+            MainMemory.MEMORY_ADDRESS_NAMES[address]);
+        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
+        DrawUtils.onFontLoaded(() => {
+            this.textComponents.set(
+                `${MainMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
+                DrawUtils.drawText(this.memory[address].toString(),
+                    this.position.x + memoryAddressRegister.xOffset,
+                    this.position.y + memoryAddressRegister.yOffset,
+                    MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
+                ));
+        });
     }
 }
