@@ -20,18 +20,14 @@ export class DrawUtils {
         return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({color: color}));
     }
 
-    public static async loadFont(): Promise<void> {
-        return new Promise<void>(resolve => {
+    public static async awaitFontLoad(): Promise<void> {
+        if (this.font == null)
+            await new Promise<void>(resolve => {
             this.fontLoader.load(this.FONT, (font: Font) => {
                 this.font = font;
                 resolve();
             });
         });
-    }
-
-    public static async awaitFontLoad(): Promise<void> {
-        if (this.font == null)
-            await this.loadFont();
     }
 
     // This is a callback function that gets executed after the font is loaded

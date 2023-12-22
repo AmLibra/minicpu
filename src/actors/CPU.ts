@@ -4,6 +4,7 @@ import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
 import {ROM} from "./ROM";
 import {MainMemory} from "./MainMemory";
+import {Queue} from "../components/Queue";
 
 export class CPU extends ComputerChip {
     public static readonly CLOCK_SPEED: number = 0.5; // Hz
@@ -12,13 +13,13 @@ export class CPU extends ComputerChip {
     public readonly mainMemory: MainMemory;
 
     public static readonly INSTRUCTION_BUFFER_SIZE: number = 4; // Words
-    private readonly instructionBuffer: Instruction[];
+    private readonly instructionBuffer: Queue<Instruction>;
 
     public static DECODER_COUNT: number = 1;
-    private readonly decoders: Instruction[];
+    private readonly decoders: Queue<Instruction>;
 
     public static ALU_COUNT: number = 1;
-    private readonly ALUs: Instruction[];
+    private readonly ALUs: Queue<Instruction>;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "DIV", "MOD", "AND", "OR", "XOR", "SHL", "SHR"];
 
     private static readonly REGISTER_FILE_ROW_COUNT = 4;
@@ -51,9 +52,9 @@ export class CPU extends ComputerChip {
         this.computeGraphicComponentDimensions();
         this.rom = rom
         this.mainMemory = mainMemory
-        this.instructionBuffer = new Array(CPU.INSTRUCTION_BUFFER_SIZE)
-        this.decoders = new Array(CPU.DECODER_COUNT)
-        this.ALUs = new Array(CPU.ALU_COUNT)
+        this.instructionBuffer = new Queue<Instruction>(CPU.INSTRUCTION_BUFFER_SIZE)
+        this.decoders = new Queue<Instruction>(CPU.DECODER_COUNT)
+        this.ALUs = new Queue<Instruction>(CPU.ALU_COUNT)
         this.registerStates = new Map<string, boolean>();
         this.registerValues = new Map<string, number>();
         for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.registerValues.set(`R${i}`, 0)
@@ -131,61 +132,56 @@ export class CPU extends ComputerChip {
 
     public update() {
         if (this.isPipelined) {
-            if (this.ALUs[0]) {
+            if (!this.ALUs.isEmpty()) {
                 this.skipNextInstruction = true;
-                this.registerStates.set(this.ALUs[0].getResultReg(), true);
-                this.registerStates.set(this.ALUs[0].getOp1Reg(), true);
-                this.registerStates.set(this.ALUs[0].getOp2Reg(), true);
-                this.ALUs.fill(null);
+                this.registerStates.set(this.ALUs.get(0).getResultReg(), true);
+                this.registerStates.set(this.ALUs.get(0).getOp1Reg(), true);
+                this.registerStates.set(this.ALUs.get(0).getOp2Reg(), true);
+                this.ALUs.clear();
             }
 
             for (let i = 0; i < CPU.DECODER_COUNT; ++i)
-                if (this.decoders[i])
+                if (this.decoders.get(i))
                     this.decode(i);
 
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-            if (this.getFixedArrayLength(this.instructionBuffer) == 0) {
+            if (this.instructionBuffer.isEmpty()) {
                 if (!this.rom.isEmpty()) {
                     let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
-                    for (let i = 0; i < CPU.INSTRUCTION_BUFFER_SIZE; ++i)
-                        this.instructionBuffer[i] = instructions[i]
+                    this.moveInstructions(instructions, this.instructionBuffer, CPU.INSTRUCTION_BUFFER_SIZE);
                 }
             }
         }
         this.drawUpdate();
     }
 
-    private decode(decoderIndex: number): void{
-        const decoder = this.decoders[decoderIndex];
+    private decode(decoderIndex: number): void {
+        const decoder = this.decoders.get(decoderIndex);
         if (this.skipNextInstruction) {
             this.skipNextInstruction = false;
             return;
         }
 
         if (decoder.isArithmetic()) {
-            this.ALUs[0] = decoder;
-            this.decoders[decoderIndex] = null;
+            this.ALUs.enqueue(this.decoders.dequeue())
         } else if (decoder.isMemoryOperation()) {
-            if (this.ALUs[0] != null) return;
-            this.decoders[decoderIndex] = null;
-            this.skipNextInstruction = true;
+            if (!this.ALUs.isEmpty())
+                return;
             if (decoder.getOpcode() == "LOAD") {
-                this.scene.remove(this.textComponents.get(this.registerValues.get(
-                    decoder.getResultReg()).toString()+ "_CONTENT"));
-                this.registerValues.set(
-                    decoder.getResultReg(), this.mainMemory.read(decoder.getAddress())
-                );
+                this.scene.remove(this.textComponents.get(this.registerValues.get(decoder.getResultReg()) + "_CONTENT"));
+                this.registerValues.set(decoder.getResultReg(), this.mainMemory.read(decoder.getAddress()));
+            } else  // STORE
+                this.mainMemory.write(decoder.getAddress(), this.registerValues.get(decoder.getResultReg()));
 
-            } else if (decoder.getOpcode() == "STORE") {
-                //this.mainMemory.write(decoder.getAddress(), decoder.getResultReg());
-            }
             this.registerStates.set(decoder.getResultReg(), true);
+            this.decoders.dequeue()
+            this.skipNextInstruction = true;
         } else {
             throw new Error("Invalid instruction: " + decoder.toString());
         }
     }
 
-    public draw(): void {
+    public initializeGraphics(): void {
         this.graphicComponentProperties.forEach((_properties, name: string) => {
             this.drawSimpleGraphicComponent(name)
             this.scene.add(this.graphicComponents.get(name));
@@ -223,11 +219,10 @@ export class CPU extends ComputerChip {
         this.drawALUText();
 
         this.textComponents.forEach(comp => this.scene.add(comp));
-        console.log(this.textComponents);
     }
 
     private drawALUText(): void {
-        const alu = this.ALUs[0];
+        const alu = this.ALUs.get(0);
         if (!alu) return;
         const aluProps = this.graphicComponentProperties.get("ALU");
         const distanceToCenter = 0.08;

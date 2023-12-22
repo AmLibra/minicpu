@@ -15,7 +15,7 @@ export class MainMemory extends ComputerChip {
     private static readonly MEMORY_ADDRESS_NAMES: string[] = [];
     static {
         for (let i = 0; i < MainMemory.SIZE; i++)
-            MainMemory.MEMORY_ADDRESS_NAMES.push(`0x${i.toString(16)}`.toUpperCase());
+            MainMemory.MEMORY_ADDRESS_NAMES.push(ComputerChip.toHex(i));
     }
 
     constructor(id: string, position: [number, number], scene: Scene) {
@@ -66,13 +66,12 @@ export class MainMemory extends ComputerChip {
             });
     }
 
-    draw(): void {
+    initializeGraphics(): void {
         this.graphicComponentProperties
             .forEach((_properties, name: string) => {
                 this.drawSimpleGraphicComponent(name)
                 this.scene.add(this.graphicComponents.get(name));
             });
-
     }
 
     drawUpdate(): void {
@@ -107,7 +106,7 @@ export class MainMemory extends ComputerChip {
                 this.textComponents.set(
                     `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
                     DrawUtils.drawText(
-                        `0x${(i * MainMemory.COL_COUNT).toString(16)}`.toUpperCase(),
+                        MainMemory.toHex(i * MainMemory.COL_COUNT),
                         this.position.x + this.graphicComponentProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
                         - MainMemory.COMPONENTS_INNER_MARGIN,
                         this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,

@@ -1,6 +1,8 @@
 import {Color, Mesh, MeshBasicMaterial, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
+import {ComponentGraphicProperties} from "../components/ComponentGraphicProperties";
+import {Queue} from "../components/Queue";
 
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000;
@@ -16,41 +18,32 @@ export abstract class ComputerChip {
     ]);
     protected static readonly TEXT_SIZE: number = 0.05;
 
-    // used to store the dimensions and positions of the graphic elements that make up the CPU
-    protected graphicComponentProperties: Map<string, {
-        width: number,
-        height: number,
-        xOffset: number,
-        yOffset: number,
-        color: string
-    }>;
+    // used to store the dimensions and positions of the graphic elements that make up the chip
+    protected graphicComponentProperties: Map<string, ComponentGraphicProperties>;
 
     protected readonly graphicComponents: Map<string, Mesh>;
     protected readonly textComponents: Map<string, Mesh>;
 
     protected constructor(id: string, position: [number, number], scene: Scene) {
         DrawUtils.onFontLoaded(() => {
-            this.draw();
+            this.initializeGraphics();
         });
         this.id = id;
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
         this.graphicComponents = new Map<string, Mesh>();
-        this.graphicComponentProperties = new Map<string, {
-            width: number,
-            height: number,
-            xOffset: number,
-            yOffset: number,
-            color: string
-        }>();
+        this.graphicComponentProperties = new Map<string, ComponentGraphicProperties>();
         this.textComponents = new Map<string, Mesh>();
     }
 
-    abstract draw(): void;
+    abstract initializeGraphics(): void;
 
     abstract update(): void;
 
     protected drawSimpleGraphicComponent(name: string): void {
+        if (!this.graphicComponentProperties.has(name))
+            throw new Error(`Component ${name} not found`);
+
         const graphicComponent = this.graphicComponentProperties.get(name);
         const component = DrawUtils.drawQuadrilateral(
             graphicComponent.width, graphicComponent.height, graphicComponent.color);
@@ -58,34 +51,9 @@ export abstract class ComputerChip {
         this.graphicComponents.set(name, component);
     }
 
-    protected drawBuffer(parent: {
-                           width: number,
-                           height: number,
-                           xOffset: number,
-                           yOffset: number,
-                           color: string
-                       },
-                         memorySize:number, margin: number, spacing: number, color: string
-    ): Map<string, {
-        width: number,
-        height: number,
-        xOffset: number,
-        yOffset: number,
-        color: string
-    }> {
-        const bufferNames: Map<string, {
-            width: number,
-            height: number,
-            xOffset: number,
-            yOffset: number,
-            color: string
-        }> = new Map<string, {
-            width: number,
-            height: number,
-            xOffset: number,
-            yOffset: number,
-            color: string
-        }>();
+    protected drawBuffer(parent: ComponentGraphicProperties, memorySize: number, margin: number, spacing: number, color: string
+    ): Map<string, ComponentGraphicProperties> {
+        const bufferNames: Map<string, ComponentGraphicProperties> = new Map<string, ComponentGraphicProperties>();
 
         const innerHeight = parent.height - (2 * margin);
         const totalSpacing = spacing * (memorySize - 1);
@@ -106,56 +74,28 @@ export abstract class ComputerChip {
         return bufferNames;
     }
 
-    protected drawGrid(parent: {
-                           width: number,
-                           height: number,
-                           xOffset: number,
-                           yOffset: number,
-                           color: string
-                       }, rowCount: number, columnCount: number, margin: number, registerNames?: string[]
-    ): Map<string, {
-        width: number,
-        height: number,
-        xOffset: number,
-        yOffset: number,
-        color: string
-    }> {
-        if (registerNames && registerNames.length != rowCount * columnCount)
+    protected drawGrid(parent: ComponentGraphicProperties, rowCount: number, columnCount: number, margin: number, registerNames?: string[]
+    ): Map<string, ComponentGraphicProperties> {
+        if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
+        }
 
         // Calculate dimensions for each individual register file, accounting for margins
-        const registerWidth =
-            (parent.width - margin * (columnCount - 1)) / columnCount;
-        const registerHeight =
-            (parent.height - margin * (rowCount - 1)) / rowCount;
+        const registerWidth = (parent.width - margin * (columnCount - 1)) / columnCount;
+        const registerHeight = (parent.height - margin * (rowCount - 1)) / rowCount;
 
-        const registers: Map<string, {
-            width: number,
-            height: number,
-            xOffset: number,
-            yOffset: number,
-            color: string
-        }> = new Map<string, {
-            width: number,
-            height: number,
-            xOffset: number,
-            yOffset: number,
-            color: string
-        }>();
+        // Calculating the starting position
+        const startX = parent.xOffset - parent.width / 2 + registerWidth / 2;
+        const startY = parent.yOffset + parent.height / 2 - registerHeight / 2;
 
+        const registers = new Map<string, ComponentGraphicProperties>();
 
         for (let i = 0; i < rowCount; i++) {
             for (let j = 0; j < columnCount; j++) {
-                const topLeft = {
-                    x: parent.xOffset - parent.width / 2,
-                    y: parent.yOffset + parent.height / 2
-                }
+                const xOffset = startX + j * (registerWidth + margin);
+                const yOffset = startY - i * (registerHeight + margin);
 
-                const xOffset = topLeft.x + (registerWidth / 2)
-                    + (registerWidth + margin) * j;
-                const yOffset = topLeft.y - (registerHeight / 2)
-                    - (registerHeight + margin) * i;
-
+                const registerName = registerNames ? registerNames[i * columnCount + j] : `R${i * columnCount + j}`;
                 const register = {
                     width: registerWidth,
                     height: registerHeight,
@@ -164,9 +104,6 @@ export abstract class ComputerChip {
                     color: ComputerChip.COLORS.get("COMPONENT")
                 };
 
-                let registerName = `R${i * columnCount + j}`
-                if (registerNames)
-                    registerName = registerNames[i * columnCount + j];
                 this.graphicComponentProperties.set(registerName, register);
                 registers.set(registerName, register);
             }
@@ -174,21 +111,29 @@ export abstract class ComputerChip {
         return registers;
     }
 
-    protected drawTextForComponent(componentName: string, component_buffer: Instruction[], yOffsetIncrement: number): void {
-        for (let i = 0; i < component_buffer.length; ++i) {
-            const instruction = component_buffer[i];
-            if (instruction)
-                this.textComponents.set(`${componentName}_TEXT_${i}`,
-                    DrawUtils.drawText(
-                        instruction.toString(),
-                        this.graphicComponentProperties.get(componentName).xOffset,
-                        this.graphicComponentProperties.get(componentName).yOffset // center of the component
-                        + (this.graphicComponentProperties.get(componentName).height / 2) // on top of the component
-                        - (i * yOffsetIncrement),
-                        ComputerChip.TEXT_SIZE,
-                        ComputerChip.COLORS.get("TEXT")
-                    )
-                );
+    protected drawTextForComponent(componentName: string, componentBuffer: Queue<Instruction>, yOffsetIncrement: number): void {
+        const componentProps = this.graphicComponentProperties.get(componentName);
+        if (!componentProps) {
+            console.warn(`Component properties for ${componentName} not found.`);
+            return;
+        }
+
+        const baseYOffset = componentProps.yOffset + componentProps.height / 2; // Calculate once
+
+        for (let i = 0; i < componentBuffer.size(); ++i) {
+            const instruction = componentBuffer.get(i);
+            if (!instruction) continue; // Skip if no instruction
+
+            const yOffset = baseYOffset - (i * yOffsetIncrement);
+            const textMesh = DrawUtils.drawText(
+                instruction.toString(),
+                componentProps.xOffset,
+                yOffset,
+                ComputerChip.TEXT_SIZE,
+                ComputerChip.COLORS.get("TEXT")
+            );
+
+            this.textComponents.set(`${componentName}_TEXT_${i}`, textMesh);
         }
     }
 
@@ -196,11 +141,12 @@ export abstract class ComputerChip {
         const component = this.graphicComponents.get(componentName);
         if (component && component.material instanceof MeshBasicMaterial) {
             component.material.color.set(newColor);
-            component.material.needsUpdate = true; // This line might be necessary to tell Three.js to update the material
+            component.material.needsUpdate = true;
         } else {
-            console.warn('Component not found or has incompatible material');
+            console.warn(`Component '${componentName}' not found or has incompatible material`);
         }
     }
+
 
     protected blink(componentName: string, newColor: string | number | Color): void {
         this.changeComponentColor(componentName, newColor);
@@ -209,15 +155,14 @@ export abstract class ComputerChip {
             ComputerChip.ONE_SECOND);
     }
 
-    protected getFixedArrayLength<T>(array: Array<T>): number {
-        return array.filter(item => item != null).length;
+    protected moveInstructions(from: Queue<Instruction>, to: Queue<Instruction>, count: number): void {
+        for (let i = 0; i < count; ++i) {
+            if (from.isEmpty() || to.size() >= to.maxSize) break;
+            to.enqueue(from.dequeue());
+        }
     }
 
-    protected moveInstructions(from: Instruction[], to: Instruction[], count: number): void {
-        for (let i = 0; i < count; i++)
-            if (!to[i] && from[0]) {
-                to[i] = from.shift();
-                from.push(null);
-            }
+    public static toHex(value: number): string {
+        return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
     }
 }

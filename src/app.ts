@@ -49,7 +49,7 @@ class App {
         this.camera.zoom = 0.8;
         this.camera.updateProjectionMatrix();
 
-        for (let gameActor of this.gameActors) gameActor.draw();
+        for (let gameActor of this.gameActors) gameActor.initializeGraphics();
 
         window.addEventListener('resize', () => { // browser window resize handler
             const aspect = window.innerWidth / window.innerHeight;

@@ -4,6 +4,8 @@ import {CPU} from "./CPU";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {MainMemory} from "./MainMemory";
+import {ComponentGraphicProperties} from "../components/ComponentGraphicProperties";
+import {Queue} from "../components/Queue";
 
 export class ROM extends ComputerChip {
 
@@ -13,39 +15,33 @@ export class ROM extends ComputerChip {
     private static readonly MARGIN = 0.03;
     private static readonly COMPONENTS_SPACING = 0.01;
 
-    private readonly instruction_memory: Instruction[];
+    private readonly instructionMemory: Queue<Instruction>;
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
         this.computeGraphicComponentProperties();
-        this.instruction_memory = new Array(ROM.MEMORY_SIZE)
+        this.instructionMemory = new Queue<Instruction>(ROM.MEMORY_SIZE);
     }
 
     private computeGraphicComponentProperties(): void {
-        this.graphicComponentProperties.set("ROM", {
-            width: ROM.WIDTH,
-            height: ROM.HEIGHT,
-            xOffset: 0,
-            yOffset: 0,
-            color: ROM.COLORS.get("BODY")
-        });
-
+        this.graphicComponentProperties.set("ROM",
+            new ComponentGraphicProperties(ROM.WIDTH, ROM.HEIGHT, 0, 0, ROM.COLORS.get("BODY")));
         this.drawBuffer(this.graphicComponentProperties.get("ROM"), ROM.MEMORY_SIZE,
             ROM.MARGIN, ROM.COMPONENTS_SPACING, ROM.COLORS.get("COMPONENT"));
     }
 
     public isEmpty() {
-        return this.getFixedArrayLength(this.instruction_memory) == 0;
+        return this.instructionMemory.isEmpty();
     }
 
     public update() {
-        if (this.getFixedArrayLength(this.instruction_memory) == 0)
+        if (this.instructionMemory.isEmpty())
             for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
-                this.instruction_memory[i] = this.generateInstruction();
+                this.instructionMemory.enqueue(this.generateInstruction());
         this.drawUpdate();
     }
 
-    public draw(): void {
+    public initializeGraphics(): void {
         this.graphicComponentProperties.forEach((value, key) => {
             this.drawSimpleGraphicComponent(key)
             this.scene.add(this.graphicComponents.get(key));
@@ -56,8 +52,8 @@ export class ROM extends ComputerChip {
         this.textComponents.forEach(comp => this.scene.remove(comp));
         this.textComponents.clear();
 
-        for (let i = 0; i < this.instruction_memory.length; ++i) {
-            const instruction = this.instruction_memory[i];
+        for (let i = 0; i < this.instructionMemory.size(); ++i) {
+            const instruction = this.instructionMemory.get(i);
             if (instruction) {
                 const bufferReg = this.graphicComponentProperties.get(`BUFFER_${i}`);
                 this.textComponents.set(`BUFFER_${i}`,
@@ -68,16 +64,15 @@ export class ROM extends ComputerChip {
                         ROM.COLORS.get("TEXT")));
             }
         }
-
         this.textComponents.forEach(comp => this.scene.add(comp));
     }
 
-    public read(n: number): Instruction[] {
-        if (n > this.getFixedArrayLength(this.instruction_memory))
-            throw new Error("Cannot read " + (n - this.getFixedArrayLength(this.instruction_memory)) + " more instructions than are available in ROM")
+    public read(n: number): Queue<Instruction> {
+        if (n > this.instructionMemory.size())
+            throw new Error("Cannot read " + (n - this.instructionMemory.size() + " more instructions than are available in ROM"));
 
-        const instructions = new Array(n);
-        this.moveInstructions(this.instruction_memory, instructions, n)
+        const instructions = new Queue<Instruction>(n)
+        this.moveInstructions(this.instructionMemory, instructions, n)
         return instructions;
     }
 

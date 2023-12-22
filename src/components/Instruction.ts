@@ -1,4 +1,5 @@
 import {CPU} from "../actors/CPU";
+import {ComputerChip} from "../actors/ComputerChip";
 
 enum InstructionType {
     ALU,
@@ -16,11 +17,10 @@ export class Instruction {
     constructor(opcode: string, result_reg: string, op1_reg?: string, op2_reg?: string, address?: number) {
         this.opcode = opcode;
         this.resultReg = result_reg;
-        if (CPU.MEMORY_OPCODES.includes(opcode)){
+        if (CPU.MEMORY_OPCODES.includes(opcode)) {
             this.type = InstructionType.MEMORY
             this.address = address;
-        }
-        else {
+        } else {
             this.type = InstructionType.ALU
             this.op1Reg = op1_reg;
             this.op2Reg = op2_reg;
@@ -38,9 +38,9 @@ export class Instruction {
     public toString(): string {
         // return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
         if (this.type == InstructionType.MEMORY)
-            return this.opcode + ", " + this.resultReg + ", [0x"  + this.address.toString(16).toUpperCase() + "]" + ";";
+            return this.opcode + " " + this.resultReg + ", [" + ComputerChip.toHex(this.address) + "]";
         else
-            return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
+            return this.opcode + " " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg;
     }
 
     public getOpcode(): string {
