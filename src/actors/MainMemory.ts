@@ -75,7 +75,8 @@ export class MainMemory extends ComputerChip {
     }
 
     drawUpdate(): void {
-        this.textComponents.forEach(comp => this.scene.add(comp));
+        this.textComponents.forEach(comp => this.scene.remove(comp));
+        this.textComponents.forEach(comp => {this.scene.add(comp)});
     }
 
     update(): void {

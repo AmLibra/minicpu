@@ -78,7 +78,7 @@ export class ROM extends ComputerChip {
 
     public generateInstruction(): Instruction {
         // 50% chance of generating an ALU instruction
-        if (Math.random() < 0.5)
+        if (Math.random() < 0.1)
             return this.generateALUInstruction();
         else
             return this.generateMemoryInstruction();

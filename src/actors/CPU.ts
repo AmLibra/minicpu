@@ -7,7 +7,7 @@ import {MainMemory} from "./MainMemory";
 import {Queue} from "../components/Queue";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 0.5; // Hz
+    public static readonly CLOCK_SPEED: number = 1; // Hz
 
     public readonly rom: ROM;
     public readonly mainMemory: MainMemory;
@@ -189,27 +189,22 @@ export class CPU extends ComputerChip {
     }
 
     public drawUpdate(): void {
-        this.textComponents.forEach(comp => this.scene.remove(comp));
+        console.log(this.textComponents);
         this.textComponents.forEach((value, key) => {
-            if (!this.registerStates.has(key) && !this.registerStates.has(key.replace("_CONTENT", ""))) {
+            if (this.registerValues.has(key) || !this.registerStates.has(key)) {
+                console.log(key);
                 this.scene.remove(value);
-                this.textComponents.delete(key);
+                // this.textComponents.delete(key);
             }
         });
-        this.registerStates.forEach((active, component) => {
-            if (component) {
-                DrawUtils.onFontLoaded(() => {
-                        this.textComponents.set(component + "_CONTENT",
-                            DrawUtils.drawText(this.registerValues.get(component).toString(),
-                                this.position.x + this.graphicComponentProperties.get(component).xOffset,
-                                this.position.y + this.graphicComponentProperties.get(component).yOffset,
-                                CPU.TEXT_SIZE, CPU.COLORS.get("TEXT") ));
-                    }
-                );
-                if (active) {
-                    this.blink(component, CPU.COLORS.get("TEXT"));
-                    this.registerStates.set(component, false);
+        console.log(this.textComponents);
 
+        this.registerStates.forEach((active, registerName) => {
+            if (registerName) {
+                this.drawRegisterValues(registerName);
+                if (active) {
+                    this.blink(registerName, CPU.COLORS.get("TEXT"));
+                    this.registerStates.set(registerName, false);
                 }
             }
         });
@@ -219,6 +214,17 @@ export class CPU extends ComputerChip {
         this.drawALUText();
 
         this.textComponents.forEach(comp => this.scene.add(comp));
+    }
+
+    private drawRegisterValues(registerName: string): void {
+        DrawUtils.onFontLoaded(() => {
+                this.textComponents.set(registerName + "_CONTENT",
+                    DrawUtils.drawText(this.registerValues.get(registerName).toString(),
+                        this.position.x + this.graphicComponentProperties.get(registerName).xOffset,
+                        this.position.y + this.graphicComponentProperties.get(registerName).yOffset,
+                        CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+            }
+        );
     }
 
     private drawALUText(): void {
