@@ -7,9 +7,9 @@ export class MainMemory extends ComputerChip {
     public static readonly HEIGHT: number = 2.4;
     public static readonly COMPONENTS_INNER_MARGIN = 0.03;
     public static readonly COMPONENTS_SPACING = 0.01;
-    public static readonly ROW_COUNT = 16;
-    public static readonly COL_COUNT = 4;
-    public static readonly SIZE: number = 64;
+    public static readonly ROW_COUNT = 16; // 16 words
+    public static readonly COL_COUNT = 4; // 4 bytes per word
+    public static readonly SIZE: number = MainMemory.ROW_COUNT * MainMemory.COL_COUNT;
 
     public static readonly MAX_VALUE = 256
 
@@ -26,7 +26,17 @@ export class MainMemory extends ComputerChip {
         this.initialize();
     }
 
-    public computeGraphicComponentDimensions(): void {
+    public read(address: number): number {
+        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
+        return this.memory[address];
+    }
+
+    public write(address: number, value: number): void {
+        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
+        this.memory[address] = value;
+    }
+
+    computeGraphicComponentDimensions(): void {
         const body = {
             width: MainMemory.WIDTH,
             height: MainMemory.HEIGHT,
@@ -57,37 +67,34 @@ export class MainMemory extends ComputerChip {
         this.drawGrid(registerFile, MainMemory.ROW_COUNT, MainMemory.COL_COUNT, MainMemory.COMPONENTS_SPACING,
             MainMemory.MEMORY_ADDRESS_NAMES)
             .forEach((dimensions, name) => {
-                DrawUtils.onFontLoaded(() => {
-                    this.textComponents.set(name,
-                        DrawUtils.buildTextMesh(name,
-                            this.position.x + dimensions.xOffset,
-                            this.position.y + dimensions.yOffset + dimensions.height / 2,
-                            MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY")));
-                });
+                this.textComponents.set(name,
+                    DrawUtils.buildTextMesh(name,
+                        this.position.x + dimensions.xOffset,
+                        this.position.y + dimensions.yOffset + dimensions.height / 2,
+                        MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY")));
             });
     }
 
-    initializeGraphics(): void {
-        this.graphicComponentProperties
-            .forEach((_properties, name: string) => {
-                this.drawSimpleGraphicComponent(name)
-                this.scene.add(this.graphicComponents.get(name));
-            });
+    update(): void {
+        // nothing to do
     }
 
     drawUpdate(): void {
         this.textComponents.forEach((mesh, componentName) => {
-            // also remove the register values
             if (componentName.endsWith("_CONTENT")) {
                 this.scene.remove(mesh);
-                //this.textComponents.delete(componentName);
+                this.textComponents.delete(componentName);
             }
         });
         this.drawAllMemoryContent();
         this.textComponents.forEach(comp => {this.scene.add(comp)});
     }
 
-    update(): void {
+    private initialize(): void {
+        for (let i = 0; i < MainMemory.SIZE; i++)
+            this.memory[i] = Math.floor(Math.random() * MainMemory.MAX_VALUE);
+        this.drawAllMemoryContent()
+        this.drawMemoryLineAddressTag();
     }
 
     private drawAllMemoryContent(): void {
@@ -108,34 +115,15 @@ export class MainMemory extends ComputerChip {
         for (let i = 0; i < MainMemory.ROW_COUNT; i++) {
             const memoryAddressRegister = this.graphicComponentProperties.get(
                 MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]);
-            DrawUtils.onFontLoaded(() => {
-                this.textComponents.set(
-                    `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
-                    DrawUtils.buildTextMesh(
-                        MainMemory.toHex(i * MainMemory.COL_COUNT),
-                        this.position.x + this.graphicComponentProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
-                        - MainMemory.COMPONENTS_INNER_MARGIN,
-                        this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
-                        MainMemory.TEXT_SIZE/2, MainMemory.COLORS.get("TEXT")
-                    ));
-            });
+            this.textComponents.set(
+                `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
+                DrawUtils.buildTextMesh(
+                    MainMemory.toHex(i * MainMemory.COL_COUNT),
+                    this.position.x + this.graphicComponentProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
+                    - MainMemory.COMPONENTS_INNER_MARGIN,
+                    this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
+                    MainMemory.TEXT_SIZE/2, MainMemory.COLORS.get("TEXT")
+                ));
         }
-    }
-
-    initialize(): void {
-        for (let i = 0; i < MainMemory.SIZE; i++)
-            this.memory[i] = Math.floor(Math.random() * MainMemory.MAX_VALUE);
-        this.drawAllMemoryContent()
-        this.drawMemoryLineAddressTag();
-    }
-
-    public read(address: number): number {
-        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
-        return this.memory[address];
-    }
-
-    public write(address: number, value: number): void {
-        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
-        this.memory[address] = value;
     }
 }

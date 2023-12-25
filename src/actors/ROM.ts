@@ -22,6 +22,19 @@ export class ROM extends ComputerChip {
         this.instructionMemory = new Queue<Instruction>(ROM.MEMORY_SIZE);
     }
 
+    public isEmpty() {
+        return this.instructionMemory.isEmpty();
+    }
+
+    public read(n: number): Queue<Instruction> {
+        if (n > this.instructionMemory.size())
+            throw new Error("Cannot read " + (n - this.instructionMemory.size() + " more instructions than are available in ROM"));
+
+        const instructions = new Queue<Instruction>(n)
+        this.moveInstructions(this.instructionMemory, instructions, n)
+        return instructions;
+    }
+
     computeGraphicComponentDimensions(): void {
         this.graphicComponentProperties.set("ROM",
             new ComponentGraphicProperties(ROM.WIDTH, ROM.HEIGHT, 0, 0, ROM.COLORS.get("BODY")));
@@ -29,21 +42,8 @@ export class ROM extends ComputerChip {
             ROM.MARGIN, ROM.COMPONENTS_SPACING, ROM.COLORS.get("COMPONENT"));
     }
 
-    public isEmpty() {
-        return this.instructionMemory.isEmpty();
-    }
-
-    public update() {
-        if (this.instructionMemory.isEmpty())
-            for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
-                this.instructionMemory.enqueue(this.generateInstruction());
-    }
-
-    initializeGraphics(): void {
-        this.graphicComponentProperties.forEach((value, key) => {
-            this.drawSimpleGraphicComponent(key)
-            this.scene.add(this.graphicComponents.get(key));
-        });
+    update() {
+        this.fillInstructionMemoryIfEmpty();
     }
 
     drawUpdate(): void {
@@ -65,30 +65,27 @@ export class ROM extends ComputerChip {
         this.textComponents.forEach(comp => this.scene.add(comp));
     }
 
-    public read(n: number): Queue<Instruction> {
-        if (n > this.instructionMemory.size())
-            throw new Error("Cannot read " + (n - this.instructionMemory.size() + " more instructions than are available in ROM"));
-
-        const instructions = new Queue<Instruction>(n)
-        this.moveInstructions(this.instructionMemory, instructions, n)
-        return instructions;
+    private fillInstructionMemoryIfEmpty() {
+       if (this.instructionMemory.isEmpty())
+            for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
+                this.instructionMemory.enqueue(this.generateInstruction());
     }
 
-    public generateInstruction(): Instruction {
+    private generateInstruction(): Instruction {
         if (Math.random() < 0.5)
             return this.generateALUInstruction();
         else
             return this.generateMemoryInstruction();
     }
 
-    public generateMemoryInstruction(): Instruction {
+    private generateMemoryInstruction(): Instruction {
         const opcode = CPU.MEMORY_OPCODES[Math.floor(Math.random() * CPU.MEMORY_OPCODES.length)];
         const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
         const address = Math.floor(Math.random() * MainMemory.SIZE);
         return new Instruction(opcode, result_reg, undefined, undefined, address);
     }
 
-    public generateALUInstruction(): Instruction {
+    private generateALUInstruction(): Instruction {
         const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
         const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
         const op1_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];

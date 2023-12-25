@@ -58,7 +58,7 @@ export class CPU extends ComputerChip {
         this.isPipelined = false;
     }
 
-    public computeGraphicComponentDimensions(): void {
+    computeGraphicComponentDimensions(): void {
         const cpuBody = {
             width: CPU.WIDTH,
             height: CPU.HEIGHT,
@@ -118,21 +118,40 @@ export class CPU extends ComputerChip {
 
         this.drawGrid(registerFile, CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
             .forEach((dimensions, name) => {
-                DrawUtils.onFontLoaded(() => {
-                    this.textComponents.set(name,
-                        DrawUtils.buildTextMesh(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
-                            CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
-                });
+                this.textComponents.set(name,
+                    DrawUtils.buildTextMesh(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
+                        CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
             });
     }
 
-    public update() {
+    update() {
         if (this.isPipelined) {
             this.processALU();
             this.decodeAll();
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
             this.refillInstructionBufferIfEmpty()
         }
+    }
+
+    drawUpdate(): void {
+        this.textComponents.forEach((mesh, componentName) => {
+            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName)))
+            {
+                this.scene.remove(mesh);
+                this.textComponents.delete(componentName);
+            }
+        });
+        console.log(this.instructionBuffer);
+        this.registerValues.forEach((_value, registerName) => this.drawRegisterValues(registerName));
+        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
+        this.drawTextForComponent("DECODER", this.decoders, 0.07);
+        this.drawALUText();
+
+        this.textComponents.forEach(comp => this.scene.add(comp));
+    }
+
+    public setPipelined(isPipelined: boolean): void {
+        this.isPipelined = isPipelined;
     }
 
     private processALU(): void {
@@ -211,30 +230,6 @@ export class CPU extends ComputerChip {
         }
     }
 
-    public initializeGraphics(): void {
-        this.graphicComponentProperties.forEach((_properties, name: string) => {
-            this.drawSimpleGraphicComponent(name);
-            this.scene.add(this.graphicComponents.get(name));
-        });
-    }
-
-    drawUpdate(): void {
-        this.textComponents.forEach((mesh, componentName) => {
-            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName)))
-            {
-                this.scene.remove(mesh);
-                this.textComponents.delete(componentName);
-            }
-        });
-        console.log(this.instructionBuffer);
-        this.registerValues.forEach((_value, registerName) => this.drawRegisterValues(registerName));
-        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
-        this.drawTextForComponent("DECODER", this.decoders, 0.07);
-        this.drawALUText();
-
-        this.textComponents.forEach(comp => this.scene.add(comp));
-    }
-
     private drawRegisterValues(registerName: string): void {
         this.textComponents.set(registerName + "_CONTENT",
             DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
@@ -258,9 +253,5 @@ export class CPU extends ComputerChip {
 
     private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
         this.textComponents.set(key, DrawUtils.buildTextMesh(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
-    }
-
-    public setPipelined(isPipelined: boolean): void {
-        this.isPipelined = isPipelined;
     }
 }

@@ -19,9 +19,11 @@ class App {
     private gameActors: ComputerChip[] = []
 
     constructor() {
-        this.init();
-        this.animate();
-        this.startGameLoop()
+        this.init().then( () => {
+                this.animate();
+                this.startGameLoop()
+            }
+        )
     }
 
     /**
@@ -29,9 +31,9 @@ class App {
      *
      * @private
      */
-    private init(): void {
+    private async init(): Promise<void> {
         this.scene = new Scene(); // create the scene
-        this.renderer = new WebGLRenderer({antialias: true}); // create the WebGL renderer
+        this.renderer = new WebGLRenderer({antialias: true, alpha: true}); // create the WebGL renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1); // set the background color of the scene
         document.body.appendChild(this.renderer.domElement); // add the renderer to the DOM
@@ -39,24 +41,28 @@ class App {
         const aspect = window.innerWidth / window.innerHeight; // set the aspect ratio of the camera
 
         // create an orthographic camera, positioned at (0, 0, 10) and pointing along the Z-axis
-        this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 0.1, 100);
-        this.camera.position.set(0, 0, 10); // Positioned along the Z-axis
+        this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 2);
+        this.camera.position.set(0, 0, 2); // Positioned along the Z-axis
         // Zoom out a bit so that the entire scene is visible, do not forget to update the projection matrix!
         this.camera.zoom = 0.8;
         this.camera.updateProjectionMatrix();
 
         // add a listener for the window resize event to update the camera and renderer size accordingly
         window.addEventListener('resize', () => {
-            const aspect = window.innerWidth / window.innerHeight;
-            this.camera.left = -aspect;
-            this.camera.right = aspect;
+            const aspectRatio = window.innerWidth / window.innerHeight;
+            this.camera.left = -aspectRatio;
+            this.camera.right = aspectRatio;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // finally, initialize the game
-        this.drawHUD();
-        this.addGameActors();
+        // Load the font and start the game
+        try {
+            await DrawUtils.loadFont();
+            this.loadGame();
+        } catch (error) {
+            throw new Error("Could not load font: " + error);
+        }
     }
 
     /**
@@ -84,17 +90,25 @@ class App {
     }
 
     /**
+     * Loads the game.
+     *
+     * @private
+     */
+    private loadGame(): void {
+        this.drawHUD();
+        this.addGameActors();
+    }
+
+    /**
      * Draws the HUD of the game.
      *
      * @private
      */
     private drawHUD(): void {
-        DrawUtils.onFontLoaded(() => {
-            this.scene.add(
-                DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8,
-                    0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
-            );
-        });
+        this.scene.add(
+            DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8,
+                0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
+        );
     }
 
     /**
@@ -113,7 +127,6 @@ class App {
         this.gameActors.push(cpu);
         this.gameActors.push(rom);
         this.gameActors.push(mainMemory);
-        for (let gameActor of this.gameActors) gameActor.initializeGraphics();
     }
 }
 

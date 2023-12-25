@@ -8,6 +8,7 @@ import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
  *
  * @class DrawUtils
  * @static
+ *
  */
 export class DrawUtils {
     public static readonly COLOR_PALETTE: Map<string, string> = new Map([
@@ -21,12 +22,26 @@ export class DrawUtils {
     private static FONT: string = "../../res/Courier_New_Bold.json";
     public static font: Font = null;
 
+    public static isFontLoaded: boolean = false;
+
     /**
-     * Used to execute a callback function after the font is loaded.
-     * @param callback the callback function
+     * Loads the program font asynchronously.
      */
-    public static onFontLoaded(callback: Function): void {
-        this.awaitFontLoad().then(() => callback());
+    public static loadFont(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (this.font != null) {
+                resolve();
+                return;
+            }
+
+            this.fontLoader.load(this.FONT, (font: Font) => {
+                this.font = font;
+                this.isFontLoaded = true;
+                resolve();
+            }, undefined, (error) => {
+                reject(error);
+            });
+        });
     }
 
     /**
@@ -34,9 +49,10 @@ export class DrawUtils {
      * @param width the width of the quadrilateral
      * @param height the height of the quadrilateral
      * @param color the color of the quadrilateral
+     *
+     * @returns a quadrilateral mesh
      */
-    public static buildQuadrilateralMesh(width: number = 1, height: number = 1,
-                                         color: string = this.COLOR_PALETTE.get("LIGHT")): Mesh {
+    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: string): Mesh {
         return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({color: color}));
     }
 
@@ -47,21 +63,20 @@ export class DrawUtils {
      * @param yOffset the y offset of the text
      * @param size the size of the text
      * @param color the color of the text
+     *
+     * @returns a text mesh
      */
     public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: string): Mesh {
-        if (this.font == null)
-            return null;
+        if (!this.isFontLoaded)
+            throw new Error("Font not loaded");
+
         const textGeometry = new TextGeometry(text, {
             font: this.font,
             size: size,
-            height: 0.1,
-            curveSegments: 12,
-            bevelEnabled: false
+            height: 0.1
         });
 
-        const textMesh =
-            new Mesh(textGeometry,  new MeshBasicMaterial({color: color}));
-
+        const textMesh = new Mesh(textGeometry,  new MeshBasicMaterial({color: color}));
         textGeometry.computeBoundingBox();
         const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
         const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
@@ -71,19 +86,6 @@ export class DrawUtils {
             0
         );
         return textMesh;
-    }
-
-    /**
-     * Used to load the font asynchronously.
-     */
-    private static async awaitFontLoad(): Promise<void> {
-        if (this.font == null)
-            await new Promise<void>(resolve => {
-                this.fontLoader.load(this.FONT, (font: Font) => {
-                    this.font = font;
-                    resolve();
-                });
-            });
     }
 }
 

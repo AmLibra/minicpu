@@ -37,9 +37,6 @@ export abstract class ComputerChip {
     protected readonly textComponents: Map<string, Mesh>;
 
     protected constructor(id: string, position: [number, number], scene: Scene) {
-        DrawUtils.onFontLoaded(() => {
-            this.initializeGraphics();
-        });
         this.id = id;
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
@@ -47,6 +44,7 @@ export abstract class ComputerChip {
         this.graphicComponentProperties = new Map<string, ComponentGraphicProperties>();
         this.textComponents = new Map<string, Mesh>();
         this.computeGraphicComponentDimensions();
+        this.initializeGraphics()
     }
 
     /**
@@ -55,7 +53,12 @@ export abstract class ComputerChip {
      * NOTE: Does not need to worry about fonts being loaded
      * @protected
      */
-    abstract initializeGraphics(): void;
+    protected initializeGraphics(): void {
+        this.graphicComponentProperties.forEach((_properties, name: string) => {
+            this.drawSimpleGraphicComponent(name);
+            this.scene.add(this.graphicComponents.get(name));
+        });
+    }
 
     /**
      * Computes the dimensions of the graphic components of the chip
