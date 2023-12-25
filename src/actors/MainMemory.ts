@@ -11,6 +11,8 @@ export class MainMemory extends ComputerChip {
     public static readonly COL_COUNT = 4;
     public static readonly SIZE: number = 64;
 
+    public static readonly MAX_VALUE = 256
+
     private readonly memory: number[];
     private static readonly MEMORY_ADDRESS_NAMES: string[] = [];
     static {
@@ -20,7 +22,6 @@ export class MainMemory extends ComputerChip {
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
-        this.computeGraphicComponentDimensions();
         this.memory = new Array(MainMemory.SIZE);
         this.initialize();
     }
@@ -58,7 +59,7 @@ export class MainMemory extends ComputerChip {
             .forEach((dimensions, name) => {
                 DrawUtils.onFontLoaded(() => {
                     this.textComponents.set(name,
-                        DrawUtils.drawText(name,
+                        DrawUtils.buildTextMesh(name,
                             this.position.x + dimensions.xOffset,
                             this.position.y + dimensions.yOffset + dimensions.height / 2,
                             MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY")));
@@ -75,38 +76,42 @@ export class MainMemory extends ComputerChip {
     }
 
     drawUpdate(): void {
-        this.textComponents.forEach(comp => this.scene.remove(comp));
+        this.textComponents.forEach((mesh, componentName) => {
+            // also remove the register values
+            if (componentName.endsWith("_CONTENT")) {
+                this.scene.remove(mesh);
+                //this.textComponents.delete(componentName);
+            }
+        });
+        this.drawAllMemoryContent();
         this.textComponents.forEach(comp => {this.scene.add(comp)});
     }
 
     update(): void {
-        this.drawUpdate();
     }
 
-    initialize(): void {
+    private drawAllMemoryContent(): void {
         for (let i = 0; i < MainMemory.SIZE; i++) {
-            // randomize memory, max value is 255
-            this.memory[i] = Math.floor(Math.random() * 256);
             const memoryAddressRegister = this.graphicComponentProperties.get(
                 MainMemory.MEMORY_ADDRESS_NAMES[i]);
-            DrawUtils.onFontLoaded(() => {
-                this.textComponents.set(
-                    `${MainMemory.MEMORY_ADDRESS_NAMES[i]}_CONTENT`,
-                    DrawUtils.drawText(this.memory[i].toString(),
-                        this.position.x + memoryAddressRegister.xOffset,
-                        this.position.y + memoryAddressRegister.yOffset,
-                        MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
-                    ));
-            });
+            this.textComponents.set(
+                `${MainMemory.MEMORY_ADDRESS_NAMES[i]}_CONTENT`,
+                DrawUtils.buildTextMesh(this.memory[i].toString(),
+                    this.position.x + memoryAddressRegister.xOffset,
+                    this.position.y + memoryAddressRegister.yOffset,
+                    MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
+                ));
         }
+    }
 
+    private drawMemoryLineAddressTag(): void {
         for (let i = 0; i < MainMemory.ROW_COUNT; i++) {
             const memoryAddressRegister = this.graphicComponentProperties.get(
                 MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]);
             DrawUtils.onFontLoaded(() => {
                 this.textComponents.set(
                     `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
-                    DrawUtils.drawText(
+                    DrawUtils.buildTextMesh(
                         MainMemory.toHex(i * MainMemory.COL_COUNT),
                         this.position.x + this.graphicComponentProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
                         - MainMemory.COMPONENTS_INNER_MARGIN,
@@ -117,23 +122,20 @@ export class MainMemory extends ComputerChip {
         }
     }
 
+    initialize(): void {
+        for (let i = 0; i < MainMemory.SIZE; i++)
+            this.memory[i] = Math.floor(Math.random() * MainMemory.MAX_VALUE);
+        this.drawAllMemoryContent()
+        this.drawMemoryLineAddressTag();
+    }
+
     public read(address: number): number {
+        this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
         return this.memory[address];
     }
 
     public write(address: number, value: number): void {
-        this.memory[address] = value;
-        const memoryAddressRegister = this.graphicComponentProperties.get(
-            MainMemory.MEMORY_ADDRESS_NAMES[address]);
         this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
-        DrawUtils.onFontLoaded(() => {
-            this.textComponents.set(
-                `${MainMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
-                DrawUtils.drawText(this.memory[address].toString(),
-                    this.position.x + memoryAddressRegister.xOffset,
-                    this.position.y + memoryAddressRegister.yOffset,
-                    MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
-                ));
-        });
+        this.memory[address] = value;
     }
 }

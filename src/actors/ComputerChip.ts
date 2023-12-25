@@ -4,6 +4,20 @@ import {Instruction} from "../components/Instruction";
 import {ComponentGraphicProperties} from "../components/ComponentGraphicProperties";
 import {Queue} from "../components/Queue";
 
+
+/**
+ * Abstract class for computer chips
+ * @abstract
+ * @class
+ * @property {string} id The id of the chip
+ * @property {{x: number, y: number}} position The position of the chip
+ * @property {Scene} scene The scene to add the chip to
+ * @property {Map<string, ComponentGraphicProperties>} graphicComponentProperties The properties of the graphic
+ *     components
+ * @property {Map<string, Mesh>} graphicComponents The graphic components of the chip
+ * @property {Map<string, Mesh>} textComponents The text components of the chip
+ * @property {Map<string, string>} COLORS The colors of the chip
+ */
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000;
 
@@ -18,9 +32,7 @@ export abstract class ComputerChip {
     ]);
     protected static readonly TEXT_SIZE: number = 0.05;
 
-    // used to store the dimensions and positions of the graphic elements that make up the chip
     protected graphicComponentProperties: Map<string, ComponentGraphicProperties>;
-
     protected readonly graphicComponents: Map<string, Mesh>;
     protected readonly textComponents: Map<string, Mesh>;
 
@@ -34,23 +46,61 @@ export abstract class ComputerChip {
         this.graphicComponents = new Map<string, Mesh>();
         this.graphicComponentProperties = new Map<string, ComponentGraphicProperties>();
         this.textComponents = new Map<string, Mesh>();
+        this.computeGraphicComponentDimensions();
     }
 
+    /**
+     * Initializes the graphics of the chip
+     * Is called in the constructor of all computer chips
+     * NOTE: Does not need to worry about fonts being loaded
+     * @protected
+     */
     abstract initializeGraphics(): void;
 
+    /**
+     * Computes the dimensions of the graphic components of the chip
+     * Is called in the constructor of all computer chips
+     * NOTE: Does not need to worry about fonts being loaded
+     * @protected
+     */
+    abstract computeGraphicComponentDimensions(): void;
+
+    /**
+     * Updates the chip
+     * Is called in the update loop of all computer chips
+     * @protected
+     */
     abstract update(): void;
 
+    abstract drawUpdate(): void;
+
+    /**
+     * Draws a simple graphic component, i.e. a quadrilateral with a solid color, used for the body of chips
+     *
+     * @param name The name of the component
+     * @protected
+     */
     protected drawSimpleGraphicComponent(name: string): void {
         if (!this.graphicComponentProperties.has(name))
             throw new Error(`Component ${name} not found`);
 
         const graphicComponent = this.graphicComponentProperties.get(name);
-        const component = DrawUtils.drawQuadrilateral(
+        const component = DrawUtils.buildQuadrilateralMesh(
             graphicComponent.width, graphicComponent.height, graphicComponent.color);
         component.position.set(this.position.x + graphicComponent.xOffset, this.position.y + graphicComponent.yOffset, 0);
         this.graphicComponents.set(name, component);
     }
 
+    /**
+     * Draws an array of vertical buffers
+     *
+     * @param parent the parent component of the buffers
+     * @param memorySize the number of registers in the buffer
+     * @param margin the margin between the buffer and the parent
+     * @param spacing the spacing between each register
+     * @param color the color of the registers
+     * @protected
+     */
     protected drawBuffer(parent: ComponentGraphicProperties, memorySize: number, margin: number, spacing: number, color: string
     ): Map<string, ComponentGraphicProperties> {
         const bufferNames: Map<string, ComponentGraphicProperties> = new Map<string, ComponentGraphicProperties>();
@@ -74,15 +124,25 @@ export abstract class ComputerChip {
         return bufferNames;
     }
 
-    protected drawGrid(parent: ComponentGraphicProperties, rowCount: number, columnCount: number, margin: number, registerNames?: string[]
+    /**
+     * Draws a grid of registers
+     *
+     * @param parent the parent component of the registers
+     * @param rowCount the number of rows in the grid
+     * @param columnCount the number of columns in the grid
+     * @param padding the padding between each register
+     * @param registerNames the names of the registers
+     * @protected
+     */
+    protected drawGrid(parent: ComponentGraphicProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
     ): Map<string, ComponentGraphicProperties> {
         if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
         }
 
         // Calculate dimensions for each individual register file, accounting for margins
-        const registerWidth = (parent.width - margin * (columnCount - 1)) / columnCount;
-        const registerHeight = (parent.height - margin * (rowCount - 1)) / rowCount;
+        const registerWidth = (parent.width - padding * (columnCount - 1)) / columnCount;
+        const registerHeight = (parent.height - padding * (rowCount - 1)) / rowCount;
 
         // Calculating the starting position
         const startX = parent.xOffset - parent.width / 2 + registerWidth / 2;
@@ -92,8 +152,8 @@ export abstract class ComputerChip {
 
         for (let i = 0; i < rowCount; i++) {
             for (let j = 0; j < columnCount; j++) {
-                const xOffset = startX + j * (registerWidth + margin);
-                const yOffset = startY - i * (registerHeight + margin);
+                const xOffset = startX + j * (registerWidth + padding);
+                const yOffset = startY - i * (registerHeight + padding);
 
                 const registerName = registerNames ? registerNames[i * columnCount + j] : `R${i * columnCount + j}`;
                 const register = {
@@ -111,6 +171,14 @@ export abstract class ComputerChip {
         return registers;
     }
 
+    /**
+     * Draws text for a simple buffer component
+     *
+     * @param componentName the name of the component
+     * @param componentBuffer the buffer to draw text for
+     * @param yOffsetIncrement the amount to increment the y offset by for each instruction
+     * @protected
+     */
     protected drawTextForComponent(componentName: string, componentBuffer: Queue<Instruction>, yOffsetIncrement: number): void {
         const componentProps = this.graphicComponentProperties.get(componentName);
         if (!componentProps) {
@@ -125,7 +193,7 @@ export abstract class ComputerChip {
             if (!instruction) continue; // Skip if no instruction
 
             const yOffset = baseYOffset - (i * yOffsetIncrement);
-            const textMesh = DrawUtils.drawText(
+            const textMesh = DrawUtils.buildTextMesh(
                 instruction.toString(),
                 componentProps.xOffset,
                 yOffset,
@@ -137,6 +205,13 @@ export abstract class ComputerChip {
         }
     }
 
+    /**
+     *  Changes the color of a component
+     *
+     * @param componentName the name of the component
+     * @param newColor the new color of the component
+     * @protected
+     */
     protected changeComponentColor(componentName: string, newColor: string | number | Color): void {
         const component = this.graphicComponents.get(componentName);
         if (component && component.material instanceof MeshBasicMaterial) {
@@ -148,6 +223,13 @@ export abstract class ComputerChip {
     }
 
 
+    /**
+     * Changes the color of a graphic component for a short period of time
+     *
+     * @param componentName the name of the component
+     * @param newColor the new color of the component
+     * @protected
+     */
     protected blink(componentName: string, newColor: string | number | Color): void {
         this.changeComponentColor(componentName, newColor);
         setTimeout(() =>
@@ -155,6 +237,14 @@ export abstract class ComputerChip {
             ComputerChip.ONE_SECOND);
     }
 
+    /**
+     * Moves instructions from one buffer to another (for queues)
+     *
+     * @param from the buffer to move instructions from
+     * @param to the buffer to move instructions to
+     * @param count the number of instructions to move
+     * @protected
+     */
     protected moveInstructions(from: Queue<Instruction>, to: Queue<Instruction>, count: number): void {
         for (let i = 0; i < count; ++i) {
             if (from.isEmpty() || to.size() >= to.maxSize) break;
@@ -162,6 +252,12 @@ export abstract class ComputerChip {
         }
     }
 
+    /**
+     * Converts a number to a hexadecimal string for display
+     *
+     * @param value the number to convert
+     * @protected
+     */
     public static toHex(value: number): string {
         return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
     }

@@ -19,11 +19,10 @@ export class ROM extends ComputerChip {
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
-        this.computeGraphicComponentProperties();
         this.instructionMemory = new Queue<Instruction>(ROM.MEMORY_SIZE);
     }
 
-    private computeGraphicComponentProperties(): void {
+    computeGraphicComponentDimensions(): void {
         this.graphicComponentProperties.set("ROM",
             new ComponentGraphicProperties(ROM.WIDTH, ROM.HEIGHT, 0, 0, ROM.COLORS.get("BODY")));
         this.drawBuffer(this.graphicComponentProperties.get("ROM"), ROM.MEMORY_SIZE,
@@ -38,17 +37,16 @@ export class ROM extends ComputerChip {
         if (this.instructionMemory.isEmpty())
             for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
                 this.instructionMemory.enqueue(this.generateInstruction());
-        this.drawUpdate();
     }
 
-    public initializeGraphics(): void {
+    initializeGraphics(): void {
         this.graphicComponentProperties.forEach((value, key) => {
             this.drawSimpleGraphicComponent(key)
             this.scene.add(this.graphicComponents.get(key));
         });
     }
 
-    private drawUpdate(): void {
+    drawUpdate(): void {
         this.textComponents.forEach(comp => this.scene.remove(comp));
         this.textComponents.clear();
 
@@ -57,7 +55,7 @@ export class ROM extends ComputerChip {
             if (instruction) {
                 const bufferReg = this.graphicComponentProperties.get(`BUFFER_${i}`);
                 this.textComponents.set(`BUFFER_${i}`,
-                    DrawUtils.drawText(instruction.toString(),
+                    DrawUtils.buildTextMesh(instruction.toString(),
                         this.position.x,
                         this.position.y - bufferReg.yOffset + bufferReg.height / 2 - ROM.COMPONENTS_SPACING,
                         ROM.TEXT_SIZE,
@@ -77,8 +75,7 @@ export class ROM extends ComputerChip {
     }
 
     public generateInstruction(): Instruction {
-        // 50% chance of generating an ALU instruction
-        if (Math.random() < 0.1)
+        if (Math.random() < 0.5)
             return this.generateALUInstruction();
         else
             return this.generateMemoryInstruction();

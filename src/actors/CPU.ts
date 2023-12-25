@@ -7,7 +7,7 @@ import {MainMemory} from "./MainMemory";
 import {Queue} from "../components/Queue";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 1; // Hz
+    public static readonly CLOCK_SPEED: number = 0.5; // Hz
 
     public readonly rom: ROM;
     public readonly mainMemory: MainMemory;
@@ -20,7 +20,7 @@ export class CPU extends ComputerChip {
 
     public static ALU_COUNT: number = 1;
     private readonly ALUs: Queue<Instruction>;
-    public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "DIV", "MOD", "AND", "OR", "XOR", "SHL", "SHR"];
+    public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR", "XOR", "SHL", "SHR"];
 
     private static readonly REGISTER_FILE_ROW_COUNT = 4;
     private static readonly REGISTER_FILE_COL_COUNT = 4;
@@ -31,11 +31,8 @@ export class CPU extends ComputerChip {
         for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.REGISTER_NAMES.push(`R${i}`)
     }
 
-    private skipNextInstruction: boolean = false;
-
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
 
-    private readonly registerStates: Map<string, boolean>; // registers can be either invalid or contain a value
     private readonly registerValues: Map<string, number>;
     private isPipelined: boolean;
 
@@ -49,16 +46,15 @@ export class CPU extends ComputerChip {
 
     constructor(id: string, position: [number, number], scene: Scene, rom: ROM, mainMemory: MainMemory) {
         super(id, position, scene)
-        this.computeGraphicComponentDimensions();
         this.rom = rom
         this.mainMemory = mainMemory
+
         this.instructionBuffer = new Queue<Instruction>(CPU.INSTRUCTION_BUFFER_SIZE)
         this.decoders = new Queue<Instruction>(CPU.DECODER_COUNT)
         this.ALUs = new Queue<Instruction>(CPU.ALU_COUNT)
-        this.registerStates = new Map<string, boolean>();
         this.registerValues = new Map<string, number>();
-        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.registerValues.set(`R${i}`, 0)
-        CPU.REGISTER_NAMES.forEach(reg => this.registerStates.set(reg, false));
+
+        CPU.REGISTER_NAMES.forEach(name => this.registerValues.set(name, 0));
         this.isPipelined = false;
     }
 
@@ -124,7 +120,7 @@ export class CPU extends ComputerChip {
             .forEach((dimensions, name) => {
                 DrawUtils.onFontLoaded(() => {
                     this.textComponents.set(name,
-                        DrawUtils.drawText(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
+                        DrawUtils.buildTextMesh(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
                             CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
                 });
             });
@@ -132,83 +128,106 @@ export class CPU extends ComputerChip {
 
     public update() {
         if (this.isPipelined) {
-            if (!this.ALUs.isEmpty()) {
-                this.skipNextInstruction = true;
-                this.registerStates.set(this.ALUs.get(0).getResultReg(), true);
-                this.registerStates.set(this.ALUs.get(0).getOp1Reg(), true);
-                this.registerStates.set(this.ALUs.get(0).getOp2Reg(), true);
-                this.ALUs.clear();
-            }
-
-            for (let i = 0; i < CPU.DECODER_COUNT; ++i)
-                if (this.decoders.get(i))
-                    this.decode(i);
-
+            this.processALU();
+            this.decodeAll();
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-            if (this.instructionBuffer.isEmpty()) {
-                if (!this.rom.isEmpty()) {
-                    let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
-                    this.moveInstructions(instructions, this.instructionBuffer, CPU.INSTRUCTION_BUFFER_SIZE);
-                }
-            }
+            this.refillInstructionBufferIfEmpty()
         }
-        this.drawUpdate();
     }
 
-    private decode(decoderIndex: number): void {
-        const decoder = this.decoders.get(decoderIndex);
-        if (this.skipNextInstruction) {
-            this.skipNextInstruction = false;
-            return;
+    private processALU(): void {
+        if (!this.ALUs.isEmpty()) {
+            const alu = this.ALUs.get(0);
+            this.registerValues.set(alu.getResultReg(), this.preventOverflow(this.computeALUResult(alu)));
+            this.blink(alu.getResultReg(), CPU.COLORS.get("TEXT"));
+            this.blink(alu.getOp1Reg(), CPU.COLORS.get("TEXT"));
+            this.blink(alu.getOp2Reg(), CPU.COLORS.get("TEXT"));
+            this.ALUs.clear();
         }
+    }
 
-        if (decoder.isArithmetic()) {
+    private computeALUResult(alu: Instruction): number {
+        const op1 = this.registerValues.get(alu.getOp1Reg());
+        const op2 = this.registerValues.get(alu.getOp2Reg());
+        switch (alu.getOpcode()) {
+            case "ADD":
+                return op1 + op2;
+            case "SUB":
+                return op1 - op2;
+            case "MUL":
+                return op1 * op2;
+            case "AND":
+                return op1 & op2;
+            case "OR":
+                return op1 | op2;
+            case "XOR":
+                return op1 ^ op2;
+            case "SHL":
+                return op1 << op2;
+            case "SHR":
+                return op1 >> op2;
+            default:
+                throw new Error("Invalid ALU opcode: " + alu.getOpcode());
+        }
+    }
+
+    private preventOverflow(n: number): number {
+        return n % MainMemory.MAX_VALUE;
+    }
+
+    private decodeAll(): void {
+        for (let i = 0; i < CPU.DECODER_COUNT; ++i)
+            if (this.decoders.get(i))
+                this.decode(i);
+    }
+
+    private refillInstructionBufferIfEmpty(): void {
+        if (this.instructionBuffer.isEmpty()) {
+            if (!this.rom.isEmpty()) {
+                let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
+                this.moveInstructions(instructions, this.instructionBuffer, CPU.INSTRUCTION_BUFFER_SIZE);
+            }
+        }
+    }
+
+    private decode(index: number): void {
+        const instruction = this.decoders.get(index);
+
+        if (instruction.isArithmetic()) {
             this.ALUs.enqueue(this.decoders.dequeue())
-        } else if (decoder.isMemoryOperation()) {
-            if (!this.ALUs.isEmpty())
-                return;
-            if (decoder.getOpcode() == "LOAD") {
-                this.scene.remove(this.textComponents.get(this.registerValues.get(decoder.getResultReg()) + "_CONTENT"));
-                this.registerValues.set(decoder.getResultReg(), this.mainMemory.read(decoder.getAddress()));
-            } else  // STORE
-                this.mainMemory.write(decoder.getAddress(), this.registerValues.get(decoder.getResultReg()));
+            return;
+        } else if (instruction.isMemoryOperation()) {
+            if (!this.ALUs.isEmpty()) return;
 
-            this.registerStates.set(decoder.getResultReg(), true);
+            if (instruction.getOpcode() == "LOAD")
+                this.registerValues.set(instruction.getResultReg(), this.mainMemory.read(instruction.getAddress()));
+            else  // STORE
+                this.mainMemory.write(instruction.getAddress(), this.registerValues.get(instruction.getResultReg()));
+
+            this.blink(instruction.getResultReg(), CPU.COLORS.get("TEXT"));
             this.decoders.dequeue()
-            this.skipNextInstruction = true;
         } else {
-            throw new Error("Invalid instruction: " + decoder.toString());
+            throw new Error("Invalid instruction: " + instruction.toString());
         }
     }
 
     public initializeGraphics(): void {
         this.graphicComponentProperties.forEach((_properties, name: string) => {
-            this.drawSimpleGraphicComponent(name)
+            this.drawSimpleGraphicComponent(name);
             this.scene.add(this.graphicComponents.get(name));
         });
     }
 
-    public drawUpdate(): void {
-        console.log(this.textComponents);
-        this.textComponents.forEach((value, key) => {
-            if (this.registerValues.has(key) || !this.registerStates.has(key)) {
-                console.log(key);
-                this.scene.remove(value);
-                // this.textComponents.delete(key);
+    drawUpdate(): void {
+        this.textComponents.forEach((mesh, componentName) => {
+            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName)))
+            {
+                this.scene.remove(mesh);
+                this.textComponents.delete(componentName);
             }
         });
-        console.log(this.textComponents);
-
-        this.registerStates.forEach((active, registerName) => {
-            if (registerName) {
-                this.drawRegisterValues(registerName);
-                if (active) {
-                    this.blink(registerName, CPU.COLORS.get("TEXT"));
-                    this.registerStates.set(registerName, false);
-                }
-            }
-        });
-
+        console.log(this.instructionBuffer);
+        this.registerValues.forEach((_value, registerName) => this.drawRegisterValues(registerName));
         this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
         this.drawTextForComponent("DECODER", this.decoders, 0.07);
         this.drawALUText();
@@ -217,14 +236,11 @@ export class CPU extends ComputerChip {
     }
 
     private drawRegisterValues(registerName: string): void {
-        DrawUtils.onFontLoaded(() => {
-                this.textComponents.set(registerName + "_CONTENT",
-                    DrawUtils.drawText(this.registerValues.get(registerName).toString(),
-                        this.position.x + this.graphicComponentProperties.get(registerName).xOffset,
-                        this.position.y + this.graphicComponentProperties.get(registerName).yOffset,
-                        CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
-            }
-        );
+        this.textComponents.set(registerName + "_CONTENT",
+            DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
+                this.position.x + this.graphicComponentProperties.get(registerName).xOffset,
+                this.position.y + this.graphicComponentProperties.get(registerName).yOffset,
+                CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
     }
 
     private drawALUText(): void {
@@ -241,7 +257,7 @@ export class CPU extends ComputerChip {
     }
 
     private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
-        this.textComponents.set(key, DrawUtils.drawText(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+        this.textComponents.set(key, DrawUtils.buildTextMesh(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
     }
 
     public setPipelined(isPipelined: boolean): void {
