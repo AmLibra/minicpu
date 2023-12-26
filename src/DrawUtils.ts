@@ -1,4 +1,4 @@
-import {Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
+import {Material, Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 
@@ -52,8 +52,8 @@ export class DrawUtils {
      *
      * @returns a quadrilateral mesh
      */
-    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: string): Mesh {
-        return new Mesh(new PlaneGeometry(width, height), new MeshBasicMaterial({color: color}));
+    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material): Mesh {
+        return new Mesh(new PlaneGeometry(width, height), color);
     }
 
     /**
@@ -66,7 +66,7 @@ export class DrawUtils {
      *
      * @returns a text mesh
      */
-    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: string): Mesh {
+    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material): Mesh {
         if (!this.isFontLoaded)
             throw new Error("Font not loaded");
 
@@ -76,7 +76,7 @@ export class DrawUtils {
             height: 0.1
         });
 
-        const textMesh = new Mesh(textGeometry,  new MeshBasicMaterial({color: color}));
+        const textMesh = new Mesh(textGeometry, color);
         textGeometry.computeBoundingBox();
         const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
         const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;

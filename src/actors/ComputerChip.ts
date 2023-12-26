@@ -1,7 +1,7 @@
-import {Color, Mesh, MeshBasicMaterial, Scene} from "three";
+import {Color, Material, Mesh, MeshBasicMaterial, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
-import {ComponentGraphicProperties} from "../components/ComponentGraphicProperties";
+import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
 
 
@@ -12,10 +12,10 @@ import {Queue} from "../components/Queue";
  * @property {string} id The id of the chip
  * @property {{x: number, y: number}} position The position of the chip
  * @property {Scene} scene The scene to add the chip to
- * @property {Map<string, ComponentGraphicProperties>} graphicComponentProperties The properties of the graphic
+ * @property {Map<string, MeshProperties>} meshProperties The properties of the graphic
  *     components
- * @property {Map<string, Mesh>} graphicComponents The graphic components of the chip
- * @property {Map<string, Mesh>} textComponents The text components of the chip
+ * @property {Map<string, Mesh>} meshes The graphic components of the chip
+ * @property {Map<string, Mesh>} textMeshes The text components of the chip
  * @property {Map<string, string>} COLORS The colors of the chip
  */
 export abstract class ComputerChip {
@@ -25,26 +25,27 @@ export abstract class ComputerChip {
     protected readonly position: { x: number; y: number };
     protected readonly scene: Scene;
 
-    protected static readonly COLORS: Map<string, string> = new Map([
-        ["BODY", DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")],
-        ["COMPONENT", DrawUtils.COLOR_PALETTE.get("LIGHT")],
-        ["TEXT", DrawUtils.COLOR_PALETTE.get("DARK")]
+    protected static readonly COLORS: Map<string, MeshBasicMaterial> = new Map([
+        ["BODY", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})],
+        ["COMPONENT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})],
+        ["TEXT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")})]
     ]);
+
     protected static readonly TEXT_SIZE: number = 0.05;
 
-    protected graphicComponentProperties: Map<string, ComponentGraphicProperties>;
-    protected readonly graphicComponents: Map<string, Mesh>;
-    protected readonly textComponents: Map<string, Mesh>;
+    protected meshProperties: Map<string, MeshProperties>;
+    protected readonly meshes: Map<string, Mesh>;
+    protected readonly textMeshes: Map<string, Mesh>;
 
     protected constructor(id: string, position: [number, number], scene: Scene) {
         this.id = id;
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
-        this.graphicComponents = new Map<string, Mesh>();
-        this.graphicComponentProperties = new Map<string, ComponentGraphicProperties>();
-        this.textComponents = new Map<string, Mesh>();
-        this.computeGraphicComponentDimensions();
-        this.initializeGraphics()
+        this.meshes = new Map<string, Mesh>();
+        this.meshProperties = new Map<string, MeshProperties>();
+        this.textMeshes = new Map<string, Mesh>();
+        this.computeMeshProperties();
+        this.addMeshesToScene()
     }
 
     /**
@@ -53,11 +54,8 @@ export abstract class ComputerChip {
      * NOTE: Does not need to worry about fonts being loaded
      * @protected
      */
-    protected initializeGraphics(): void {
-        this.graphicComponentProperties.forEach((_properties, name: string) => {
-            this.drawSimpleGraphicComponent(name);
-            this.scene.add(this.graphicComponents.get(name));
-        });
+    protected addMeshesToScene(): void {
+        this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
     }
 
     /**
@@ -66,7 +64,7 @@ export abstract class ComputerChip {
      * NOTE: Does not need to worry about fonts being loaded
      * @protected
      */
-    abstract computeGraphicComponentDimensions(): void;
+    abstract computeMeshProperties(): void;
 
     /**
      * Updates the chip
@@ -75,6 +73,11 @@ export abstract class ComputerChip {
      */
     abstract update(): void;
 
+    /**
+     * Renders the chip every frame
+     * Is called in the update loop of all computer chips
+     * @protected
+     */
     abstract drawUpdate(): void;
 
     /**
@@ -83,15 +86,16 @@ export abstract class ComputerChip {
      * @param name The name of the component
      * @protected
      */
-    protected drawSimpleGraphicComponent(name: string): void {
-        if (!this.graphicComponentProperties.has(name))
+    protected addSimpleMesh(name: string): Mesh {
+        if (!this.meshProperties.has(name))
             throw new Error(`Component ${name} not found`);
 
-        const graphicComponent = this.graphicComponentProperties.get(name);
-        const component = DrawUtils.buildQuadrilateralMesh(
-            graphicComponent.width, graphicComponent.height, graphicComponent.color);
-        component.position.set(this.position.x + graphicComponent.xOffset, this.position.y + graphicComponent.yOffset, 0);
-        this.graphicComponents.set(name, component);
+        const mesh = this.meshProperties.get(name);
+        const quadrilateralMesh = DrawUtils.buildQuadrilateralMesh(
+            mesh.width, mesh.height, mesh.color);
+        quadrilateralMesh.position.set(this.position.x + mesh.xOffset, this.position.y + mesh.yOffset, 0);
+        this.meshes.set(name, quadrilateralMesh);
+        return quadrilateralMesh;
     }
 
     /**
@@ -104,9 +108,9 @@ export abstract class ComputerChip {
      * @param color the color of the registers
      * @protected
      */
-    protected drawBuffer(parent: ComponentGraphicProperties, memorySize: number, margin: number, spacing: number, color: string
-    ): Map<string, ComponentGraphicProperties> {
-        const bufferNames: Map<string, ComponentGraphicProperties> = new Map<string, ComponentGraphicProperties>();
+    protected drawBuffer(parent: MeshProperties, memorySize: number, margin: number, spacing: number, color: MeshBasicMaterial
+    ): Map<string, MeshProperties> {
+        const bufferNames: Map<string, MeshProperties> = new Map<string, MeshProperties>();
 
         const innerHeight = parent.height - (2 * margin);
         const totalSpacing = spacing * (memorySize - 1);
@@ -119,9 +123,10 @@ export abstract class ComputerChip {
                 height: rectangleHeight,
                 xOffset: 0,
                 yOffset: startYOffset + i * (rectangleHeight + spacing) - parent.height / 2,
-                color: color
+                color: color,
+                immutable: true
             }
-            this.graphicComponentProperties.set(bufferName, buffer);
+            this.meshProperties.set(bufferName, buffer);
             bufferNames.set(bufferName, buffer);
         }
         return bufferNames;
@@ -137,8 +142,8 @@ export abstract class ComputerChip {
      * @param registerNames the names of the registers
      * @protected
      */
-    protected drawGrid(parent: ComponentGraphicProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
-    ): Map<string, ComponentGraphicProperties> {
+    protected drawGrid(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
+    ): Map<string, MeshProperties> {
         if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
         }
@@ -151,7 +156,7 @@ export abstract class ComputerChip {
         const startX = parent.xOffset - parent.width / 2 + registerWidth / 2;
         const startY = parent.yOffset + parent.height / 2 - registerHeight / 2;
 
-        const registers = new Map<string, ComponentGraphicProperties>();
+        const registers = new Map<string, MeshProperties>();
 
         for (let i = 0; i < rowCount; i++) {
             for (let j = 0; j < columnCount; j++) {
@@ -164,10 +169,11 @@ export abstract class ComputerChip {
                     height: registerHeight,
                     xOffset: xOffset,
                     yOffset: yOffset,
-                    color: ComputerChip.COLORS.get("COMPONENT")
+                    color: ComputerChip.COLORS.get("COMPONENT"),
+                    immutable: false
                 };
 
-                this.graphicComponentProperties.set(registerName, register);
+                this.meshProperties.set(registerName, register);
                 registers.set(registerName, register);
             }
         }
@@ -183,7 +189,7 @@ export abstract class ComputerChip {
      * @protected
      */
     protected drawTextForComponent(componentName: string, componentBuffer: Queue<Instruction>, yOffsetIncrement: number): void {
-        const componentProps = this.graphicComponentProperties.get(componentName);
+        const componentProps = this.meshProperties.get(componentName);
         if (!componentProps) {
             console.warn(`Component properties for ${componentName} not found.`);
             return;
@@ -204,7 +210,7 @@ export abstract class ComputerChip {
                 ComputerChip.COLORS.get("TEXT")
             );
 
-            this.textComponents.set(`${componentName}_TEXT_${i}`, textMesh);
+            this.textMeshes.set(`${componentName}_TEXT_${i}`, textMesh);
         }
     }
 
@@ -215,14 +221,15 @@ export abstract class ComputerChip {
      * @param newColor the new color of the component
      * @protected
      */
-    protected changeComponentColor(componentName: string, newColor: string | number | Color): void {
-        const component = this.graphicComponents.get(componentName);
-        if (component && component.material instanceof MeshBasicMaterial) {
-            component.material.color.set(newColor);
-            component.material.needsUpdate = true;
-        } else {
-            console.warn(`Component '${componentName}' not found or has incompatible material`);
-        }
+    protected changeComponentMesh(componentName: string, newMesh: MeshBasicMaterial): void {
+        if (!this.meshProperties.has(componentName))
+            throw new Error(`Component ${componentName} not found`);
+
+        const mesh = this.meshes.get(componentName);
+        if (!mesh)
+            throw new Error(`Mesh ${componentName} not found`);
+
+        mesh.material = newMesh;
     }
 
 
@@ -230,13 +237,13 @@ export abstract class ComputerChip {
      * Changes the color of a graphic component for a short period of time
      *
      * @param componentName the name of the component
-     * @param newColor the new color of the component
+     * @param newMesh the new color of the component
      * @protected
      */
-    protected blink(componentName: string, newColor: string | number | Color): void {
-        this.changeComponentColor(componentName, newColor);
+    protected blink(componentName: string, newMesh: MeshBasicMaterial): void {
+        this.changeComponentMesh(componentName, newMesh);
         setTimeout(() =>
-                this.changeComponentColor(componentName, this.graphicComponentProperties.get(componentName).color),
+                this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color),
             ComputerChip.ONE_SECOND);
     }
 

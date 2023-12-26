@@ -20,6 +20,8 @@ export class MainMemory extends ComputerChip {
             MainMemory.MEMORY_ADDRESS_NAMES.push(ComputerChip.toHex(i));
     }
 
+    private memoryAddressToUpdate: number = -1;
+
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
         this.memory = new Array(MainMemory.SIZE);
@@ -34,40 +36,44 @@ export class MainMemory extends ComputerChip {
     public write(address: number, value: number): void {
         this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
         this.memory[address] = value;
+        this.memoryAddressToUpdate = address;
     }
 
-    computeGraphicComponentDimensions(): void {
+    computeMeshProperties(): void {
         const body = {
             width: MainMemory.WIDTH,
             height: MainMemory.HEIGHT,
             xOffset: 0,
             yOffset: 0,
-            color: MainMemory.COLORS.get("BODY")
+            color: MainMemory.COLORS.get("BODY"),
+            immutable: true
         };
-        this.graphicComponentProperties.set("BODY", body);
+        this.meshProperties.set("BODY", body);
 
         const memoryAddressMargin = {
             width: 6 * MainMemory.COMPONENTS_INNER_MARGIN,
             height: MainMemory.HEIGHT,
             xOffset: MainMemory.WIDTH / 2 + MainMemory.COMPONENTS_INNER_MARGIN + MainMemory.COMPONENTS_INNER_MARGIN,
             yOffset: 0,
-            color: MainMemory.COLORS.get("BODY")
+            color: MainMemory.COLORS.get("BODY"),
+            immutable: true
         };
-        this.graphicComponentProperties.set("MEMORY_ADDRESS_MARGIN", memoryAddressMargin);
+        this.meshProperties.set("MEMORY_ADDRESS_MARGIN", memoryAddressMargin);
 
         const registerFile = {
             width: MainMemory.WIDTH - (2 * MainMemory.COMPONENTS_INNER_MARGIN),
             height: MainMemory.HEIGHT - (2 * MainMemory.COMPONENTS_INNER_MARGIN),
             xOffset: 0,
             yOffset: 0,
-            color: MainMemory.COLORS.get("BODY")
+            color: MainMemory.COLORS.get("BODY"),
+            immutable: true
         };
-        this.graphicComponentProperties.set("REGISTER_FILE", registerFile);
+        this.meshProperties.set("REGISTER_FILE", registerFile);
 
         this.drawGrid(registerFile, MainMemory.ROW_COUNT, MainMemory.COL_COUNT, MainMemory.COMPONENTS_SPACING,
             MainMemory.MEMORY_ADDRESS_NAMES)
             .forEach((dimensions, name) => {
-                this.textComponents.set(name,
+                this.textMeshes.set(name,
                     DrawUtils.buildTextMesh(name,
                         this.position.x + dimensions.xOffset,
                         this.position.y + dimensions.yOffset + dimensions.height / 2,
@@ -80,46 +86,51 @@ export class MainMemory extends ComputerChip {
     }
 
     drawUpdate(): void {
-        this.textComponents.forEach((mesh, componentName) => {
-            if (componentName.endsWith("_CONTENT")) {
-                this.scene.remove(mesh);
-                this.textComponents.delete(componentName);
-            }
-        });
-        this.drawAllMemoryContent();
-        this.textComponents.forEach(comp => {this.scene.add(comp)});
+        if (this.memoryAddressToUpdate < 0)
+            return;
+        const modifiedTextMeshName = `${MainMemory.MEMORY_ADDRESS_NAMES[this.memoryAddressToUpdate]}_CONTENT`;
+        this.scene.remove(this.textMeshes.get(modifiedTextMeshName));
+        this.textMeshes.delete(modifiedTextMeshName);
+        this.drawMemoryContent(this.memoryAddressToUpdate);
+        this.scene.add(this.textMeshes.get(modifiedTextMeshName));
+        this.memoryAddressToUpdate = -1;
+
     }
 
     private initialize(): void {
         for (let i = 0; i < MainMemory.SIZE; i++)
             this.memory[i] = Math.floor(Math.random() * MainMemory.MAX_VALUE);
         this.drawAllMemoryContent()
-        this.drawMemoryLineAddressTag();
+        this.drawMemoryWordAddressTags();
+        this.textMeshes.forEach(mesh => this.scene.add(mesh));
     }
 
     private drawAllMemoryContent(): void {
-        for (let i = 0; i < MainMemory.SIZE; i++) {
-            const memoryAddressRegister = this.graphicComponentProperties.get(
-                MainMemory.MEMORY_ADDRESS_NAMES[i]);
-            this.textComponents.set(
-                `${MainMemory.MEMORY_ADDRESS_NAMES[i]}_CONTENT`,
-                DrawUtils.buildTextMesh(this.memory[i].toString(),
-                    this.position.x + memoryAddressRegister.xOffset,
-                    this.position.y + memoryAddressRegister.yOffset,
-                    MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
-                ));
-        }
+        for (let i = 0; i < MainMemory.SIZE; i++)
+            this.drawMemoryContent(i);
     }
 
-    private drawMemoryLineAddressTag(): void {
+    private drawMemoryContent(address: number): void {
+        const memoryAddressRegister = this.meshProperties.get(
+            MainMemory.MEMORY_ADDRESS_NAMES[address]);
+        this.textMeshes.set(
+            `${MainMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
+            DrawUtils.buildTextMesh(this.memory[address].toString(),
+                this.position.x + memoryAddressRegister.xOffset,
+                this.position.y + memoryAddressRegister.yOffset,
+                MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
+            ));
+    }
+
+    private drawMemoryWordAddressTags(): void {
         for (let i = 0; i < MainMemory.ROW_COUNT; i++) {
-            const memoryAddressRegister = this.graphicComponentProperties.get(
+            const memoryAddressRegister = this.meshProperties.get(
                 MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]);
-            this.textComponents.set(
+            this.textMeshes.set(
                 `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
                 DrawUtils.buildTextMesh(
                     MainMemory.toHex(i * MainMemory.COL_COUNT),
-                    this.position.x + this.graphicComponentProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
+                    this.position.x + this.meshProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
                     - MainMemory.COMPONENTS_INNER_MARGIN,
                     this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
                     MainMemory.TEXT_SIZE/2, MainMemory.COLORS.get("TEXT")

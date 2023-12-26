@@ -1,4 +1,4 @@
-import {OrthographicCamera, Scene, WebGLRenderer} from "three";
+import {MeshBasicMaterial, OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
@@ -107,7 +107,7 @@ class App {
     private drawHUD(): void {
         this.scene.add(
             DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8,
-                0.1, DrawUtils.COLOR_PALETTE.get("LIGHT"))
+                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
         );
     }
 

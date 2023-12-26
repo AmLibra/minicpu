@@ -58,13 +58,14 @@ export class CPU extends ComputerChip {
         this.isPipelined = false;
     }
 
-    computeGraphicComponentDimensions(): void {
+    computeMeshProperties(): void {
         const cpuBody = {
             width: CPU.WIDTH,
             height: CPU.HEIGHT,
             xOffset: 0,
             yOffset: 0,
-            color: CPU.COLORS.get("BODY")
+            color: CPU.COLORS.get("BODY"),
+            immutable: true
         };
 
         const innerWidth = CPU.WIDTH - (2 * CPU.COMPONENTS_INNER_MARGIN);
@@ -75,7 +76,8 @@ export class CPU extends ComputerChip {
             height: CPU.INSTRUCTION_BUFFER_HEIGHT,
             xOffset: 0, // Centered horizontally
             yOffset: -(innerHeight / 2) + (CPU.INSTRUCTION_BUFFER_HEIGHT / 2), // Positioned at the top
-            color: CPU.COLORS.get("COMPONENT")
+            color: CPU.COLORS.get("COMPONENT"),
+            immutable: true
         };
 
         const decoder = {
@@ -84,7 +86,8 @@ export class CPU extends ComputerChip {
             xOffset: 0, // Centered horizontally
             yOffset: instructionBuffer.yOffset + (instructionBuffer.height / 2) + CPU.COMPONENTS_SPACING
                 + (CPU.DECODER_HEIGHT / 2), // Positioned below the instruction buffer
-            color: CPU.COLORS.get("COMPONENT")
+            color: CPU.COLORS.get("COMPONENT"),
+            immutable: true
         };
 
         const registerFile = {
@@ -93,7 +96,8 @@ export class CPU extends ComputerChip {
             xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_WIDTH / 2) - (CPU.WIDTH / 2),
             yOffset: decoder.yOffset + decoder.height / 2 + CPU.COMPONENTS_SPACING +
                 (innerHeight - instructionBuffer.height - decoder.height - 2 * CPU.COMPONENTS_SPACING) / 2,
-            color: CPU.COLORS.get("BODY")
+            color: CPU.COLORS.get("BODY"),
+            immutable: true
         };
 
         // Compute ALU width dynamically to fit the remaining space
@@ -103,22 +107,21 @@ export class CPU extends ComputerChip {
             height: registerFile.height, // Match the height of the register
             xOffset: CPU.WIDTH / 2 - CPU.COMPONENTS_INNER_MARGIN - aluWidth / 2,
             yOffset: registerFile.yOffset, // Aligned vertically with the register
-            color: CPU.COLORS.get("COMPONENT")
+            color: CPU.COLORS.get("COMPONENT"),
+            immutable: true
         };
 
-        this.graphicComponentProperties = new Map(
-            [
-                ["CPU", cpuBody],
-                ["INSTRUCTION_BUFFER", instructionBuffer],
-                ["DECODER", decoder],
-                ["REGISTER_FILE", registerFile],
-                ["ALU", alu]
-            ]
-        );
+        this.meshProperties = new Map([
+            ["CPU", cpuBody],
+            ["INSTRUCTION_BUFFER", instructionBuffer],
+            ["DECODER", decoder],
+            ["REGISTER_FILE", registerFile],
+            ["ALU", alu]
+        ]);
 
         this.drawGrid(registerFile, CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
             .forEach((dimensions, name) => {
-                this.textComponents.set(name,
+                this.textMeshes.set(name,
                     DrawUtils.buildTextMesh(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
                         CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
             });
@@ -129,25 +132,29 @@ export class CPU extends ComputerChip {
             this.processALU();
             this.decodeAll();
             this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-            this.refillInstructionBufferIfEmpty()
         }
+        else {
+            this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
+            this.decodeAll();
+            this.processALU();
+        }
+        this.refillInstructionBufferIfEmpty()
     }
 
     drawUpdate(): void {
-        this.textComponents.forEach((mesh, componentName) => {
-            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName)))
-            {
+        this.textMeshes.forEach((mesh, componentName) => {
+            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName))) {
                 this.scene.remove(mesh);
-                this.textComponents.delete(componentName);
+                this.textMeshes.delete(componentName);
             }
         });
-        console.log(this.instructionBuffer);
+
         this.registerValues.forEach((_value, registerName) => this.drawRegisterValues(registerName));
         this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
         this.drawTextForComponent("DECODER", this.decoders, 0.07);
         this.drawALUText();
 
-        this.textComponents.forEach(comp => this.scene.add(comp));
+        this.textMeshes.forEach(comp => this.scene.add(comp));
     }
 
     public setPipelined(isPipelined: boolean): void {
@@ -191,7 +198,8 @@ export class CPU extends ComputerChip {
     }
 
     private preventOverflow(n: number): number {
-        return n % MainMemory.MAX_VALUE;
+        const result = n % MainMemory.MAX_VALUE;
+        return result >= 0 ? result : result + MainMemory.MAX_VALUE;
     }
 
     private decodeAll(): void {
@@ -231,17 +239,17 @@ export class CPU extends ComputerChip {
     }
 
     private drawRegisterValues(registerName: string): void {
-        this.textComponents.set(registerName + "_CONTENT",
+        this.textMeshes.set(registerName + "_CONTENT",
             DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
-                this.position.x + this.graphicComponentProperties.get(registerName).xOffset,
-                this.position.y + this.graphicComponentProperties.get(registerName).yOffset,
+                this.position.x + this.meshProperties.get(registerName).xOffset,
+                this.position.y + this.meshProperties.get(registerName).yOffset,
                 CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
     }
 
     private drawALUText(): void {
         const alu = this.ALUs.get(0);
         if (!alu) return;
-        const aluProps = this.graphicComponentProperties.get("ALU");
+        const aluProps = this.meshProperties.get("ALU");
         const distanceToCenter = 0.08;
         this.drawALUTextComponent("ALU_OP", alu.getOpcode(), aluProps.xOffset, aluProps.yOffset - 0.07);
         this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(),
@@ -252,6 +260,6 @@ export class CPU extends ComputerChip {
     }
 
     private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
-        this.textComponents.set(key, DrawUtils.buildTextMesh(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+        this.textMeshes.set(key, DrawUtils.buildTextMesh(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
     }
 }
