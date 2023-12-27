@@ -1,4 +1,4 @@
-import {Material, Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
+import {CircleGeometry, Material, Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 
@@ -24,6 +24,10 @@ export class DrawUtils {
 
     public static isFontLoaded: boolean = false;
 
+    public static baseTextHeight: number;
+    public static baseTextWidth: number;
+
+
     /**
      * Loads the program font asynchronously.
      */
@@ -37,6 +41,9 @@ export class DrawUtils {
             this.fontLoader.load(this.FONT, (font: Font) => {
                 this.font = font;
                 this.isFontLoaded = true;
+                const mesh = this.buildTextMesh("A", 0, 0, 0.1, new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
+                this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
+                this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
                 resolve();
             }, undefined, (error) => {
                 reject(error);
@@ -54,6 +61,17 @@ export class DrawUtils {
      */
     public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material): Mesh {
         return new Mesh(new PlaneGeometry(width, height), color);
+    }
+
+    /**
+     * Generates a circle mesh with the specified radius and color.
+     * @param radius the radius of the circle
+     * @param color the color of the circle
+     *
+     * @returns a circle mesh
+     */
+    public static buildCircleMesh(radius: number = 1, color: Material): Mesh {
+        return new Mesh(new CircleGeometry(radius), color);
     }
 
     /**
@@ -82,7 +100,7 @@ export class DrawUtils {
         const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
         textMesh.position.set(
             xOffset - textWidth / 2, // Center the text
-            yOffset - textHeight, // use top of text as the origin
+            yOffset - textHeight / 2, // use top of text as the origin
             0
         );
         return textMesh;

@@ -1,8 +1,9 @@
-import {Color, Material, Mesh, MeshBasicMaterial, Scene} from "three";
+import {Mesh, MeshBasicMaterial, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
+import {CPU} from "./CPU";
 
 
 /**
@@ -106,23 +107,30 @@ export abstract class ComputerChip {
      * @param margin the margin between the buffer and the parent
      * @param spacing the spacing between each register
      * @param color the color of the registers
+     * @param reverse whether to draw the buffers in reverse order
      * @protected
      */
-    protected drawBuffer(parent: MeshProperties, memorySize: number, margin: number, spacing: number, color: MeshBasicMaterial
+    protected drawBuffer(parentName: string,
+                         parent: MeshProperties, memorySize: number, margin: number, spacing: number, color: MeshBasicMaterial,
+                         reverse: boolean = false
     ): Map<string, MeshProperties> {
         const bufferNames: Map<string, MeshProperties> = new Map<string, MeshProperties>();
 
         const innerHeight = parent.height - (2 * margin);
         const totalSpacing = spacing * (memorySize - 1);
         const rectangleHeight = (innerHeight - totalSpacing) / memorySize;
-        const startYOffset = margin + rectangleHeight / 2;
+        const startYOffset = reverse ? parent.yOffset - margin - rectangleHeight / 2:
+            parent.yOffset + margin + rectangleHeight / 2;
         for (let i = 0; i < memorySize; ++i) {
-            const bufferName = `BUFFER_${i}`;
+            const bufferName = `${parentName}_BUFFER_${i}`;
+            const yOffset = reverse ? startYOffset - i * (rectangleHeight + spacing) + parent.height / 2 :
+                startYOffset + i * (rectangleHeight + spacing) - parent.height / 2;
+
             const buffer = {
                 width: parent.width - (2 * margin),
                 height: rectangleHeight,
                 xOffset: 0,
-                yOffset: startYOffset + i * (rectangleHeight + spacing) - parent.height / 2,
+                yOffset: yOffset,
                 color: color,
                 immutable: true
             }
@@ -130,6 +138,29 @@ export abstract class ComputerChip {
             bufferNames.set(bufferName, buffer);
         }
         return bufferNames;
+    }
+
+    /**
+     * Draws the contents of a buffer
+     *
+     * @param buffer the buffer to draw
+     * @param bufferName the name of the buffer
+     * @protected
+     */
+    protected drawBufferContents(buffer: Queue<Instruction>, bufferName: string) {
+        for (let i = 0; i < buffer.size(); ++i) {
+            const instruction = buffer.get(i);
+            if (instruction) {
+                const bufferReg = this.meshProperties.get(`${bufferName}_BUFFER_${i}`);
+                this.textMeshes.set(`${bufferName}_BUFFER_${i}`,
+                    DrawUtils.buildTextMesh(instruction.toString(),
+                        this.position.x,
+                        this.position.y + bufferReg.yOffset,
+                        ComputerChip.TEXT_SIZE,
+                        ComputerChip.COLORS.get("TEXT"))
+                );
+            }
+        }
     }
 
     /**
@@ -180,6 +211,54 @@ export abstract class ComputerChip {
         return registers;
     }
 
+    protected drawPinsRight(parent: MeshProperties, pinCount: number, pinSpacing: number, pinNames?: string[]): Map<string, Mesh> {
+        if (pinNames && pinNames.length != pinCount) {
+            throw new Error("Number of pin names does not match the number of pins");
+        }
+
+        const pinRadius = 0.02;
+        // Calculating the starting position
+        const startX = parent.xOffset + parent.width / 2 + pinRadius;
+        const startY = parent.yOffset + parent.height / 2 - 1.5 * pinRadius;
+
+        const pins = new Map<string, Mesh>();
+
+        for (let i = 0; i < pinCount; i++) {
+            const xOffset = startX;
+            const yOffset = startY - i * (pinRadius + pinSpacing);
+
+            const pinName = pinNames ? pinNames[i] : `PIN${i}`;
+            const pin = DrawUtils.buildCircleMesh(pinRadius, ComputerChip.COLORS.get("COMPONENT"));
+            pin.position.set(xOffset, yOffset, 0);
+            pins.set(pinName, pin);
+        }
+        return pins;
+    }
+
+    protected drawPinsLeft(parent: MeshProperties, pinCount: number, pinSpacing: number, pinNames?: string[]): Map<string, Mesh> {
+        if (pinNames && pinNames.length != pinCount) {
+            throw new Error("Number of pin names does not match the number of pins");
+        }
+
+        const pinRadius = 0.02;
+        // Calculating the starting position
+        const startX = parent.xOffset - parent.width / 2 - pinRadius;
+        const startY = parent.yOffset + parent.height / 2 - 1.5 * pinRadius;
+
+        const pins = new Map<string, Mesh>();
+
+        for (let i = 0; i < pinCount; i++) {
+            const xOffset = startX;
+            const yOffset = startY - i * (pinRadius + pinSpacing);
+
+            const pinName = pinNames ? pinNames[i] : `PIN${i}`;
+            const pin = DrawUtils.buildCircleMesh(pinRadius, ComputerChip.COLORS.get("COMPONENT"));
+            pin.position.set(xOffset, yOffset, 0);
+            pins.set(pinName, pin);
+        }
+        return pins;
+    }
+
     /**
      * Draws text for a simple buffer component
      *
@@ -188,15 +267,16 @@ export abstract class ComputerChip {
      * @param yOffsetIncrement the amount to increment the y offset by for each instruction
      * @protected
      */
-    protected drawTextForComponent(componentName: string, componentBuffer: Queue<Instruction>, yOffsetIncrement: number): void {
+    protected drawTextForComponent(componentName: string, componentBuffer: Queue<Instruction>): void {
         const componentProps = this.meshProperties.get(componentName);
         if (!componentProps) {
             console.warn(`Component properties for ${componentName} not found.`);
             return;
         }
 
-        const baseYOffset = componentProps.yOffset + componentProps.height / 2; // Calculate once
-
+        const baseYOffset = this.position.y +
+            componentProps.yOffset + componentProps.height / 2 - DrawUtils.baseTextHeight / 2; // Calculate once
+        const yOffsetIncrement = (componentProps.height - DrawUtils.baseTextHeight / 2) / componentBuffer.maxSize;
         for (let i = 0; i < componentBuffer.size(); ++i) {
             const instruction = componentBuffer.get(i);
             if (!instruction) continue; // Skip if no instruction
@@ -244,7 +324,7 @@ export abstract class ComputerChip {
         this.changeComponentMesh(componentName, newMesh);
         setTimeout(() =>
                 this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color),
-            ComputerChip.ONE_SECOND);
+            ComputerChip.ONE_SECOND / CPU.CLOCK_SPEED );
     }
 
     /**

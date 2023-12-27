@@ -1,4 +1,4 @@
-import {Scene} from "three";
+import {Material, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
@@ -7,12 +7,13 @@ import {MainMemory} from "./MainMemory";
 import {Queue} from "../components/Queue";
 
 export class CPU extends ComputerChip {
-    public static readonly CLOCK_SPEED: number = 0.5; // Hz
+    public static readonly CLOCK_SPEED: number = 1; // Hz
 
     public readonly rom: ROM;
     public readonly mainMemory: MainMemory;
 
     public static readonly INSTRUCTION_BUFFER_SIZE: number = 4; // Words
+    private static readonly BUFFER_HEIGHT: number = 0.12;
     private readonly instructionBuffer: Queue<Instruction>;
 
     public static DECODER_COUNT: number = 1;
@@ -21,7 +22,9 @@ export class CPU extends ComputerChip {
     public static ALU_COUNT: number = 1;
     private readonly ALUs: Queue<Instruction>;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR", "XOR", "SHL", "SHR"];
+    public static readonly MIN_ALU_WIDTH = 0.2;
 
+    public static readonly REGISTER_SIDE_LENGTH: number = 0.15;
     private static readonly REGISTER_FILE_ROW_COUNT = 4;
     private static readonly REGISTER_FILE_COL_COUNT = 4;
     private static readonly REGISTER_FILE_MARGIN = 0.01;
@@ -35,14 +38,18 @@ export class CPU extends ComputerChip {
 
     private readonly registerValues: Map<string, number>;
     private isPipelined: boolean;
+    private hasProcessedALUInstruction: boolean = false;
+    private waitingForMemory: boolean = false;
 
-    private static readonly WIDTH: number = 1.2;
-    private static readonly HEIGHT: number = 1.2;
     private static readonly COMPONENTS_INNER_MARGIN = 0.03;
     private static readonly COMPONENTS_SPACING = 0.02;
-    private static readonly INSTRUCTION_BUFFER_HEIGHT = 0.3;
-    private static readonly DECODER_HEIGHT = 0.1;
-    private static readonly REGISTER_WIDTH = 0.7;
+    private static readonly INSTRUCTION_BUFFER_HEIGHT = CPU.BUFFER_HEIGHT * CPU.INSTRUCTION_BUFFER_SIZE;
+    private static readonly DECODER_HEIGHT = CPU.BUFFER_HEIGHT * CPU.DECODER_COUNT;
+    private static readonly REGISTER_FILE_WIDTH = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_SIDE_LENGTH;
+    private static readonly REGISTER_FILE_HEIGHT = CPU.REGISTER_FILE_ROW_COUNT * CPU.REGISTER_SIDE_LENGTH;
+    private static readonly WIDTH: number = 1;
+    private static readonly HEIGHT: number = CPU.INSTRUCTION_BUFFER_HEIGHT + CPU.DECODER_HEIGHT +
+        CPU.REGISTER_FILE_HEIGHT + 2 * CPU.COMPONENTS_SPACING;
 
     constructor(id: string, position: [number, number], scene: Scene, rom: ROM, mainMemory: MainMemory) {
         super(id, position, scene)
@@ -74,7 +81,7 @@ export class CPU extends ComputerChip {
         const instructionBuffer = {
             width: innerWidth, // Use the full inner width
             height: CPU.INSTRUCTION_BUFFER_HEIGHT,
-            xOffset: 0, // Centered horizontally
+            xOffset: this.position.x, // Centered horizontally
             yOffset: -(innerHeight / 2) + (CPU.INSTRUCTION_BUFFER_HEIGHT / 2), // Positioned at the top
             color: CPU.COLORS.get("COMPONENT"),
             immutable: true
@@ -83,7 +90,7 @@ export class CPU extends ComputerChip {
         const decoder = {
             width: instructionBuffer.width, // Match the width of the instruction buffer
             height: CPU.DECODER_HEIGHT,
-            xOffset: 0, // Centered horizontally
+            xOffset: this.position.x, // Centered horizontally
             yOffset: instructionBuffer.yOffset + (instructionBuffer.height / 2) + CPU.COMPONENTS_SPACING
                 + (CPU.DECODER_HEIGHT / 2), // Positioned below the instruction buffer
             color: CPU.COLORS.get("COMPONENT"),
@@ -91,9 +98,9 @@ export class CPU extends ComputerChip {
         };
 
         const registerFile = {
-            width: CPU.REGISTER_WIDTH,
+            width: CPU.REGISTER_FILE_WIDTH,
             height: innerHeight - instructionBuffer.height - decoder.height - (2 * CPU.COMPONENTS_SPACING),
-            xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_WIDTH / 2) - (CPU.WIDTH / 2),
+            xOffset: CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_FILE_WIDTH / 2) - (CPU.WIDTH / 2),
             yOffset: decoder.yOffset + decoder.height / 2 + CPU.COMPONENTS_SPACING +
                 (innerHeight - instructionBuffer.height - decoder.height - 2 * CPU.COMPONENTS_SPACING) / 2,
             color: CPU.COLORS.get("BODY"),
@@ -101,7 +108,7 @@ export class CPU extends ComputerChip {
         };
 
         // Compute ALU width dynamically to fit the remaining space
-        const aluWidth = innerWidth - CPU.REGISTER_WIDTH - CPU.COMPONENTS_SPACING;
+        const aluWidth = innerWidth - CPU.REGISTER_FILE_WIDTH - CPU.COMPONENTS_SPACING;
         const alu = {
             width: aluWidth,
             height: registerFile.height, // Match the height of the register
@@ -113,21 +120,41 @@ export class CPU extends ComputerChip {
 
         this.meshProperties = new Map([
             ["CPU", cpuBody],
-            ["INSTRUCTION_BUFFER", instructionBuffer],
-            ["DECODER", decoder],
             ["REGISTER_FILE", registerFile],
             ["ALU", alu]
         ]);
 
+        this.drawBuffer("INSTRUCTION", instructionBuffer, CPU.INSTRUCTION_BUFFER_SIZE,
+            0, CPU.COMPONENTS_SPACING/2, CPU.COLORS.get("COMPONENT"), true);
+
+        this.drawBuffer("DECODER", decoder, CPU.DECODER_COUNT, 0, CPU.COMPONENTS_SPACING / 2,
+            CPU.COLORS.get("COMPONENT"), true);
+
         this.drawGrid(registerFile, CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
             .forEach((dimensions, name) => {
-                this.textMeshes.set(name,
-                    DrawUtils.buildTextMesh(name, dimensions.xOffset, dimensions.yOffset + dimensions.height / 2,
-                        CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
+                this.scene.add(DrawUtils.buildTextMesh(name,
+                    this.position.x + dimensions.xOffset,
+                    this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
+                    CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
             });
+
+        /**this.drawPinsRight(this.meshProperties.get("CPU"), 18, 0.05).forEach(
+            (mesh, name) => {
+                this.scene.add(mesh);
+            }
+        );
+        this.drawPinsLeft(this.meshProperties.get("CPU"), 18, 0.05).forEach(
+            (mesh, name) => {
+                this.scene.add(mesh);
+            }
+        ); */
     }
 
     update() {
+        if (this.waitingForMemory)
+            return;
+
+        if (this.refillInstructionBufferIfEmpty()) return;
         if (this.isPipelined) {
             this.processALU();
             this.decodeAll();
@@ -138,20 +165,24 @@ export class CPU extends ComputerChip {
             this.decodeAll();
             this.processALU();
         }
-        this.refillInstructionBufferIfEmpty()
+
     }
 
     drawUpdate(): void {
+        const toDispose = [];
         this.textMeshes.forEach((mesh, componentName) => {
-            if (componentName.endsWith("_CONTENT") || !(this.registerValues.has(componentName))) {
                 this.scene.remove(mesh);
-                this.textMeshes.delete(componentName);
+                mesh.geometry.dispose();
+                if (mesh.material instanceof Material)
+                    mesh.material.dispose();
+                toDispose.push(componentName);
             }
-        });
+        );
+        toDispose.forEach(comp => this.textMeshes.delete(comp));
 
         this.registerValues.forEach((_value, registerName) => this.drawRegisterValues(registerName));
-        this.drawTextForComponent("INSTRUCTION_BUFFER", this.instructionBuffer, 0.07);
-        this.drawTextForComponent("DECODER", this.decoders, 0.07);
+        this.drawBufferContents(this.instructionBuffer, "INSTRUCTION");
+        this.drawBufferContents(this.decoders, "DECODER");
         this.drawALUText();
 
         this.textMeshes.forEach(comp => this.scene.add(comp));
@@ -169,6 +200,7 @@ export class CPU extends ComputerChip {
             this.blink(alu.getOp1Reg(), CPU.COLORS.get("TEXT"));
             this.blink(alu.getOp2Reg(), CPU.COLORS.get("TEXT"));
             this.ALUs.clear();
+            this.hasProcessedALUInstruction = true;
         }
     }
 
@@ -208,13 +240,15 @@ export class CPU extends ComputerChip {
                 this.decode(i);
     }
 
-    private refillInstructionBufferIfEmpty(): void {
+    private refillInstructionBufferIfEmpty(): boolean {
         if (this.instructionBuffer.isEmpty()) {
             if (!this.rom.isEmpty()) {
                 let instructions = this.rom.read(CPU.INSTRUCTION_BUFFER_SIZE);
                 this.moveInstructions(instructions, this.instructionBuffer, CPU.INSTRUCTION_BUFFER_SIZE);
+                return true;
             }
-        }
+        } else
+            return false;
     }
 
     private decode(index: number): void {
@@ -224,7 +258,10 @@ export class CPU extends ComputerChip {
             this.ALUs.enqueue(this.decoders.dequeue())
             return;
         } else if (instruction.isMemoryOperation()) {
-            if (!this.ALUs.isEmpty()) return;
+            if (this.hasProcessedALUInstruction || !this.ALUs.isEmpty()){
+                this.hasProcessedALUInstruction = false;
+                return;
+            }
 
             if (instruction.getOpcode() == "LOAD")
                 this.registerValues.set(instruction.getResultReg(), this.mainMemory.read(instruction.getAddress()));
@@ -260,6 +297,8 @@ export class CPU extends ComputerChip {
     }
 
     private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
-        this.textMeshes.set(key, DrawUtils.buildTextMesh(text, xOffset, yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+        this.textMeshes.set(key, DrawUtils.buildTextMesh(text,
+            this.position.x + xOffset,
+            this.position.y + yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
     }
 }

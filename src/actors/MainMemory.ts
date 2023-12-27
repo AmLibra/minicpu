@@ -1,17 +1,21 @@
 import {ComputerChip} from "./ComputerChip";
-import {Scene} from "three";
+import {Material, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 
 export class MainMemory extends ComputerChip {
-    public static readonly WIDTH: number = 0.75;
-    public static readonly HEIGHT: number = 2.4;
+
     public static readonly COMPONENTS_INNER_MARGIN = 0.03;
     public static readonly COMPONENTS_SPACING = 0.01;
-    public static readonly ROW_COUNT = 16; // 16 words
-    public static readonly COL_COUNT = 4; // 4 bytes per word
+    public static readonly ROW_COUNT = 8; // words
+    public static readonly COL_COUNT = 4; // bytes per word
     public static readonly SIZE: number = MainMemory.ROW_COUNT * MainMemory.COL_COUNT;
+    public static readonly REGISTER_SIZE: number = 0.15;
 
-    public static readonly MAX_VALUE = 256
+    public static readonly WIDTH: number = (MainMemory.REGISTER_SIZE) * MainMemory.COL_COUNT
+        + MainMemory.COMPONENTS_INNER_MARGIN * 2;
+    public static readonly HEIGHT: number = MainMemory.REGISTER_SIZE * MainMemory.ROW_COUNT
+
+    public static readonly MAX_VALUE = 64
 
     private readonly memory: number[];
     private static readonly MEMORY_ADDRESS_NAMES: string[] = [];
@@ -73,11 +77,12 @@ export class MainMemory extends ComputerChip {
         this.drawGrid(registerFile, MainMemory.ROW_COUNT, MainMemory.COL_COUNT, MainMemory.COMPONENTS_SPACING,
             MainMemory.MEMORY_ADDRESS_NAMES)
             .forEach((dimensions, name) => {
-                this.textMeshes.set(name,
+                this.scene.add(
                     DrawUtils.buildTextMesh(name,
                         this.position.x + dimensions.xOffset,
-                        this.position.y + dimensions.yOffset + dimensions.height / 2,
-                        MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY")));
+                        this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
+                        MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY"))
+                );
             });
     }
 
@@ -90,6 +95,9 @@ export class MainMemory extends ComputerChip {
             return;
         const modifiedTextMeshName = `${MainMemory.MEMORY_ADDRESS_NAMES[this.memoryAddressToUpdate]}_CONTENT`;
         this.scene.remove(this.textMeshes.get(modifiedTextMeshName));
+        this.textMeshes.get(modifiedTextMeshName).geometry.dispose();
+        if (this.textMeshes.get(modifiedTextMeshName).material instanceof Material)
+            (this.textMeshes.get(modifiedTextMeshName).material as Material).dispose();
         this.textMeshes.delete(modifiedTextMeshName);
         this.drawMemoryContent(this.memoryAddressToUpdate);
         this.scene.add(this.textMeshes.get(modifiedTextMeshName));
@@ -116,25 +124,25 @@ export class MainMemory extends ComputerChip {
         this.textMeshes.set(
             `${MainMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
             DrawUtils.buildTextMesh(this.memory[address].toString(),
-                this.position.x + memoryAddressRegister.xOffset,
-                this.position.y + memoryAddressRegister.yOffset,
+                this.position.x + memoryAddressRegister.xOffset         ,
+                this.position.y + memoryAddressRegister.yOffset
+                - DrawUtils.baseTextHeight / 4,
                 MainMemory.TEXT_SIZE, MainMemory.COLORS.get("TEXT")
             ));
     }
 
     private drawMemoryWordAddressTags(): void {
         for (let i = 0; i < MainMemory.ROW_COUNT; i++) {
-            const memoryAddressRegister = this.meshProperties.get(
-                MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]);
-            this.textMeshes.set(
-                `${MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]}_OFFSET`,
+            const memoryAddressRegister = this.meshProperties.get(MainMemory.MEMORY_ADDRESS_NAMES[i * MainMemory.COL_COUNT]);
+            this.scene.add(
                 DrawUtils.buildTextMesh(
                     MainMemory.toHex(i * MainMemory.COL_COUNT),
                     this.position.x + this.meshProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
                     - MainMemory.COMPONENTS_INNER_MARGIN,
                     this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
                     MainMemory.TEXT_SIZE/2, MainMemory.COLORS.get("TEXT")
-                ));
+                )
+            );
         }
     }
 }
