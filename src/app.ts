@@ -1,4 +1,4 @@
-import {MeshBasicMaterial, OrthographicCamera, Scene, WebGLRenderer} from "three";
+import {MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
@@ -16,10 +16,13 @@ class App {
     private camera: OrthographicCamera;
     private renderer: WebGLRenderer;
 
+    private raycaster = new Raycaster();
+    private mouse = new Vector2();
+
     private gameActors: ComputerChip[] = []
 
     constructor() {
-        this.init().then( () => {
+        this.init().then(() => {
                 this.animate();
                 this.startGameLoop()
             }
@@ -40,11 +43,12 @@ class App {
 
         const aspect = window.innerWidth / window.innerHeight; // set the aspect ratio of the camera
 
-        // create an orthographic camera, positioned at (0, 0, 10) and pointing along the Z-axis
-        this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 2);
+        // create an orthographic camera,
+        this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
         this.camera.position.set(0, 0, 2); // Positioned along the Z-axis
         // Zoom out a bit so that the entire scene is visible, do not forget to update the projection matrix!
         this.camera.zoom = 0.8;
+        this.camera.updateProjectionMatrix();
         this.camera.updateProjectionMatrix();
 
         // add a listener for the window resize event to update the camera and renderer size accordingly
@@ -59,6 +63,8 @@ class App {
         // Load the font and start the game
         try {
             await DrawUtils.loadFont();
+               // draw an infinite grid
+        DrawUtils.drawGrid(this.scene)
             this.loadGame();
         } catch (error) {
             throw new Error("Could not load font: " + error);
@@ -95,8 +101,8 @@ class App {
      * @private
      */
     private loadGame(): void {
-        this.drawHUD();
         this.addGameActors();
+        this.drawHUD();
     }
 
     /**
@@ -106,8 +112,16 @@ class App {
      */
     private drawHUD(): void {
         this.scene.add(
-            DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 0.8,
+            DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 1,
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
+        );
+
+        const triangleMesh = DrawUtils.buildTriangleMesh(
+            0.2, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})
+        );
+        // pause button
+        this.scene.add(
+            triangleMesh.translateX(1.5).translateY(1).rotateZ(- Math.PI / 2)
         );
     }
 

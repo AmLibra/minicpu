@@ -41,6 +41,7 @@ export class ROM extends ComputerChip {
             new MeshProperties(ROM.WIDTH, ROM.HEIGHT, 0, 0, ROM.COLORS.get("BODY"), true));
         this.drawBuffer("", this.meshProperties.get("ROM"), ROM.MEMORY_SIZE,
             ROM.MARGIN, ROM.COMPONENTS_SPACING, ROM.COLORS.get("COMPONENT"));
+        this.drawPins(this.meshProperties.get("ROM"), 'left', ROM.MEMORY_SIZE).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     update() {
@@ -64,8 +65,6 @@ export class ROM extends ComputerChip {
         this.textMeshes.forEach(comp => this.scene.add(comp));
         this.needsUpdate = false;
     }
-
-
 
     private fillInstructionMemoryIfEmpty() {
         if (this.instructionMemory.isEmpty()) {

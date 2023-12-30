@@ -84,6 +84,8 @@ export class MainMemory extends ComputerChip {
                         MainMemory.TEXT_SIZE / 2, MainMemory.COLORS.get("BODY"))
                 );
             });
+
+         this.drawPins(this.meshProperties.get("MEMORY_ADDRESS_MARGIN"), 'right', MainMemory.ROW_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     update(): void {

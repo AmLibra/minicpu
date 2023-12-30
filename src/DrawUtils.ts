@@ -1,4 +1,13 @@
-import {CircleGeometry, Material, Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
+import {
+    BufferAttribute,
+    BufferGeometry,
+    GridHelper,
+    Material,
+    Mesh,
+    MeshBasicMaterial,
+    PlaneGeometry,
+    Scene
+} from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 
@@ -64,17 +73,6 @@ export class DrawUtils {
     }
 
     /**
-     * Generates a circle mesh with the specified radius and color.
-     * @param radius the radius of the circle
-     * @param color the color of the circle
-     *
-     * @returns a circle mesh
-     */
-    public static buildCircleMesh(radius: number = 1, color: Material): Mesh {
-        return new Mesh(new CircleGeometry(radius), color);
-    }
-
-    /**
      * Generates a text mesh with the specified text, size and color.
      * @param text the text to be displayed
      * @param xOffset the x offset of the text
@@ -105,6 +103,34 @@ export class DrawUtils {
         );
         return textMesh;
     }
+
+    public static drawGrid(scene: Scene): void {
+        const gridColor = DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK");
+        const size = 100; // A large size to simulate infinity
+        const divisions = 1000; // Number of divisions in the grid
+        const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);
+        gridHelper.rotateX(Math.PI / 2);
+        gridHelper.material.depthWrite = false;
+        gridHelper.position.set(0, 0, -0.01);
+        scene.add(gridHelper);
+    }
+
+   public static buildTriangleMesh(side: number, color: THREE.Color | THREE.Material): THREE.Mesh {
+    const height = Math.sqrt(3) / 2 * side; // Calculate height of an equilateral triangle
+
+    const geometry = new BufferGeometry();
+    const vertices = new Float32Array([
+        -side / 2, -height / 2, 0.0,  // Vertex 1 (X, Y, Z)
+        side / 2, -height / 2, 0.0,   // Vertex 2 (X, Y, Z)
+        0.0, height / 2, 0.0          // Vertex 3 (X, Y, Z)
+    ]);
+    geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+
+    // Create a material from the color if it's not already a material
+    const material = color instanceof Material ? color : new MeshBasicMaterial({ color: color });
+
+    return new Mesh(geometry, material);
+}
 }
 
 

@@ -138,16 +138,10 @@ export class CPU extends ComputerChip {
                     CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
             });
 
-        /**this.drawPinsRight(this.meshProperties.get("CPU"), 18, 0.05).forEach(
-            (mesh, name) => {
-                this.scene.add(mesh);
-            }
-        );
-        this.drawPinsLeft(this.meshProperties.get("CPU"), 18, 0.05).forEach(
-            (mesh, name) => {
-                this.scene.add(mesh);
-            }
-        ); */
+        this.drawPins(this.meshProperties.get("CPU"), 'left', 11).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get("CPU"), 'right', 11).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get("CPU"), 'top', 8).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get("CPU"), 'bottom', 8).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     update() {
