@@ -1,4 +1,4 @@
-import {MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2, WebGLRenderer} from "three";
+import {Material, Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
@@ -16,10 +16,20 @@ class App {
     private camera: OrthographicCamera;
     private renderer: WebGLRenderer;
 
-    private raycaster = new Raycaster();
-    private mouse = new Vector2();
+    private raycaster = new Raycaster(); // mouse raycaster
+    private mouse = new Vector2(); // mouse coordinates
 
     private gameActors: ComputerChip[] = []
+    private cpu: CPU;
+
+    private pauseButtonMesh: Mesh; // the pause button
+    private playButtonMesh: Mesh; // the play button
+    private isHoveringMesh: Map<Mesh, boolean> = new Map<Mesh, boolean>();
+    private mouseClickEvents: Map<Function, Function> = new Map<Function, Function>();
+
+    private IPCMesh: Mesh;
+
+    private paused: boolean = false;
 
     constructor() {
         this.init().then(() => {
@@ -27,6 +37,7 @@ class App {
                 this.startGameLoop()
             }
         )
+
     }
 
     /**
@@ -49,7 +60,6 @@ class App {
         // Zoom out a bit so that the entire scene is visible, do not forget to update the projection matrix!
         this.camera.zoom = 0.8;
         this.camera.updateProjectionMatrix();
-        this.camera.updateProjectionMatrix();
 
         // add a listener for the window resize event to update the camera and renderer size accordingly
         window.addEventListener('resize', () => {
@@ -63,12 +73,33 @@ class App {
         // Load the font and start the game
         try {
             await DrawUtils.loadFont();
-               // draw an infinite grid
-        DrawUtils.drawGrid(this.scene)
+            DrawUtils.drawGrid(this.scene)
             this.loadGame();
+            this.addMouseClickEvents()
+            document.addEventListener('click', (event) => this.onMouseClick(event), false);
+            this.addMouseHoverEvents()
+            document.addEventListener('mousemove', (event) => this.onMouseMove(event), false);
         } catch (error) {
             throw new Error("Could not load font: " + error);
         }
+    }
+
+    private addMouseClickEvents(): void {
+        this.mouseClickEvents.set(
+            () => this.raycaster.intersectObject(this.pauseButtonMesh).concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
+            () => this.togglePauseState()
+        );
+    }
+
+    private addMouseHoverEvents(): void {
+        this.isHoveringMesh.set(this.pauseButtonMesh, false);
+        this.isHoveringMesh.set(this.playButtonMesh, false);
+    }
+
+    private togglePauseState(): void {
+        this.paused = !this.paused;
+        this.pauseButtonMesh.visible = !this.paused;
+        this.playButtonMesh.visible = this.paused;
     }
 
     /**
@@ -88,10 +119,17 @@ class App {
      */
     private startGameLoop(): void {
         setInterval(() => {
+            if (this.paused) return;
             this.gameActors.forEach(gameActor => {
                 gameActor.update()
                 gameActor.drawUpdate()
             });
+            this.IPCMesh.geometry.dispose();
+            (this.IPCMesh.material as Material).dispose();
+            this.scene.remove(this.IPCMesh);
+            this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
+                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
+            this.scene.add(this.IPCMesh);
         }, ComputerChip.ONE_SECOND / CPU.CLOCK_SPEED);
     }
 
@@ -111,18 +149,71 @@ class App {
      * @private
      */
     private drawHUD(): void {
-        this.scene.add(
+        this.scene.add(  // clock speed text
             DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 1,
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
         );
 
-        const triangleMesh = DrawUtils.buildTriangleMesh(
-            0.2, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})
-        );
+        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
+                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
+        this.scene.add(this.IPCMesh);
+
         // pause button
-        this.scene.add(
-            triangleMesh.translateX(1.5).translateY(1).rotateZ(- Math.PI / 2)
+        this.pauseButtonMesh = DrawUtils.buildTriangleMesh(
+            0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
         );
+        this.pauseButtonMesh.translateX(1.5).translateY(1).rotateZ(-Math.PI / 2);
+        this.scene.add(this.pauseButtonMesh);
+
+        // play button
+        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(
+            0.1, 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
+        );
+        this.playButtonMesh.visible = false;
+        this.playButtonMesh.translateX(1.5).translateY(1);
+        this.scene.add(this.playButtonMesh);
+    }
+
+    private onMouseClick(event: MouseEvent): void {
+        event.preventDefault();
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.mouseClickEvents.forEach((callback, condition) => {
+            if (condition()) callback()
+        });
+    }
+
+    private onMouseMove(event: MouseEvent): void {
+        event.preventDefault();
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        this.checkHoverState();
+    }
+
+    private checkHoverState(): void {
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        this.isHoveringMesh.forEach((_isHovering, mesh) => this.updateHoverStateForMesh(mesh));
+    }
+
+    private updateHoverStateForMesh(mesh: Mesh): void {
+        const intersected = this.raycaster.intersectObject(mesh).length > 0;
+        const wasHovering = this.isHoveringMesh.get(mesh) || false;
+
+        if (intersected && !wasHovering)
+            this.onHoverEnter(mesh);
+        else if (!intersected && wasHovering)
+            this.onHoverLeave(mesh);
+    }
+
+    private onHoverEnter(mesh: Mesh): void {
+        this.isHoveringMesh.set(mesh, true);
+        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("LIGHT"), 1.1);
+    }
+
+    private onHoverLeave(mesh: Mesh): void {
+        this.isHoveringMesh.set(mesh, false);
+        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT"), 1);
     }
 
     /**
@@ -136,11 +227,10 @@ class App {
         const mainMemory = new MainMemory("MAIN_MEMORY0", [-1.5, 0], this.scene)
         const rom = new ROM("ROM0", [1.5, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom, mainMemory)
+        this.cpu = cpu;
         cpu.setPipelined(true)
 
-        this.gameActors.push(cpu);
-        this.gameActors.push(rom);
-        this.gameActors.push(mainMemory);
+        this.gameActors.push(cpu, rom, mainMemory);
     }
 }
 

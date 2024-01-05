@@ -19,20 +19,28 @@ export class ROM extends ComputerChip {
     private readonly instructionMemory: Queue<Instruction>;
 
     private needsUpdate: boolean = true;
+    public readyToBeRead: boolean = false;
+    private readTimeout: number = 0;
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
         this.instructionMemory = new Queue<Instruction>(ROM.MEMORY_SIZE);
     }
 
-    public isEmpty() {
-        return this.instructionMemory.isEmpty();
+    public askForInstructions(n: number): void {
+        if (this.readTimeout > 0)
+            return;
+        this.readyToBeRead = false;
+        this.readTimeout = n;
     }
 
     public read(n: number): Queue<Instruction> {
+        if (!this.readyToBeRead)
+            throw new Error("ROM is not ready to be read");
         const instructions = new Queue<Instruction>(n)
         this.moveInstructions(this.instructionMemory, instructions, n)
         this.needsUpdate = true;
+        this.readyToBeRead = false;
         return instructions;
     }
 
@@ -46,6 +54,12 @@ export class ROM extends ComputerChip {
 
     update() {
         this.fillInstructionMemoryIfEmpty();
+        if (this.readTimeout > 0) {
+            this.readTimeout--;
+            if (this.readTimeout === 0){
+                this.readyToBeRead = true;
+            }
+        }
     }
 
     drawUpdate(): void {
@@ -68,9 +82,9 @@ export class ROM extends ComputerChip {
 
     private fillInstructionMemoryIfEmpty() {
         if (this.instructionMemory.isEmpty()) {
-            this.needsUpdate = true;
             for (let i = 0; i < ROM.MEMORY_SIZE; ++i)
                 this.instructionMemory.enqueue(this.generateInstruction());
+            this.needsUpdate = true;
         }
     }
 

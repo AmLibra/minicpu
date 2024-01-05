@@ -15,7 +15,7 @@ export class MainMemory extends ComputerChip {
         + MainMemory.COMPONENTS_INNER_MARGIN * 2;
     public static readonly HEIGHT: number = MainMemory.REGISTER_SIZE * MainMemory.ROW_COUNT
 
-    public static readonly MAX_VALUE = 64
+    public static readonly MAX_VALUE = 16
 
     private readonly memory: number[];
     private static readonly MEMORY_ADDRESS_NAMES: string[] = [];
@@ -25,6 +25,8 @@ export class MainMemory extends ComputerChip {
     }
 
     private memoryAddressToUpdate: number = -1;
+    public readyToExecuteMemoryOperation: boolean = false;
+    private memoryOperationTimeout: number = 0;
 
     constructor(id: string, position: [number, number], scene: Scene) {
         super(id, position, scene);
@@ -32,15 +34,28 @@ export class MainMemory extends ComputerChip {
         this.initialize();
     }
 
+    public askForMemoryOperation(): void {
+        if (this.memoryOperationTimeout > 0)
+            return;
+        this.readyToExecuteMemoryOperation = false;
+        this.memoryOperationTimeout = 3;
+    }
+
     public read(address: number): number {
+        if (!this.readyToExecuteMemoryOperation)
+            throw new Error("MainMemory is not ready to be read");
         this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
+        this.readyToExecuteMemoryOperation = false;
         return this.memory[address];
     }
 
     public write(address: number, value: number): void {
+        if (!this.readyToExecuteMemoryOperation)
+            throw new Error("MainMemory is not ready to be written to");
         this.blink(MainMemory.MEMORY_ADDRESS_NAMES[address], MainMemory.COLORS.get("TEXT"));
         this.memory[address] = value;
         this.memoryAddressToUpdate = address;
+        this.readyToExecuteMemoryOperation = false;
     }
 
     computeMeshProperties(): void {
@@ -89,7 +104,11 @@ export class MainMemory extends ComputerChip {
     }
 
     update(): void {
-        // nothing to do
+        if (this.memoryOperationTimeout > 0) {
+            this.memoryOperationTimeout--;
+            if (this.memoryOperationTimeout === 0)
+                this.readyToExecuteMemoryOperation = true;
+        }
     }
 
     drawUpdate(): void {

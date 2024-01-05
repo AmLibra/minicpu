@@ -1,6 +1,7 @@
 import {
     BufferAttribute,
     BufferGeometry,
+    Color,
     GridHelper,
     Material,
     Mesh,
@@ -24,7 +25,8 @@ export class DrawUtils {
         ["DARK", "#352F44"],
         ["MEDIUM_DARK", "#5C5470"],
         ["MEDIUM_LIGHT", "#B9B4C7"],
-        ["LIGHT", "#FAF0E6"]
+        ["LIGHT", "#FAF0E6"],
+        ["GOLDEN_YELLOW", "rgb(255,197,105)"]
     ]);
 
     private static fontLoader: FontLoader = new FontLoader();
@@ -115,22 +117,36 @@ export class DrawUtils {
         scene.add(gridHelper);
     }
 
-   public static buildTriangleMesh(side: number, color: THREE.Color | THREE.Material): THREE.Mesh {
-    const height = Math.sqrt(3) / 2 * side; // Calculate height of an equilateral triangle
+    public static buildTriangleMesh(side: number, color: Color | Material): Mesh {
+        const height = Math.sqrt(3) / 2 * side; // Calculate height of an equilateral triangle
 
-    const geometry = new BufferGeometry();
-    const vertices = new Float32Array([
-        -side / 2, -height / 2, 0.0,  // Vertex 1 (X, Y, Z)
-        side / 2, -height / 2, 0.0,   // Vertex 2 (X, Y, Z)
-        0.0, height / 2, 0.0          // Vertex 3 (X, Y, Z)
-    ]);
-    geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array([
+            -side / 2, -height / 2, 0.0,  // Vertex 1 (X, Y, Z)
+            side / 2, -height / 2, 0.0,   // Vertex 2 (X, Y, Z)
+            0.0, height / 2, 0.0          // Vertex 3 (X, Y, Z)
+        ]);
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
 
-    // Create a material from the color if it's not already a material
-    const material = color instanceof Material ? color : new MeshBasicMaterial({ color: color });
+        // Create a material from the color if it's not already a material
+        const material = color instanceof Material ? color : new MeshBasicMaterial({color: color});
 
-    return new Mesh(geometry, material);
-}
+        return new Mesh(geometry, material);
+    }
+
+    public static changeMeshAppearance(mesh: Mesh, colorHex: string, scale?: number): void {
+        function changeMaterialColor(material: Material | Material[]) {
+            if (Array.isArray(material)) {
+                material.forEach(changeMaterialColor);
+                return;
+            }
+            if ('color' in material && material.color instanceof Color)
+                material.color.set(colorHex);
+        }
+
+        changeMaterialColor(mesh.material);
+        if (scale) mesh.scale.set(scale, scale, scale);
+    }
 }
 
 
