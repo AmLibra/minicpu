@@ -21,6 +21,8 @@ import {CPU} from "./CPU";
  */
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000;
+    protected static readonly TEXT_SIZE: number = 0.05;
+    private static PIN_RADIUS = 0.02;
 
     public readonly id: string;
     protected readonly position: { x: number; y: number };
@@ -34,8 +36,6 @@ export abstract class ComputerChip {
         ["ALU", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")})],
         ["PIN", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("GOLDEN_YELLOW")})]
     ]);
-
-    protected static readonly TEXT_SIZE: number = 0.05;
 
     protected meshProperties: Map<string, MeshProperties>;
     protected readonly meshes: Map<string, Mesh>;
@@ -60,7 +60,7 @@ export abstract class ComputerChip {
      * NOTE: Does not need to worry about fonts being loaded
      * @protected
      */
-    protected addMeshesToScene(): void {
+    private addMeshesToScene(): void {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
     }
 
@@ -217,13 +217,11 @@ export abstract class ComputerChip {
     }
 
     protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number, pinNames?: string[], margin = 0.1): Map<string, Mesh> {
-        if (pinNames && pinNames.length != pinCount) {
+        if (pinNames && pinNames.length != pinCount)
             throw new Error("Number of pin names does not match the number of pins");
-        }
 
         const pinRadius = 0.02;
         const pins = new Map<string, Mesh>();
-
         // Determine the starting position and spacing based on the side
         let startX, startY, pinSpacing;
         const spaceToFillHorizontal = parent.width - 2 * margin;
@@ -266,12 +264,8 @@ export abstract class ComputerChip {
     protected clearMutableTextMeshes(...exceptions: string[]): void {
         const toDispose = [];
         this.textMeshes.forEach((mesh, componentName) => {
-            console.log(componentName);
-            console.log(exceptions);
-                if (exceptions.includes(componentName)){
-                    console.log(componentName);
+                if (exceptions.includes(componentName))
                     return;
-                }
                 this.scene.remove(mesh);
                 mesh.geometry.dispose();
                 if (mesh.material instanceof Material)
@@ -309,26 +303,26 @@ export abstract class ComputerChip {
      * @protected
      */
     protected blink(componentName: string, newMesh: MeshBasicMaterial): void {
-    // Cancel any ongoing blink for this component
-    if (this.blinkStates.has(componentName)) {
-        clearTimeout(this.blinkStates.get(componentName));
-        this.blinkStates.delete(componentName);
-    }
-
-    // Change the component mesh to the new one
-    this.changeComponentMesh(componentName, newMesh);
-
-    // Set a timeout to change it back after the specified duration
-    const timeout = setTimeout(() => {
-        if (this.meshProperties.has(componentName)) {
-            this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
+        // Cancel any ongoing blink for this component
+        if (this.blinkStates.has(componentName)) {
+            clearTimeout(this.blinkStates.get(componentName));
+            this.blinkStates.delete(componentName);
         }
-        this.blinkStates.delete(componentName);
-    }, ComputerChip.ONE_SECOND / CPU.clockFrequency);
 
-    // Save the timeout so it can be cancelled if blink is called again
-    this.blinkStates.set(componentName, timeout);
-}
+        // Change the component mesh to the new one
+        this.changeComponentMesh(componentName, newMesh);
+
+        // Set a timeout to change it back after the specified duration
+        const timeout = setTimeout(() => {
+            if (this.meshProperties.has(componentName)) {
+                this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
+            }
+            this.blinkStates.delete(componentName);
+        }, ComputerChip.ONE_SECOND / CPU.clockFrequency);
+
+        // Save the timeout so it can be cancelled if blink is called again
+        this.blinkStates.set(componentName, timeout);
+    }
 
     /**
      * Moves instructions from one buffer to another (for queues)

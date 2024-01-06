@@ -28,6 +28,7 @@ class App {
     private mouseClickEvents: Map<Function, Function> = new Map<Function, Function>();
 
     private IPCMesh: Mesh;
+    private totalExecutedInstructions: Mesh;
 
     private paused: boolean = false;
 
@@ -130,7 +131,15 @@ class App {
             this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
             this.scene.add(this.IPCMesh);
-        }, ComputerChip.ONE_SECOND / CPU.clockFrequency);
+
+            this.totalExecutedInstructions.geometry.dispose();
+            (this.totalExecutedInstructions.material as Material).dispose();
+            this.scene.remove(this.totalExecutedInstructions);
+            this.totalExecutedInstructions = DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(), 0, 0.6,
+                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
+            this.scene.add(this.totalExecutedInstructions);
+        },
+            ComputerChip.ONE_SECOND / CPU.clockFrequency);
     }
 
     /**
@@ -158,6 +167,10 @@ class App {
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
         this.scene.add(this.IPCMesh);
 
+        this.totalExecutedInstructions = DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(), 0, 0.6,
+                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
+        this.scene.add(this.totalExecutedInstructions);
+
         // pause button
         this.pauseButtonMesh = DrawUtils.buildTriangleMesh(
             0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
@@ -165,7 +178,6 @@ class App {
         this.pauseButtonMesh.translateX(1.5).translateY(1).rotateZ(-Math.PI / 2);
         this.scene.add(this.pauseButtonMesh);
 
-        // play button
         this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(
             0.1, 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
         );
@@ -228,8 +240,7 @@ class App {
         const rom = new InstructionMemory("ROM0", [1.5, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom, mainMemory)
         this.cpu = cpu;
-        CPU.clockFrequency = 2.5;
-
+        CPU.clockFrequency = 1;
         this.gameActors.push(cpu, rom, mainMemory);
     }
 }

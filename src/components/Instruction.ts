@@ -35,9 +35,19 @@ export class Instruction {
         this.opcode = opcode;
         this.resultReg = result_reg;
         if (CPU.MEMORY_OPCODES.includes(opcode)) {
+            if (address === undefined)
+                throw new Error("Missing memory address for memory operation")
+            if (op1_reg !== undefined || op2_reg !== undefined)
+                throw new Error("Cannot have operand registers for memory operation")
+
             this.type = InstructionType.MEMORY
             this.address = address;
-        } else {
+        } else if (CPU.ALU_OPCODES.includes(opcode)) {
+            if (op1_reg === undefined || op2_reg === undefined)
+                throw new Error("Missing operand register for ALU operation")
+            if (address !== undefined)
+                throw new Error("Cannot have address for ALU operation")
+
             this.type = InstructionType.ALU
             this.op1Reg = op1_reg;
             this.op2Reg = op2_reg;

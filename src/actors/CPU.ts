@@ -47,6 +47,7 @@ export class CPU extends ComputerChip {
 
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(WorkingMemory.MEMORY_OPERATION_DELAY * 5);
     private retiredInstructionCount: number = 0;
+    private accumulatedInstructionCount: number = 0;
 
     private static readonly COMPONENTS_INNER_MARGIN = 0.03;
     private static readonly COMPONENTS_SPACING = 0.02;
@@ -184,7 +185,7 @@ export class CPU extends ComputerChip {
     }
 
     public setPipelined(): void {
-        if (CPU.ALU_COUNT > 1 && CPU.DECODER_COUNT > 1) {
+        if (CPU.ALU_COUNT >= 1 && CPU.DECODER_COUNT >= 1) {
             this.isPipelined = true;
             CPU.clockFrequency *= 2;
         }  else {
@@ -197,6 +198,10 @@ export class CPU extends ComputerChip {
         for (let i = 0; i < this.previousRetiredInstructionCounts.size(); ++i)
             sum += this.previousRetiredInstructionCounts.get(i);
         return (sum / this.previousRetiredInstructionCounts.size()).toFixed(2);
+    }
+
+    public getAccumulatedInstructionCount(): number {
+        return this.accumulatedInstructionCount;
     }
 
     private processALU(): void {
@@ -213,7 +218,6 @@ export class CPU extends ComputerChip {
 
     private retireALUInstructions(): void {
         this.ALUs.clear();
-        this.retiredInstructionCount++;
         this.previouslyDecodedInstructionIsArithmetic = true;
     }
 
@@ -251,6 +255,7 @@ export class CPU extends ComputerChip {
         if (this.previousRetiredInstructionCounts.isFull())
             this.previousRetiredInstructionCounts.dequeue();
         this.previousRetiredInstructionCounts.enqueue(this.retiredInstructionCount);
+        this.accumulatedInstructionCount += this.retiredInstructionCount;
         this.retiredInstructionCount = 0;
     }
 
@@ -273,8 +278,8 @@ export class CPU extends ComputerChip {
         this.previouslyDecodedInstructionIsArithmetic = false;
         if (instruction.isArithmetic()) {
             this.ALUs.enqueue(this.decoders.dequeue())
-            this.processALU();
             this.retiredInstructionCount++;
+            this.processALU();
             if (!this.isPipelined) {
                 this.blink("DECODER_BUFFER_0", CPU.COLORS.get("ALU"));
                 this.blink("ALU0", CPU.COLORS.get("ALU"));
