@@ -30,22 +30,21 @@ export class DrawUtils {
         ["LIGHT", "#dee7e8"],
         ["GOLDEN_YELLOW", "rgb(255,197,105)"],
         ["LIGHT_GREEN", "rgb(39,203,114)"],
-        ["LIGHT_BLUE", "rgb(105,197,255)"],
         ["LIGHT_RED", "rgb(217,82,82)"],
     ]);
 
-    private static fontLoader: FontLoader = new FontLoader();
-    private static FONT: string = "../../res/Courier_New_Bold.json";
+    private static readonly FONT_DIR: string = "../../res/Courier_New_Bold.json";
     public static font: Font = null;
-
-    public static isFontLoaded: boolean = false;
 
     public static baseTextHeight: number;
     public static baseTextWidth: number;
 
-
     /**
-     * Loads the program font asynchronously.
+     * Loads the program font asynchronously. This function must be called before using any other function in this class.
+     * It also calculates the base text height and width for the font, which is used to center text all around the application.
+     *
+     * @returns a promise that resolves when the font is loaded
+     * @throws an error if the font is already loaded
      */
     public static loadFont(): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -54,10 +53,11 @@ export class DrawUtils {
                 return;
             }
 
-            this.fontLoader.load(this.FONT, (font: Font) => {
+            new FontLoader().load(this.FONT_DIR, (font: Font) => {
                 this.font = font;
-                this.isFontLoaded = true;
-                const mesh = this.buildTextMesh("A", 0, 0, 0.1, new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
+                const mesh = this.buildTextMesh("M", 0, 0, 0.1,  // Use a dummy text to calculate the base text height and width
+                    // M is usually the widest character in the font, although it does not matter in this case due to the monospace font
+                    new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
                 this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
                 this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
                 resolve();
@@ -69,6 +69,7 @@ export class DrawUtils {
 
     /**
      * Generates a quadrilateral mesh with the specified dimensions and color.
+     *
      * @param width the width of the quadrilateral
      * @param height the height of the quadrilateral
      * @param color the color of the quadrilateral
@@ -90,7 +91,7 @@ export class DrawUtils {
      * @returns a text mesh
      */
     public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material): Mesh {
-        if (!this.isFontLoaded)
+        if (!this.font)
             throw new Error("Font not loaded");
 
         const textGeometry = new TextGeometry(text, {
@@ -109,6 +110,17 @@ export class DrawUtils {
             0
         );
         return textMesh;
+    }
+
+    public static updateTextMesh(textMesh: Mesh, text: string): void {
+        const textGeometry = new TextGeometry(text, {
+            font: this.font,
+            size: textMesh.scale.x,
+            height: 0.1
+        });
+
+        textMesh.geometry.dispose();
+        textMesh.geometry = textGeometry;
     }
 
     public static drawGrid(scene: Scene): void {
@@ -133,13 +145,11 @@ export class DrawUtils {
         ]);
         geometry.setAttribute('position', new BufferAttribute(vertices, 3));
 
-        // Create a material from the color if it's not already a material
         const material = color instanceof Material ? color : new MeshBasicMaterial({color: color});
-
         return new Mesh(geometry, material);
     }
 
-    public static changeMeshAppearance(mesh: Mesh, colorHex: string, scale?: number): void {
+    public static changeMeshAppearance(mesh: Mesh, colorHex: string | Color, scale?: number): void {
         function changeMaterialColor(material: Material | Material[]) {
             if (Array.isArray(material)) {
                 material.forEach(changeMaterialColor);
