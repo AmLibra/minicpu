@@ -19,14 +19,12 @@ export class MeshProperties {
     public xOffset: number;
     public yOffset: number;
     public color: MeshBasicMaterial;
-    public immutable: boolean = false;
 
-    constructor(width: number, height: number, x: number, y: number, color: MeshBasicMaterial, immutable?: boolean) {
+    constructor(width: number, height: number, x: number, y: number, color: MeshBasicMaterial) {
         this.width = width;
         this.height = height;
         this.xOffset = x;
         this.yOffset = y;
         this.color = color;
-        this.immutable = immutable;
     }
 }

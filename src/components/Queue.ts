@@ -62,18 +62,6 @@ export class Queue<T> {
     }
 
     /**
-     * Peek at the front of the queue
-     *
-     * @returns {T} The item at the front of the queue
-     */
-    peek(): T | undefined {
-        if (this.isEmpty()) {
-            return undefined;
-        }
-        return this.items[0];
-    }
-
-    /**
      * Clear (empty) the queue
      */
     clear(): void {
@@ -87,9 +75,8 @@ export class Queue<T> {
      * @returns {T} The item at the specified index
      */
     get(index: number): T | undefined {
-        if (index < 0 || index >= this.items.length) {
+        if (index < 0 || index >= this.items.length)
             return undefined; // Out of bounds
-        }
         return this.items[index];
     }
 

@@ -22,11 +22,16 @@ import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
  */
 export class DrawUtils {
     public static readonly COLOR_PALETTE: Map<string, string> = new Map([
+        ["DARKEST", "#0F0D1B"],
+        ["DARKER", "#1F1B2C"],
         ["DARK", "#352F44"],
         ["MEDIUM_DARK", "#5C5470"],
         ["MEDIUM_LIGHT", "#B9B4C7"],
-        ["LIGHT", "#FAF0E6"],
-        ["GOLDEN_YELLOW", "rgb(255,197,105)"]
+        ["LIGHT", "#dee7e8"],
+        ["GOLDEN_YELLOW", "rgb(255,197,105)"],
+        ["LIGHT_GREEN", "rgb(39,203,114)"],
+        ["LIGHT_BLUE", "rgb(105,197,255)"],
+        ["LIGHT_RED", "rgb(217,82,82)"],
     ]);
 
     private static fontLoader: FontLoader = new FontLoader();
@@ -107,7 +112,7 @@ export class DrawUtils {
     }
 
     public static drawGrid(scene: Scene): void {
-        const gridColor = DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK");
+        const gridColor = DrawUtils.COLOR_PALETTE.get("DARK");
         const size = 100; // A large size to simulate infinity
         const divisions = 1000; // Number of divisions in the grid
         const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);

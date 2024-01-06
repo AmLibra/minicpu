@@ -2,8 +2,8 @@ import {Material, Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene,
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
-import {ROM} from "./actors/ROM";
-import {MainMemory} from "./actors/MainMemory";
+import {InstructionMemory} from "./actors/InstructionMemory";
+import {WorkingMemory} from "./actors/WorkingMemory";
 
 /**
  * This class is the entry point of the application.
@@ -49,7 +49,7 @@ class App {
         this.scene = new Scene(); // create the scene
         this.renderer = new WebGLRenderer({antialias: true, alpha: true}); // create the WebGL renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
-        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARK"), 1); // set the background color of the scene
+        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1); // set the background color of the scene
         document.body.appendChild(this.renderer.domElement); // add the renderer to the DOM
 
         const aspect = window.innerWidth / window.innerHeight; // set the aspect ratio of the camera
@@ -130,7 +130,7 @@ class App {
             this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
             this.scene.add(this.IPCMesh);
-        }, ComputerChip.ONE_SECOND / CPU.CLOCK_SPEED);
+        }, ComputerChip.ONE_SECOND / CPU.clockFrequency);
     }
 
     /**
@@ -150,7 +150,7 @@ class App {
      */
     private drawHUD(): void {
         this.scene.add(  // clock speed text
-            DrawUtils.buildTextMesh("CPU clock: " + CPU.CLOCK_SPEED + "Hz", 0, 1,
+            DrawUtils.buildTextMesh("CPU clock: " + CPU.clockFrequency + " Hz", 0, 1,
                 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
         );
 
@@ -224,11 +224,11 @@ class App {
      * @private
      */
     private addGameActors(): void {
-        const mainMemory = new MainMemory("MAIN_MEMORY0", [-1.5, 0], this.scene)
-        const rom = new ROM("ROM0", [1.5, 0], this.scene)
+        const mainMemory = new WorkingMemory("MAIN_MEMORY0", [-1.5, 0], this.scene)
+        const rom = new InstructionMemory("ROM0", [1.5, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom, mainMemory)
         this.cpu = cpu;
-        cpu.setPipelined(true)
+        CPU.clockFrequency = 2.5;
 
         this.gameActors.push(cpu, rom, mainMemory);
     }
