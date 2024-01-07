@@ -57,11 +57,11 @@ export class HUD {
     }
 
     update(): void {
-        DrawUtils.updateMeshText(this.IPCMesh, "IPC: " + this.cpu.getIPC());
-        DrawUtils.updateMeshText(this.totalExecutedInstructions,
+        DrawUtils.updateText(this.IPCMesh, "IPC: " + this.cpu.getIPC());
+        DrawUtils.updateText(this.totalExecutedInstructions,
             "Total executed instructions: " + this.cpu.getAccumulatedInstructionCount());
 
-        DrawUtils.updateMeshText(this.IPSMesh, "IPS: " + this.cpu.getIPS());
+        DrawUtils.updateText(this.IPSMesh, "IPS: " + this.cpu.getIPS());
     }
 
     private drawPauseButton(): void {
@@ -86,6 +86,7 @@ export class HUD {
 
     public togglePauseState(): void {
         this.app.paused = !this.app.paused;
+        this.app.gameActors.forEach(actor => actor.togglePauseState());
         this.pauseButtonMesh.visible = !this.app.paused;
         this.playButtonMesh.visible = this.app.paused;
     }

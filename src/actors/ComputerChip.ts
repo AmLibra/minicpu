@@ -3,8 +3,6 @@ import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
-import {CPU} from "./CPU";
-
 
 /**
  * Abstract class for computer chips
@@ -20,34 +18,46 @@ import {CPU} from "./CPU";
  * @property {Map<string, string>} COLORS The colors of the chip
  */
 export abstract class ComputerChip {
-    public static readonly ONE_SECOND: number = 1000;
+    public static readonly ONE_SECOND: number = 1000; // ms
     protected static readonly TEXT_SIZE: number = 0.05;
-    public static PIN_RADIUS = 0.02;
+    protected static readonly PIN_MARGIN = 0.1
+    protected static readonly PIN_RADIUS = 0.02;
 
-    public readonly id: string;
-    protected readonly position: { x: number; y: number };
-    protected readonly scene: Scene;
-    protected clockFrequency: number = 1;
-    protected clockMesh: Mesh;
+    protected static readonly BUFFER_HEIGHT: number = 0.12;
+    protected static readonly REGISTER_SIDE_LENGTH: number = 0.15;
+    protected static readonly CONTENTS_MARGIN = 0.03;
+    protected static readonly INNER_SPACING = 0.01;
+    protected static readonly WORD_SIZE = 4; // bytes
+    protected static readonly MAX_BYTE_VALUE = 16;
 
-    protected static readonly COLORS: Map<string, MeshBasicMaterial> = new Map([
-        ["BODY", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")})],
-        ["COMPONENT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARKER")})],
-        ["TEXT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})],
-        ["HUD_TEXT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})],
-        ["MEMORY", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")})],
-        ["ALU", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")})],
-        ["PIN", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("GOLDEN_YELLOW")})]
-    ]);
+    protected static readonly BODY_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
+    protected static readonly COMPONENT_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARKER")});
+    protected static readonly TEXT_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")});
+    protected static readonly HUD_TEXT_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")});
+    protected static readonly MEMORY_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")});
+    protected static readonly ALU_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")});
+    protected static readonly PIN_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("GOLDEN_YELLOW")});
 
-    protected meshProperties: Map<string, MeshProperties>;
+    protected readonly meshProperties: Map<string, MeshProperties>;
     protected readonly meshes: Map<string, Mesh>;
     protected readonly textMeshes: Map<string, Mesh>;
+    protected readonly blinkStates = new Map<string, NodeJS.Timeout>();
+    protected clockMesh: Mesh;
 
-    protected blinkStates = new Map<string, NodeJS.Timeout>();
+    protected readonly scene: Scene;
+    protected readonly position: { x: number; y: number };
+    protected clockFrequency: number = 1;
+    private paused: boolean = false;
+    private queuedBlinks: Array<() => void> = [];
 
-    protected constructor(id: string, position: [number, number], scene: Scene) {
-        this.id = id;
+    protected constructor(position: [number, number], scene: Scene) {
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
         this.meshes = new Map<string, Mesh>();
@@ -58,20 +68,9 @@ export abstract class ComputerChip {
     }
 
     /**
-     * Initializes the graphics of the chip
-     * Is called in the constructor of all computer chips
-     * NOTE: Does not need to worry about fonts being loaded
-     * @protected
-     */
-    private addMeshesToScene(): void {
-        this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
-        this.scene.add(this.clockMesh);
-    }
-
-    /**
      * Computes the dimensions of the graphic components of the chip
      * Is called in the constructor of all computer chips
-     * NOTE: Does not need to worry about fonts being loaded
+     *
      * @protected
      */
     abstract computeMeshProperties(): void;
@@ -79,6 +78,7 @@ export abstract class ComputerChip {
     /**
      * Updates the chip
      * Is called in the update loop of all computer chips
+     *
      * @protected
      */
     abstract update(): void;
@@ -86,10 +86,24 @@ export abstract class ComputerChip {
     /**
      * Renders the chip every frame
      * Is called in the update loop of all computer chips
+     *
      * @protected
      */
     abstract drawUpdate(): void;
 
+    public togglePauseState() {
+        this.paused = !this.paused;
+        if (!this.paused) {
+            this.queuedBlinks.forEach(blinkAction => blinkAction());
+            this.queuedBlinks = []; // Clear the queue
+        }
+    }
+
+    /**
+     * Returns the clock frequency of the chip
+     *
+     * @returns {number} The clock frequency
+     */
     public getClockFrequency(): number {
         return this.clockFrequency;
     }
@@ -98,6 +112,7 @@ export abstract class ComputerChip {
      * Draws a simple graphic component, i.e. a quadrilateral with a solid color, used for the body of chips
      *
      * @param name The name of the component
+     * @returns {Mesh} The graphic component
      * @protected
      */
     protected addSimpleMesh(name: string): Mesh {
@@ -115,6 +130,7 @@ export abstract class ComputerChip {
     /**
      * Draws an array of vertical buffers
      *
+     * @param parentName the name of the parent component of the buffers
      * @param parent the parent component of the buffers
      * @param memorySize the number of registers in the buffer
      * @param margin the margin between the buffer and the parent
@@ -135,7 +151,7 @@ export abstract class ComputerChip {
         const startYOffset = reverse ? parent.yOffset - margin - rectangleHeight / 2 :
             parent.yOffset + margin + rectangleHeight / 2;
         for (let i = 0; i < memorySize; ++i) {
-            const bufferName = `${parentName}_BUFFER_${i}`;
+            const bufferName = this.bufferMeshName(parentName, i);
             const yOffset = reverse ? startYOffset - i * (rectangleHeight + spacing) + parent.height / 2 :
                 startYOffset + i * (rectangleHeight + spacing) - parent.height / 2;
 
@@ -145,7 +161,6 @@ export abstract class ComputerChip {
                 xOffset: parent.xOffset,
                 yOffset: yOffset,
                 color: color,
-                immutable: true
             }
             this.meshProperties.set(bufferName, buffer);
             bufferNames.set(bufferName, buffer);
@@ -164,13 +179,13 @@ export abstract class ComputerChip {
         for (let i = 0; i < buffer.size(); ++i) {
             const instruction = buffer.get(i);
             if (instruction) {
-                const bufferReg = this.meshProperties.get(`${bufferName}_BUFFER_${i}`);
-                this.textMeshes.set(`${bufferName}_BUFFER_${i}`,
+                const bufferReg = this.meshProperties.get(this.bufferMeshName(bufferName, i));
+                this.textMeshes.set(this.bufferTextMeshName(bufferName, i),
                     DrawUtils.buildTextMesh(instruction.toString(),
                         this.position.x,
                         this.position.y + bufferReg.yOffset + DrawUtils.baseTextHeight / 8,
                         ComputerChip.TEXT_SIZE,
-                        instruction.isMemoryOperation() ? ComputerChip.COLORS.get("MEMORY") : ComputerChip.COLORS.get("ALU"))
+                        instruction.isMemoryOperation() ? ComputerChip.MEMORY_COLOR : ComputerChip.ALU_COLOR)
                 );
             }
         }
@@ -186,7 +201,7 @@ export abstract class ComputerChip {
      * @param registerNames the names of the registers
      * @protected
      */
-    protected drawGrid(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
+    protected drawRegisterGridArray(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
     ): Map<string, MeshProperties> {
         if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
@@ -207,14 +222,13 @@ export abstract class ComputerChip {
                 const xOffset = startX + j * (registerWidth + padding);
                 const yOffset = startY - i * (registerHeight + padding);
 
-                const registerName = registerNames ? registerNames[i * columnCount + j] : `R${i * columnCount + j}`;
+                const registerName = registerNames ? registerNames[i * columnCount + j] : this.registerName(i * columnCount + j);
                 const register = {
                     width: registerWidth,
                     height: registerHeight,
                     xOffset: xOffset,
                     yOffset: yOffset,
-                    color: ComputerChip.COLORS.get("COMPONENT"),
-                    immutable: false
+                    color: ComputerChip.COMPONENT_COLOR,
                 };
 
                 this.meshProperties.set(registerName, register);
@@ -224,30 +238,27 @@ export abstract class ComputerChip {
         return registers;
     }
 
-    protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number, pinNames?: string[], margin = 0.1): Map<string, Mesh> {
-        if (pinNames && pinNames.length != pinCount)
-            throw new Error("Number of pin names does not match the number of pins");
-
-
+    protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number): Map<string, Mesh> {
         const pins = new Map<string, Mesh>();
-        // Determine the starting position and spacing based on the side
-        let startX, startY, pinSpacing;
-        const spaceToFillHorizontal = parent.width - 2 * margin;
-        const spaceToFillVertical = parent.height - 2 * margin;
+        let startX: number;
+        let startY: number;
+        let pinSpacing: number;
+        const spaceToFillHorizontal = parent.width - 2 * ComputerChip.PIN_MARGIN;
+        const spaceToFillVertical = parent.height - 2 * ComputerChip.PIN_MARGIN;
 
         switch (side) {
             case 'left':
             case 'right':
                 startX = side === 'left' ? this.position.x + parent.xOffset - parent.width / 2 - ComputerChip.PIN_RADIUS - 0.01 :
                     this.position.x + parent.xOffset + parent.width / 2 + ComputerChip.PIN_RADIUS + 0.01;
-                startY = this.position.y + parent.yOffset + parent.height / 2 - margin - ComputerChip.PIN_RADIUS;
+                startY = this.position.y + parent.yOffset + parent.height / 2 - ComputerChip.PIN_MARGIN - ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillVertical - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
             case 'top':
             case 'bottom':
                 startY = side === 'top' ? this.position.y + parent.yOffset + parent.height / 2 + ComputerChip.PIN_RADIUS + 0.01 :
                     this.position.y + parent.yOffset - parent.height / 2 - ComputerChip.PIN_RADIUS - 0.01;
-                startX = this.position.x + parent.xOffset - parent.width / 2 + margin + ComputerChip.PIN_RADIUS;
+                startX = this.position.x + parent.xOffset - parent.width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillHorizontal - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
         }
@@ -257,15 +268,16 @@ export abstract class ComputerChip {
             const xOffset = side === 'left' || side === 'right' ? startX : startX + i * (2 * ComputerChip.PIN_RADIUS + pinSpacing);
             const yOffset = side === 'left' || side === 'right' ? startY - i * (2 * ComputerChip.PIN_RADIUS + pinSpacing) : startY;
 
-            const pinName = pinNames ? pinNames[i] : `PIN${i}`;
-            // const pin = DrawUtils.buildCircleMesh(pinRadius, ComputerChip.COLORS.get("PIN"));
-            const pin = (side === 'left' || side === 'right') ? DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS, ComputerChip.COLORS.get("PIN")) :
-                DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS, ComputerChip.PIN_RADIUS * 2, ComputerChip.COLORS.get("PIN"));
+            const pinName = this.pinName(i);
+            const pin = (side === 'left' || side === 'right') ?
+                DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS,
+                    ComputerChip.PIN_COLOR) :
+                DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS, ComputerChip.PIN_RADIUS * 2,
+                    ComputerChip.PIN_COLOR);
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
         }
-
         return pins;
     }
 
@@ -288,7 +300,7 @@ export abstract class ComputerChip {
      *  Changes the color of a component
      *
      * @param componentName the name of the component
-     * @param newColor the new color of the component
+     * @param newMesh the new color of the component
      * @protected
      */
     protected changeComponentMesh(componentName: string, newMesh: MeshBasicMaterial): void {
@@ -308,28 +320,34 @@ export abstract class ComputerChip {
      *
      * @param componentName the name of the component
      * @param newMesh the new color of the component
+     * @param blinkDuration the duration of the blink in ms
      * @protected
      */
     protected blink(componentName: string, newMesh: MeshBasicMaterial, blinkDuration?: number): void {
-        // Cancel any ongoing blink for this component
-        if (this.blinkStates.has(componentName)) {
-            clearTimeout(this.blinkStates.get(componentName));
-            this.blinkStates.delete(componentName);
-        }
-
-        // Change the component mesh to the new one
-        this.changeComponentMesh(componentName, newMesh);
-
-        // Set a timeout to change it back after the specified duration
-        const timeout = setTimeout(() => {
-            if (this.meshProperties.has(componentName)) {
-                this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
+        const blinkAction = () => {
+            if (this.blinkStates.has(componentName)) {
+                clearTimeout(this.blinkStates.get(componentName));
+                this.blinkStates.delete(componentName);
             }
-            this.blinkStates.delete(componentName);
-        }, blinkDuration ? blinkDuration : ComputerChip.ONE_SECOND / this.clockFrequency);
 
-        // Save the timeout so it can be cancelled if blink is called again
-        this.blinkStates.set(componentName, timeout);
+            this.changeComponentMesh(componentName, newMesh);
+            const timeout = setTimeout(() => {
+                if (this.meshProperties.has(componentName)) {
+                    this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
+                }
+                this.blinkStates.delete(componentName);
+            }, blinkDuration ? blinkDuration : ComputerChip.ONE_SECOND / this.clockFrequency);
+
+            this.blinkStates.set(componentName, timeout);
+        };
+        if (this.paused)
+            this.queuedBlinks.push(blinkAction);
+        else
+            blinkAction();
+    }
+
+    protected delay(duration: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, duration));
     }
 
     /**
@@ -347,13 +365,30 @@ export abstract class ComputerChip {
         }
     }
 
+    protected pinName(pinNumber: number): string {
+        return `PIN${pinNumber}`;
+    }
+
+    protected registerName(registerNumber: number): string {
+        return `R${registerNumber}`;
+    }
+
+    protected bufferMeshName(bufferName: string, index: number = 0): string {
+        return `${bufferName}_BUFFER_${index}`;
+    }
+
+    protected bufferTextMeshName(bufferName: string, index: number): string {
+        return `${bufferName}_BUFFER_${index}`;
+    }
+
     /**
-     * Converts a number to a hexadecimal string for display
+     * Initializes the graphics of the chip
+     * Is called in the constructor of all computer chips
      *
-     * @param value the number to convert
      * @protected
      */
-    public static toHex(value: number): string {
-        return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+    private addMeshesToScene(): void {
+        this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
+        this.scene.add(this.clockMesh);
     }
 }

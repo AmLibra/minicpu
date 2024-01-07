@@ -5,248 +5,160 @@ import {Instruction} from "../components/Instruction";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
+import {MeshProperties} from "../components/MeshProperties";
 
 export class CPU extends ComputerChip {
-    private static readonly BUFFER_HEIGHT: number = 0.12;
-    private static readonly REGISTER_SIDE_LENGTH: number = 0.15;
-    private static readonly REGISTER_FILE_MARGIN = 0.01;
+    private static readonly INNER_SPACING_L = 0.02;
     private static readonly POWER_PIN_COUNT = 6;
 
-    public readonly instructionMemory: InstructionMemory;
-    public readonly workingMemory: WorkingMemory;
-
-    public static readonly FETCHER_COUNT: number = 1; // Words
-    private readonly instructionBuffer: Queue<Instruction>;
-
-    public static DECODER_COUNT: number = 1;
-    private readonly decoders: Queue<Instruction>;
-
-    private static readonly REGISTER_FILE_ROW_COUNT = 2;
-    private static readonly REGISTER_FILE_COL_COUNT = 4;
-
-    public static readonly REGISTER_SIZE: number = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_FILE_ROW_COUNT;
-    public static readonly REGISTER_NAMES = [];
-    static {
-        for (let i = 0; i < CPU.REGISTER_SIZE; i++) this.REGISTER_NAMES.push(`R${i}`)
-    }
-
-    public static readonly ALU_COUNT: number = 1;
-    private readonly ALUs: Queue<Instruction>;
+    // ISA
+    private static readonly WORDS = 2;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR", "XOR", "SHL", "SHR"];
-    public static readonly ALU_WIDTH = 0.4;
-    public static readonly ALU_HEIGHT = CPU.REGISTER_SIDE_LENGTH * 2 + CPU.REGISTER_FILE_MARGIN;
-
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
-    private static readonly MEMORY_CONTROLLER_WIDTH = CPU.BUFFER_HEIGHT; // Memory controller is rotated 90 degrees
+    public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
 
+    private static fetcherCount: number = 1;
+    private readonly fetchBuffer: Queue<Instruction>;
+    private static decoderCount: number = 1;
+    private readonly decodeBuffer: Queue<Instruction>;
+    private static aluCount: number = 1;
+    private readonly ALUs: Queue<Instruction>;
+    private static memoryControllerCount: number = 1;
+    private readonly memoryController: Queue<Instruction>
     private readonly registerValues: Map<string, number>;
-    private isPipelined: boolean;
 
+    private readonly instructionMemory: InstructionMemory;
+    private readonly workingMemory: WorkingMemory;
+
+    private isPipelined: boolean;
+    private waitingForMemory = false;
+
+    // used for computing CPU metrics
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(20);
     private retiredInstructionCount: number = 0;
     private accumulatedInstructionCount: number = 0;
 
-    private static readonly COMPONENTS_INNER_MARGIN = 0.03;
-    private static readonly COMPONENTS_SPACING = 0.02;
-    private static readonly FETCH_BUFFER_HEIGHT = CPU.BUFFER_HEIGHT * CPU.FETCHER_COUNT;
-    private static readonly DECODER_HEIGHT = CPU.BUFFER_HEIGHT * CPU.DECODER_COUNT;
-    private static readonly REGISTER_FILE_WIDTH = CPU.REGISTER_FILE_COL_COUNT * CPU.REGISTER_SIDE_LENGTH +
-        (CPU.REGISTER_FILE_COL_COUNT - 1) * CPU.REGISTER_FILE_MARGIN;
-    private static readonly REGISTER_FILE_HEIGHT = CPU.REGISTER_FILE_ROW_COUNT * CPU.REGISTER_SIDE_LENGTH
-        + (CPU.REGISTER_FILE_ROW_COUNT - 1) * CPU.REGISTER_FILE_MARGIN;
-    private static readonly WIDTH: number = CPU.REGISTER_FILE_WIDTH + CPU.ALU_WIDTH + CPU.COMPONENTS_SPACING +
-        CPU.COMPONENTS_INNER_MARGIN * 3 + CPU.MEMORY_CONTROLLER_WIDTH;
-    private static readonly HEIGHT: number = CPU.FETCH_BUFFER_HEIGHT + CPU.DECODER_HEIGHT +
-        CPU.REGISTER_FILE_HEIGHT + 2 * CPU.COMPONENTS_SPACING + CPU.COMPONENTS_INNER_MARGIN * 2;
+    // Mesh names
+    private bodyMesh: string;
+    private registerFileParentMesh: string;
+    private fetchBufferMesh: string;
+    private decodeBufferMesh: string;
+    private memoryControllerMesh: string;
 
-    constructor(id: string, position: [number, number], scene: Scene, rom: InstructionMemory, mainMemory: WorkingMemory) {
-        super(id, position, scene)
+    constructor(position: [number, number], scene: Scene, rom: InstructionMemory, workingMemory: WorkingMemory, clockFrequency: number) {
+        super(position, scene)
         this.instructionMemory = rom
-        this.workingMemory = mainMemory
 
-        this.instructionBuffer = new Queue<Instruction>(CPU.FETCHER_COUNT)
-        this.decoders = new Queue<Instruction>(CPU.DECODER_COUNT)
-        this.ALUs = new Queue<Instruction>(CPU.ALU_COUNT)
+        this.workingMemory = workingMemory
+        this.fetchBuffer = new Queue<Instruction>(CPU.fetcherCount)
+        this.decodeBuffer = new Queue<Instruction>(CPU.decoderCount)
+        this.ALUs = new Queue<Instruction>(CPU.aluCount)
+        this.memoryController = new Queue<Instruction>(CPU.memoryControllerCount)
         this.registerValues = new Map<string, number>();
 
-        CPU.REGISTER_NAMES.forEach(name => this.registerValues.set(name, 0));
+        for (let i = 0; i < CPU.REGISTER_SIZE; ++i) this.registerValues.set(this.registerName(i), 0);
         this.isPipelined = false;
-        this.clockFrequency = 5
+        this.clockFrequency = clockFrequency;
         this.drawAllRegisterValues();
-    }
-
-    computeMeshProperties(): void {
-        const cpuBody = {
-            width: CPU.WIDTH,
-            height: CPU.HEIGHT,
-            xOffset: 0,
-            yOffset: 0,
-            color: CPU.COLORS.get("BODY"),
-        };
-
-        const innerWidth = CPU.WIDTH - (2 * CPU.COMPONENTS_INNER_MARGIN);
-        const innerHeight = CPU.HEIGHT - (2 * CPU.COMPONENTS_INNER_MARGIN);
-
-        const bufferWidth = innerWidth - CPU.MEMORY_CONTROLLER_WIDTH - CPU.COMPONENTS_INNER_MARGIN;
-        const fetchBuffer = {
-            width: bufferWidth, // Use the full inner width
-            height: CPU.FETCH_BUFFER_HEIGHT,
-            xOffset: 2 * CPU.COMPONENTS_INNER_MARGIN + CPU.MEMORY_CONTROLLER_WIDTH + (bufferWidth / 2) - (CPU.WIDTH / 2),
-            yOffset: -(innerHeight / 2) + (CPU.FETCH_BUFFER_HEIGHT / 2), // Positioned at the top
-            color: CPU.COLORS.get("COMPONENT"),
-        };
-
-        const decoder = {
-            width: bufferWidth, // Match the width of the instruction buffer
-            height: CPU.DECODER_HEIGHT,
-            xOffset: 2 * CPU.COMPONENTS_INNER_MARGIN + CPU.MEMORY_CONTROLLER_WIDTH + (bufferWidth / 2) - (CPU.WIDTH / 2),
-            yOffset: fetchBuffer.yOffset + (fetchBuffer.height / 2) + CPU.COMPONENTS_SPACING
-                + (CPU.DECODER_HEIGHT / 2), // Positioned below the instruction buffer
-            color: CPU.COLORS.get("COMPONENT"),
-        };
-
-        const registerFile = {
-            width: CPU.REGISTER_FILE_WIDTH,
-            height: CPU.REGISTER_FILE_HEIGHT,
-            xOffset: 2 * CPU.COMPONENTS_INNER_MARGIN + (CPU.REGISTER_FILE_WIDTH / 2) - (CPU.WIDTH / 2) + CPU.MEMORY_CONTROLLER_WIDTH,
-            yOffset: decoder.yOffset + decoder.height / 2 + CPU.COMPONENTS_SPACING +
-                (innerHeight - fetchBuffer.height - decoder.height - 2 * CPU.COMPONENTS_SPACING) / 2,
-            color: CPU.COLORS.get("BODY"),
-        };
-
-        const memoryController = {
-            width: CPU.MEMORY_CONTROLLER_WIDTH,
-            height: CPU.HEIGHT - CPU.COMPONENTS_INNER_MARGIN * 2,
-            xOffset: -CPU.WIDTH / 2 + CPU.COMPONENTS_INNER_MARGIN + CPU.MEMORY_CONTROLLER_WIDTH / 2,
-            yOffset: 0,
-            color: CPU.COLORS.get("COMPONENT"),
-        }
-
-        const memoryMesh = DrawUtils.buildTextMesh("MEMORY",
-            memoryController.xOffset,
-            memoryController.yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("COMPONENT"));
-
-        memoryMesh.geometry.computeBoundingBox();
-        memoryMesh.geometry.center().rotateZ(Math.PI / 2);
-        memoryMesh.position.set(memoryController.xOffset, memoryController.yOffset, 0)
-        this.scene.add(memoryMesh);
-
-        this.meshProperties = new Map([
-            ["CPU", cpuBody],
-            ["REGISTER_FILE", registerFile],
-            ["MEMORY_CONTROLLER", memoryController]
-        ]);
-
-        for (let i = 0; i < CPU.ALU_COUNT; ++i) {
-            const alu = {
-                width: CPU.ALU_WIDTH,
-                height: CPU.ALU_HEIGHT,
-                xOffset: CPU.WIDTH / 2 - CPU.COMPONENTS_INNER_MARGIN - CPU.ALU_WIDTH / 2, // single column for now
-                yOffset: registerFile.yOffset + (i % 2 == 0 ? -1 : 1) * (registerFile.height / 2 - CPU.ALU_HEIGHT / 2),
-                color: CPU.COLORS.get("COMPONENT"),
-                immutable: true
-            };
-            this.meshProperties.set("ALU" + i, alu);
-            this.scene.add(DrawUtils.buildTextMesh("ALU" + i, alu.xOffset, alu.yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("COMPONENT")));
-        }
-
-        this.drawBuffer("FETCH", fetchBuffer, CPU.FETCHER_COUNT,
-            0, CPU.COMPONENTS_SPACING / 2, CPU.COLORS.get("COMPONENT"), true);
-
-        this.scene.add(DrawUtils.buildTextMesh("FETCH", fetchBuffer.xOffset,
-            fetchBuffer.yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("COMPONENT")));
-
-        this.drawBuffer("DECODER", decoder, CPU.DECODER_COUNT, 0, CPU.COMPONENTS_SPACING / 2,
-            CPU.COLORS.get("COMPONENT"), true);
-
-        this.scene.add(DrawUtils.buildTextMesh("DECODE", decoder.xOffset, decoder.yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("COMPONENT")));
-
-        this.drawGrid(registerFile, CPU.REGISTER_FILE_ROW_COUNT, CPU.REGISTER_FILE_COL_COUNT, CPU.REGISTER_FILE_MARGIN)
-            .forEach((dimensions, name) => {
-                this.scene.add(DrawUtils.buildTextMesh(name,
-                    this.position.x + dimensions.xOffset,
-                    this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
-                    CPU.TEXT_SIZE / 2, CPU.COLORS.get("BODY")));
-            });
-
-        this.drawPins(this.meshProperties.get("CPU"), 'left', WorkingMemory.ROW_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get("CPU"), 'right', InstructionMemory.MEMORY_SIZE).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get("CPU"), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get("CPU"), 'bottom', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-
-        this.clockMesh = DrawUtils.buildTextMesh("clock: " + this.clockFrequency + " Hz",
-            this.position.x, this.position.y + CPU.HEIGHT / 2 + ComputerChip.TEXT_SIZE + ComputerChip.PIN_RADIUS * 2,
-            ComputerChip.TEXT_SIZE, ComputerChip.COLORS.get("HUD_TEXT"));
-    }
-
-    update() {
-        if (this.isPipelined) {
-            if (!this.ALUs.isEmpty())
-                this.retireALUInstructions();
-            this.decodeAll();
-            this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-            this.requestInstructionBufferRefillIfEmpty();
-        } else {
-            if (this.blinkStates.size == 0)
-                this.requestInstructionBufferRefillIfEmpty();
-            this.moveInstructions(this.instructionBuffer, this.decoders, CPU.DECODER_COUNT);
-            this.decodeAll();
-            if (!this.ALUs.isEmpty())
-                this.retireALUInstructions();
-        }
-        this.updateRetiredInstructionCounters();
-    }
-
-    drawUpdate(): void {
-        if (this.isPipelined) {
-            this.clearMutableTextMeshes();
-            this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
-            this.addBufferTextMeshes(this.instructionBuffer, "FETCH");
-            this.addBufferTextMeshes(this.decoders, "DECODER");
-            for (let i = 0; i < CPU.ALU_COUNT; ++i)
-                this.drawALUText(i);
-            this.textMeshes.forEach(comp => this.scene.add(comp));
-        }
-        DrawUtils.updateMeshText(this.clockMesh, "clock: " + this.clockFrequency + " Hz");
+        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 
     public setPipelined(): void {
-        if (CPU.ALU_COUNT >= 1 && CPU.DECODER_COUNT >= 1) {
-            this.isPipelined = true;
-            this.clockFrequency *= 2;
-        } else {
-            throw new Error("Cannot set CPU to pipelined mode with current configuration");
-        }
+        if (this.isPipelined)
+            return;
+        this.isPipelined = true;
+        this.clockFrequency *= 2;
     }
 
     public getIPC(): string {
-        let sum = 0;
-        for (let i = 0; i < this.previousRetiredInstructionCounts.size(); ++i)
-            sum += this.previousRetiredInstructionCounts.get(i);
-        return (sum / this.previousRetiredInstructionCounts.size()).toFixed(2);
+        return (this.calculateAverageInstructionCount()).toFixed(2);
     }
 
     public getIPS(): string {
-        let sum = 0;
-        for (let i = 0; i < this.previousRetiredInstructionCounts.size(); ++i)
-            sum += this.previousRetiredInstructionCounts.get(i);
-        return ((sum / this.previousRetiredInstructionCounts.size()) * this.clockFrequency).toFixed(2);
+        return (this.calculateAverageInstructionCount() * this.clockFrequency).toFixed(2);
     }
 
     public getAccumulatedInstructionCount(): number {
         return this.accumulatedInstructionCount;
     }
 
-    private processALU(): void {
-        if (!this.ALUs.isEmpty()) {
-            for (let i = 0; i < CPU.ALU_COUNT; ++i) {
-                const alu = this.ALUs.get(i);
-                this.registerValues.set(alu.getResultReg(), this.preventOverflow(this.computeALUResult(alu)));
-            }
-        }
+    computeMeshProperties(): void {
+        this.bodyMesh = "CPU";
+        this.registerFileParentMesh = "REGISTER_FILE";
+        this.fetchBufferMesh = "FETCH";
+        this.decodeBufferMesh = "DECODE";
+        this.memoryControllerMesh = "MEMORY_CONTROLLER";
+
+        const aluWidth = 0.4;
+        const registerFileWidth = CPU.WORD_SIZE * CPU.REGISTER_SIDE_LENGTH + (CPU.WORD_SIZE - 1) * CPU.INNER_SPACING;
+        // noinspection JSSuspiciousNameCombination - memory controller width is the same as the height of a buffer
+        const memoryControllerWidth = CPU.BUFFER_HEIGHT;
+        const bodyWidth: number = registerFileWidth + aluWidth + memoryControllerWidth
+            + CPU.INNER_SPACING_L * 2 + CPU.CONTENTS_MARGIN * 2;
+
+        const fetchBufferHeight = CPU.BUFFER_HEIGHT * CPU.fetcherCount;
+        const decoderHeight = CPU.BUFFER_HEIGHT * CPU.decoderCount;
+        const registerFileHeight = CPU.WORDS * CPU.REGISTER_SIDE_LENGTH + (CPU.WORDS - 1) * CPU.INNER_SPACING;
+        const bodyHeight: number = fetchBufferHeight + decoderHeight + registerFileHeight + 2 * CPU.INNER_SPACING_L
+            + CPU.CONTENTS_MARGIN * 2;
+
+        this.computeCPUBodyMeshProperties(bodyWidth, bodyHeight)
+
+        const [decodeBuffer, fetchBuffer] =
+            this.computeBufferMeshProperties(bodyWidth, bodyHeight, memoryControllerWidth, fetchBufferHeight, decoderHeight);
+
+        const innerHeight = bodyHeight - (2 * CPU.CONTENTS_MARGIN);
+        const registerFile = this.computeRegisterFileMeshProperties(bodyWidth, innerHeight, registerFileWidth, registerFileHeight,
+            memoryControllerWidth, decodeBuffer, fetchBuffer);
+        this.computeMemoryControllerMeshProperties(bodyWidth, bodyHeight, memoryControllerWidth);
+        this.computeALUMeshProperties(bodyWidth, aluWidth, registerFile);
+        this.drawCPUPins();
+
+        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
+            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE + ComputerChip.PIN_RADIUS * 2,
+            ComputerChip.TEXT_SIZE, CPU.HUD_TEXT_COLOR);
     }
 
-    private retireALUInstructions(): void {
+    update() {
+        if (this.isPipelined) {
+            this.processMemoryInstruction();
+            this.processALU();
+            this.decodeAll();
+            this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
+            this.requestInstructionBufferRefillIfEmpty();
+        } else {
+            if (this.ALUs.isEmpty() && this.memoryController.isEmpty())
+                this.requestInstructionBufferRefillIfEmpty();
+            this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
+            this.decodeAll();
+            this.processALU();
+            this.processMemoryInstruction();
+        }
+        this.updateRetiredInstructionCounters();
+    }
+
+    drawUpdate(): void {
+        if (!this.isPipelined)
+            return
+        this.clearMutableTextMeshes();
+        this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
+        this.addBufferTextMeshes(this.fetchBuffer, this.fetchBufferMesh);
+        this.addBufferTextMeshes(this.decodeBuffer, this.decodeBufferMesh);
+        for (let i = 0; i < CPU.aluCount; ++i) this.drawALUText(i);
+        this.textMeshes.forEach(comp => this.scene.add(comp));
+    }
+
+    private processALU(): void {
+        if (!this.ALUs.isEmpty()) {
+            for (let i = 0; i < CPU.aluCount; ++i) {
+                const instruction = this.ALUs.get(i);
+                if (!this.isPipelined)
+                    this.playAluAnimation(instruction);
+                this.registerValues.set(instruction.getResultReg(),
+                    this.preventOverflow(this.computeALUResult(instruction)));
+                this.retiredInstructionCount++;
+            }
+        }
         this.ALUs.clear();
     }
 
@@ -275,11 +187,6 @@ export class CPU extends ComputerChip {
         }
     }
 
-    private preventOverflow(n: number): number {
-        const result = n % WorkingMemory.MAX_VALUE;
-        return result >= 0 ? result : result + WorkingMemory.MAX_VALUE;
-    }
-
     private updateRetiredInstructionCounters(): void {
         if (this.previousRetiredInstructionCounts.isFull())
             this.previousRetiredInstructionCounts.dequeue();
@@ -289,74 +196,72 @@ export class CPU extends ComputerChip {
     }
 
     private decodeAll(): void {
-        for (let i = 0; i < CPU.DECODER_COUNT; ++i)
-            if (this.decoders.get(i))
-                this.decode(i);
+        for (let i = 0; i < CPU.decoderCount; ++i){
+            const instruction = this.decodeBuffer.get(i);
+            if (instruction) {
+                if (instruction.isArithmetic())
+                    this.ALUs.enqueue(this.decodeBuffer.dequeue())
+                else if (instruction.isMemoryOperation())
+                    this.memoryController.enqueue(this.decodeBuffer.dequeue())
+            }
+        }
     }
 
     private requestInstructionBufferRefillIfEmpty(): void {
-        if (!this.instructionBuffer.isEmpty()) return;
-        if (this.instructionMemory.readyToBeRead)
-            this.moveInstructions(this.instructionMemory.read(CPU.FETCHER_COUNT), this.instructionBuffer, CPU.FETCHER_COUNT);
+        if (!this.fetchBuffer.isEmpty()) return;
+        if (this.instructionMemory.isReadyToBeRead())
+            this.moveInstructions(this.instructionMemory.read(CPU.fetcherCount), this.fetchBuffer, CPU.fetcherCount);
         else
-            this.instructionMemory.askForInstructions(this, CPU.FETCHER_COUNT);
-    }
-
-
-    private delay(duration: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, duration));
+            this.instructionMemory.askForInstructions(this, CPU.fetcherCount);
     }
 
     private async playAluAnimation(instruction: Instruction): Promise<void> {
-        const blinkDuration = ComputerChip.ONE_SECOND / this.instructionMemory.getClockFrequency() / this.clockFrequency / 2;
-        const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 5;
+        const clockCycleDuration = ComputerChip.ONE_SECOND / this.clockFrequency;
+        const blinkDuration = clockCycleDuration * (2 / 5);
+        const delay = clockCycleDuration / 5; // 4 is the number of steps in the animation, + 1 for overlap
 
-        this.blink("FETCH_BUFFER_0", CPU.COLORS.get("ALU"), blinkDuration);
+        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.ALU_COLOR, blinkDuration);
         await this.delay(delay);
 
-        this.blink("DECODER_BUFFER_0", CPU.COLORS.get("ALU"), blinkDuration);
+        this.blink(this.bufferMeshName(this.decodeBufferMesh), CPU.ALU_COLOR, blinkDuration);
+        this.blink(instruction.getOp1Reg(), CPU.ALU_COLOR, blinkDuration);
+        this.blink(instruction.getOp2Reg(), CPU.ALU_COLOR, blinkDuration);
         await this.delay(delay);
 
-        this.blink(instruction.getOp1Reg(), CPU.COLORS.get("ALU"), blinkDuration);
-        this.blink(instruction.getOp2Reg(), CPU.COLORS.get("ALU"), blinkDuration);
+        this.blink(this.aluMeshName(), CPU.ALU_COLOR, blinkDuration);
         await this.delay(delay);
 
-        this.blink("ALU0", CPU.COLORS.get("ALU"), blinkDuration);
-        await this.delay(delay);
-
-        this.blink(instruction.getResultReg(), CPU.COLORS.get("ALU"), blinkDuration);
+        this.blink(instruction.getResultReg(), CPU.ALU_COLOR, blinkDuration);
     }
-
-    private waiting = false;
 
     private async playMemoryAnimation(instruction: Instruction): Promise<void> {
         const blinkDuration = ComputerChip.ONE_SECOND / this.workingMemory.getClockFrequency() / 2;
         const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 3;
-        if (this.waiting) {
-            this.blink("MEMORY_CONTROLLER", CPU.COLORS.get("MEMORY"),
+        if (this.waitingForMemory) {
+            this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR,
                 ComputerChip.ONE_SECOND / this.clockFrequency
             );
             if (instruction.getOpcode() == "STORE")
-                this.blink(instruction.getResultReg(), CPU.COLORS.get("MEMORY"), blinkDuration);
+                this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
             return;
         }
-        this.blink("FETCH_BUFFER_0", CPU.COLORS.get("MEMORY"), blinkDuration);
+        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
         await this.delay(delay);
-        this.blink("DECODER_BUFFER_0", CPU.COLORS.get("MEMORY"), blinkDuration);
+        this.blink(this.bufferMeshName(this.decodeBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
         await this.delay(delay);
-        this.blink("MEMORY_CONTROLLER", CPU.COLORS.get("MEMORY"),
+        this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR,
             instruction.getOpcode() == "LOAD" ? blinkDuration * 4 : blinkDuration * 4
         );
         if (instruction.getOpcode() == "STORE")
-            this.blink(instruction.getResultReg(), CPU.COLORS.get("MEMORY"), blinkDuration);
-        this.waiting = true;
+            this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
+        this.waitingForMemory = true;
     }
 
     private async playExtraLoadAnimation(instruction: Instruction): Promise<void> {
         const blinkDuration = ComputerChip.ONE_SECOND / this.clockFrequency;
         const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 3;
         await this.delay(delay);
-        this.blink(instruction.getResultReg(), CPU.COLORS.get("MEMORY"), blinkDuration);
+        this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
         const modifiedTextMeshName = `${instruction.getResultReg()}_CONTENT`;
         this.scene.remove(this.textMeshes.get(modifiedTextMeshName));
         this.textMeshes.get(modifiedTextMeshName).geometry.dispose();
@@ -367,12 +272,33 @@ export class CPU extends ComputerChip {
         this.scene.add(this.textMeshes.get(modifiedTextMeshName));
     }
 
+    private processMemoryInstruction(): void {
+        const instruction = this.memoryController.get(0)
+        if (!instruction)
+            return;
+        if (this.workingMemory.isReady()) {
+            if (instruction.getOpcode() == "LOAD") {
+                this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
+                if (!this.isPipelined)
+                    this.playExtraLoadAnimation(instruction)
+            } else if (instruction.getOpcode() == "STORE")
+                this.workingMemory.write(instruction.getAddress(), this.registerValues.get(instruction.getResultReg()));
+            this.waitingForMemory = false;
+            this.memoryController.clear();
+            this.retiredInstructionCount++;
+        } else {
+            this.workingMemory.askForMemoryOperation(this);
+            if (!this.isPipelined)
+                this.playMemoryAnimation(instruction);
+        }
+    }
+
     private drawRegisterValue(modifiedTextMeshName: string): void {
         const register = modifiedTextMeshName.replace("_CONTENT", "")
         this.textMeshes.set(modifiedTextMeshName, DrawUtils.buildTextMesh(this.registerValues.get(register).toString(),
             this.position.x + this.meshProperties.get(register).xOffset,
             this.position.y + this.meshProperties.get(register).yOffset - DrawUtils.baseTextHeight / 4,
-            CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+            CPU.TEXT_SIZE, CPU.TEXT_COLOR));
     }
 
     private drawAllRegisterValues(): void {
@@ -380,62 +306,156 @@ export class CPU extends ComputerChip {
         this.textMeshes.forEach(mesh => this.scene.add(mesh));
     }
 
-    private decode(index: number): void {
-        const instruction = this.decoders.get(index);
-        if (instruction.isArithmetic()) {
-            this.ALUs.enqueue(this.decoders.dequeue())
-            this.retiredInstructionCount++;
-            this.processALU();
-            if (!this.isPipelined)
-                this.playAluAnimation(instruction);
-            return;
-        } else if (instruction.isMemoryOperation()) {
-            if (this.workingMemory.readyToExecuteMemoryOperation) {
-                if (instruction.getOpcode() == "LOAD") {
-                    this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
-                    if (!this.isPipelined)
-                        this.playExtraLoadAnimation(instruction)
-                } else if (instruction.getOpcode() == "STORE")
-                    this.workingMemory.write(instruction.getAddress(), this.registerValues.get(instruction.getResultReg()));
-                this.decoders.dequeue()
-                this.waiting = false;
-                this.retiredInstructionCount++;
-            } else {
-                this.workingMemory.askForMemoryOperation(this, instruction.getAddress());
-                if (!this.isPipelined)
-                    this.playMemoryAnimation(instruction);
-            }
-        } else {
-            throw new Error("Invalid instruction: " + instruction.toString());
-        }
-    }
-
     private addRegisterValueMeshes(registerName: string): void {
         this.textMeshes.set(registerName + "_CONTENT",
             DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
                 this.position.x + this.meshProperties.get(registerName).xOffset,
                 this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
-                CPU.TEXT_SIZE, CPU.COLORS.get("TEXT")));
+                CPU.TEXT_SIZE, CPU.TEXT_COLOR));
     }
 
     private drawALUText(i: number): void {
-        const alu = this.ALUs.get(0);
-        if (!alu) return;
-        const aluProps = this.meshProperties.get("ALU" + i);
+        function drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
+            this.textMeshes.set(key, DrawUtils.buildTextMesh(text,
+                this.position.x + xOffset,
+                this.position.y + yOffset, CPU.TEXT_SIZE, CPU.ALU_COLOR));
+        }
+
+        const alu = this.ALUs.get(i);
+        const aluProps = this.meshProperties.get(this.aluMeshName(i));
         const distanceToCenter = 0.08;
-        this.drawALUTextComponent("ALU_OP", alu.getOpcode(), aluProps.xOffset, aluProps.yOffset);
-        this.drawALUTextComponent("ALU_OP1", alu.getOp1Reg(),
+        drawALUTextComponent(`${this.aluMeshName(i)}_OPCODE`, alu.getOpcode(), aluProps.xOffset, aluProps.yOffset);
+        drawALUTextComponent(`${this.aluMeshName(i)}_OP1`, alu.getOp1Reg(),
             aluProps.xOffset + distanceToCenter, aluProps.yOffset - 0.07);
-        this.drawALUTextComponent("ALU_OP2", alu.getOp2Reg(),
+        drawALUTextComponent(`${this.aluMeshName(i)}_OP2`, alu.getOp2Reg(),
             aluProps.xOffset - distanceToCenter, aluProps.yOffset - 0.07);
-        this.drawALUTextComponent("ALU_RESULT", alu.getResultReg(), aluProps.xOffset, aluProps.yOffset + 0.08);
+        drawALUTextComponent(`${this.aluMeshName(i)}_RESULT`, alu.getResultReg(), aluProps.xOffset, aluProps.yOffset + 0.08);
     }
 
-    private drawALUTextComponent(key: string, text: string, xOffset: number, yOffset: number): void {
-        this.textMeshes.set(key, DrawUtils.buildTextMesh(text,
-            this.position.x + xOffset,
-            this.position.y + yOffset, CPU.TEXT_SIZE, CPU.COLORS.get("ALU")));
+    private computeCPUBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {
+        const cpuBody = {
+            width: bodyWidth,
+            height: bodyHeight,
+            xOffset: 0,
+            yOffset: 0,
+            color: CPU.BODY_COLOR,
+        };
+        this.meshProperties.set(this.bodyMesh, cpuBody);
     }
 
+    private computeBufferMeshProperties(bodyWidth: number, bodyHeight: number, memoryControllerWidth: number,
+                                        fetchBufferHeight: number, decoderHeight: number): MeshProperties[] {
+        const innerWidth = bodyWidth - (2 * CPU.CONTENTS_MARGIN);
+        const innerHeight = bodyHeight - (2 * CPU.CONTENTS_MARGIN);
+        const bufferWidth = innerWidth - memoryControllerWidth - CPU.INNER_SPACING_L;
 
+        const fetchBuffer = {
+            width: bufferWidth, // Use the full inner width
+            height: fetchBufferHeight,
+            xOffset: 2 * CPU.CONTENTS_MARGIN + memoryControllerWidth + (bufferWidth / 2) - (bodyWidth / 2) -
+                CPU.INNER_SPACING,
+            yOffset: -(innerHeight / 2) + (fetchBufferHeight / 2), // Positioned at the top
+            color: CPU.COMPONENT_COLOR,
+        };
+        this.drawBuffer(this.fetchBufferMesh, fetchBuffer, CPU.fetcherCount, 0, CPU.INNER_SPACING_L / 2,
+            CPU.COMPONENT_COLOR, true);
+        this.scene.add(DrawUtils.buildTextMesh(this.fetchBufferMesh, fetchBuffer.xOffset, fetchBuffer.yOffset, CPU.TEXT_SIZE,
+            CPU.COMPONENT_COLOR));
+
+        const decodeBuffer = {
+            width: bufferWidth,
+            height: decoderHeight,
+            xOffset: 2 * CPU.CONTENTS_MARGIN + memoryControllerWidth + (bufferWidth / 2) - (bodyWidth / 2) -
+                CPU.INNER_SPACING,
+            yOffset: fetchBuffer.yOffset + (fetchBuffer.height / 2) + CPU.INNER_SPACING_L + (decoderHeight / 2),
+            color: CPU.COMPONENT_COLOR,
+        };
+        this.drawBuffer(this.decodeBufferMesh, decodeBuffer, CPU.decoderCount, 0, CPU.INNER_SPACING_L / 2,
+            CPU.COMPONENT_COLOR, true);
+        this.scene.add(DrawUtils.buildTextMesh(this.decodeBufferMesh, decodeBuffer.xOffset, decodeBuffer.yOffset,
+            CPU.TEXT_SIZE, CPU.COMPONENT_COLOR));
+
+        return [decodeBuffer, fetchBuffer];
+    }
+
+    private computeRegisterFileMeshProperties(bodyWidth: number, innerHeight: number, registerFileWidth: number, registerFileHeight: number, memoryControllerWidth: number,
+                                              decodeBuffer: MeshProperties, fetchBuffer: MeshProperties): MeshProperties {
+        const registerFile = {
+            width: registerFileWidth,
+            height: registerFileHeight,
+            xOffset: 2 * CPU.CONTENTS_MARGIN + (registerFileWidth / 2) - (bodyWidth / 2) + memoryControllerWidth -
+                CPU.INNER_SPACING,
+            yOffset: decodeBuffer.yOffset + decodeBuffer.height / 2 + CPU.INNER_SPACING_L +
+                (innerHeight - fetchBuffer.height - decodeBuffer.height - 2 * CPU.INNER_SPACING_L) / 2,
+            color: CPU.BODY_COLOR,
+        };
+        this.meshProperties.set(this.registerFileParentMesh, registerFile);
+        this.drawRegisterGridArray(registerFile, CPU.WORDS, CPU.WORD_SIZE, CPU.INNER_SPACING)
+            .forEach((dimensions, name) => {
+                this.scene.add(DrawUtils.buildTextMesh(name,
+                    this.position.x + dimensions.xOffset,
+                    this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
+                    CPU.TEXT_SIZE / 2, CPU.BODY_COLOR));
+            });
+        return registerFile;
+    }
+
+    private computeMemoryControllerMeshProperties(bodyWidth: number, bodyHeight: number, memoryControllerWidth: number): void {
+        const memoryController = {
+            width: memoryControllerWidth,
+            height: bodyHeight - CPU.CONTENTS_MARGIN * 2,
+            xOffset: -bodyWidth / 2 + memoryControllerWidth / 2 + CPU.CONTENTS_MARGIN,
+            yOffset: 0,
+            color: CPU.COMPONENT_COLOR
+        }
+        this.meshProperties.set(this.memoryControllerMesh, memoryController);
+        const memoryMesh = DrawUtils.buildTextMesh("MEMORY",
+            memoryController.xOffset,
+            memoryController.yOffset, CPU.TEXT_SIZE, CPU.COMPONENT_COLOR);
+        memoryMesh.geometry.center().rotateZ(Math.PI / 2);
+        memoryMesh.position.set(memoryController.xOffset, memoryController.yOffset, 0)
+        this.scene.add(memoryMesh);
+    }
+
+    private computeALUMeshProperties(bodyWidth: number, aluWidth: number, registerFile: MeshProperties): void {
+        const aluHeight = CPU.REGISTER_SIDE_LENGTH * 2 + CPU.INNER_SPACING;
+        for (let i = 0; i < CPU.aluCount; ++i) {
+            const alu = {
+                width: aluWidth,
+                height: aluHeight,
+                xOffset: bodyWidth / 2 - aluWidth / 2 - CPU.CONTENTS_MARGIN,
+                yOffset: registerFile.yOffset + (i % 2 == 0 ? -1 : 1) * (registerFile.height / 2 - aluHeight / 2),
+                color: CPU.COMPONENT_COLOR
+            };
+            this.meshProperties.set(this.aluMeshName(i), alu);
+            this.scene.add(DrawUtils.buildTextMesh(this.aluMeshName(i), alu.xOffset, alu.yOffset, CPU.TEXT_SIZE, CPU.COMPONENT_COLOR));
+        }
+    }
+
+    private drawCPUPins(): void {
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', 4).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', InstructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+    }
+
+    private aluMeshName(index: number = 0): string {
+        return "ALU" + index;
+    }
+
+    private calculateAverageInstructionCount(): number {
+        let sum = 0;
+        const size = this.previousRetiredInstructionCounts.size();
+        if (size === 0) return 0;
+
+        for (let i = 0; i < size; ++i) {
+            sum += this.previousRetiredInstructionCounts.get(i);
+        }
+        return sum / size;
+    }
+
+    private preventOverflow(n: number): number {
+        const result = n % WorkingMemory.MAX_BYTE_VALUE;
+        return result >= 0 ? result : result + WorkingMemory.MAX_BYTE_VALUE;
+    }
 }

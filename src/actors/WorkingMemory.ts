@@ -4,178 +4,195 @@ import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
 export class WorkingMemory extends ComputerChip {
-
-    public static readonly COMPONENTS_INNER_MARGIN = 0.03;
-    public static readonly COMPONENTS_SPACING = 0.01;
-    public static readonly ROW_COUNT = 4; // words
-    public static readonly COL_COUNT = 4; // bytes per word
-    public static readonly SIZE: number = WorkingMemory.ROW_COUNT * WorkingMemory.COL_COUNT;
-    public static readonly REGISTER_SIZE: number = 0.15;
-
-    public static readonly WIDTH: number = (WorkingMemory.REGISTER_SIZE) * WorkingMemory.COL_COUNT
-        + WorkingMemory.COMPONENTS_INNER_MARGIN * 2;
-    public static readonly HEIGHT: number = WorkingMemory.REGISTER_SIZE * WorkingMemory.ROW_COUNT
-
-    public static readonly MAX_VALUE = 16
-
-    private readonly memory: number[];
-    private static readonly MEMORY_ADDRESS_NAMES: string[] = [];
-    static {
-        for (let i = 0; i < WorkingMemory.SIZE; i++)
-            WorkingMemory.MEMORY_ADDRESS_NAMES.push(ComputerChip.toHex(i));
-    }
+    public static readonly WORDS = 4;
+    private size: number;
+    private readonly memoryArray: number[];
 
     private memoryAddressToUpdate: number = -1;
-    public readyToExecuteMemoryOperation: boolean = false;
+    private ready: boolean = false;
     private memoryOperationTimeout: number = 0;
 
-    constructor(id: string, position: [number, number], scene: Scene) {
-        super(id, position, scene);
-        this.memory = new Array(WorkingMemory.SIZE);
+    // Mesh names
+    private bodyMesh: string;
+    private memoryAddressMarginMesh: string;
+    private registerFileMesh: string;
+
+    constructor(position: [number, number], scene: Scene, clockFrequency: number = 3) {
+        super(position, scene);
+        this.memoryArray = new Array(this.size);
         this.initialize();
-        this.clockFrequency = 1; // frequencies higher than cpu clock frequency will cause problems
+        this.clockFrequency = clockFrequency; // frequencies higher than cpu clock frequency will cause problems
+        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 
-    public askForMemoryOperation(cpu: CPU, address: number): void {
+    public getSize(): number {
+        return this.size;
+    }
+
+    public isReady(): boolean {
+        return this.ready;
+    }
+
+    public askForMemoryOperation(cpu: CPU): void {
         if (this.memoryOperationTimeout > 0)
             return;
-        this.readyToExecuteMemoryOperation = false;
+        this.ready = false;
         this.memoryOperationTimeout = cpu.getClockFrequency() / this.clockFrequency;
     }
 
     public read(address: number): number {
-        if (!this.readyToExecuteMemoryOperation)
+        if (!this.ready)
             throw new Error("MainMemory is not ready to be read");
-        this.blink(WorkingMemory.MEMORY_ADDRESS_NAMES[address], WorkingMemory.COLORS.get("MEMORY"));
-        this.readyToExecuteMemoryOperation = false;
-        return this.memory[address];
+
+        this.blink(this.registerName(address), WorkingMemory.MEMORY_COLOR);
+        this.ready = false;
+        return this.memoryArray[address];
     }
 
     public write(address: number, value: number): void {
-        if (!this.readyToExecuteMemoryOperation)
+        if (!this.ready)
             throw new Error("MainMemory is not ready to be written to");
-        this.blink(WorkingMemory.MEMORY_ADDRESS_NAMES[address], WorkingMemory.COLORS.get("MEMORY"));
-        this.memory[address] = value;
+
+        this.blink(this.registerName(address), WorkingMemory.MEMORY_COLOR);
+        this.memoryArray[address] = value;
         this.memoryAddressToUpdate = address;
-        this.readyToExecuteMemoryOperation = false;
+        this.ready = false;
     }
 
     computeMeshProperties(): void {
-        const body = {
-            width: WorkingMemory.WIDTH,
-            height: WorkingMemory.HEIGHT,
-            xOffset: 0,
-            yOffset: 0,
-            color: WorkingMemory.COLORS.get("BODY"),
-            immutable: true
-        };
-        this.meshProperties.set("BODY", body);
+        // define mesh names
+        this.bodyMesh = "BODY";
+        this.memoryAddressMarginMesh = "MEMORY_ADDRESS_MARGIN";
+        this.registerFileMesh = "REGISTER_FILE";
 
-        const memoryAddressMargin = {
-            width: 6 * WorkingMemory.COMPONENTS_INNER_MARGIN,
-            height: WorkingMemory.HEIGHT,
-            xOffset: WorkingMemory.WIDTH / 2 + WorkingMemory.COMPONENTS_INNER_MARGIN + WorkingMemory.COMPONENTS_INNER_MARGIN,
-            yOffset: 0,
-            color: WorkingMemory.COLORS.get("BODY"),
-            immutable: true
-        };
-        this.meshProperties.set("MEMORY_ADDRESS_MARGIN", memoryAddressMargin);
+        // compute variable mesh properties
+        this.size = WorkingMemory.WORDS * WorkingMemory.WORD_SIZE;
+        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS;
+        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2;
 
-        const registerFile = {
-            width: WorkingMemory.WIDTH - (2 * WorkingMemory.COMPONENTS_INNER_MARGIN),
-            height: WorkingMemory.HEIGHT - (2 * WorkingMemory.COMPONENTS_INNER_MARGIN),
-            xOffset: 0,
-            yOffset: 0,
-            color: WorkingMemory.COLORS.get("BODY"),
-            immutable: true
-        };
-        this.meshProperties.set("REGISTER_FILE", registerFile);
+        this.computeBodyMeshProperties(bodyWidth, bodyHeight);
+        this.computeAddressMarginMeshProperties(bodyWidth, bodyHeight)
+        this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawGrid(registerFile, WorkingMemory.ROW_COUNT, WorkingMemory.COL_COUNT, WorkingMemory.COMPONENTS_SPACING,
-            WorkingMemory.MEMORY_ADDRESS_NAMES)
-            .forEach((dimensions, name) => {
-                this.scene.add(
-                    DrawUtils.buildTextMesh(name,
-                        this.position.x + dimensions.xOffset,
-                        this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
-                        WorkingMemory.TEXT_SIZE / 2, WorkingMemory.COLORS.get("BODY"))
-                );
-            });
-
-        this.drawPins(this.meshProperties.get("MEMORY_ADDRESS_MARGIN"), 'right', WorkingMemory.ROW_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-
-        this.clockMesh = DrawUtils.buildTextMesh("clock: " + this.clockFrequency + " Hz",
-            this.position.x + memoryAddressMargin.width / 2
-            , this.position.y + WorkingMemory.HEIGHT / 2 + ComputerChip.TEXT_SIZE,
-            ComputerChip.TEXT_SIZE, ComputerChip.COLORS.get("HUD_TEXT"));
+        this.drawPins(this.meshProperties.get(this.memoryAddressMarginMesh), 'right', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
+            this.position.x + this.meshProperties.get(this.memoryAddressMarginMesh).width / 2,
+            this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
+            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
     }
 
     update(): void {
         if (this.memoryOperationTimeout > 0) {
             this.memoryOperationTimeout--;
-            if (this.memoryOperationTimeout <= 0
-                && this.blinkStates.size === 0
-            )
-            {
-                this.readyToExecuteMemoryOperation = true;
-            }
+            this.ready = this.memoryOperationTimeout <= 0 && this.blinkStates.size === 0;
         }
     }
 
     drawUpdate(): void {
-        DrawUtils.updateMeshText(this.clockMesh, "clock: " + this.clockFrequency + " Hz");
         if (this.memoryAddressToUpdate < 0)
             return;
-        const modifiedTextMeshName = `${WorkingMemory.MEMORY_ADDRESS_NAMES[this.memoryAddressToUpdate]}_CONTENT`;
-        this.scene.remove(this.textMeshes.get(modifiedTextMeshName));
-        this.textMeshes.get(modifiedTextMeshName).geometry.dispose();
-        if (this.textMeshes.get(modifiedTextMeshName).material instanceof Material)
-            (this.textMeshes.get(modifiedTextMeshName).material as Material).dispose();
-        this.textMeshes.delete(modifiedTextMeshName);
-        this.drawMemoryContent(this.memoryAddressToUpdate);
-        this.scene.add(this.textMeshes.get(modifiedTextMeshName));
+        this.updateRegisterTextMesh(this.registerTextMeshName(this.registerName(this.memoryAddressToUpdate)));
         this.memoryAddressToUpdate = -1;
-
     }
 
     private initialize(): void {
-        for (let i = 0; i < WorkingMemory.SIZE; i++)
-            this.memory[i] = Math.floor(Math.random() * WorkingMemory.MAX_VALUE);
-        this.drawAllMemoryContent()
+        for (let i = 0; i < this.size; i++) {
+            this.memoryArray[i] = Math.floor(Math.random() * WorkingMemory.MAX_BYTE_VALUE);
+            this.buildRegisterTextMesh(i);
+        }
         this.drawMemoryWordAddressTags();
         this.textMeshes.forEach(mesh => this.scene.add(mesh));
     }
 
-    private drawAllMemoryContent(): void {
-        for (let i = 0; i < WorkingMemory.SIZE; i++)
-            this.drawMemoryContent(i);
-    }
-
-    private drawMemoryContent(address: number): void {
-        const memoryAddressRegister = this.meshProperties.get(
-            WorkingMemory.MEMORY_ADDRESS_NAMES[address]);
+    private buildRegisterTextMesh(address: number): void {
+        const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
         this.textMeshes.set(
-            `${WorkingMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
-            DrawUtils.buildTextMesh(this.memory[address].toString(),
+            this.registerTextMeshName(this.registerName(address)),
+            DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
                 this.position.x + memoryAddressRegister.xOffset,
-                this.position.y + memoryAddressRegister.yOffset
-                - DrawUtils.baseTextHeight / 4,
-                WorkingMemory.TEXT_SIZE, WorkingMemory.COLORS.get("TEXT")
+                this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
+                WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
             ));
     }
 
     private drawMemoryWordAddressTags(): void {
-        for (let i = 0; i < WorkingMemory.ROW_COUNT; i++) {
-            const memoryAddressRegister = this.meshProperties.get(WorkingMemory.MEMORY_ADDRESS_NAMES[i * WorkingMemory.COL_COUNT]);
+        for (let i = 0; i < WorkingMemory.WORDS; i++) {
+            const memoryAddressRegister =
+                this.meshProperties.get(this.registerName(i * WorkingMemory.WORD_SIZE));
             this.scene.add(
                 DrawUtils.buildTextMesh(
-                    WorkingMemory.toHex(i * WorkingMemory.COL_COUNT),
-                    this.position.x + this.meshProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
-                    - WorkingMemory.COMPONENTS_INNER_MARGIN,
+                    DrawUtils.toHex(i * WorkingMemory.WORD_SIZE),
+                    this.position.x + this.meshProperties.get(this.memoryAddressMarginMesh).xOffset
+                    - WorkingMemory.CONTENTS_MARGIN,
                     this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
-                    WorkingMemory.TEXT_SIZE / 2, WorkingMemory.COLORS.get("TEXT")
+                    WorkingMemory.TEXT_SIZE / 2, WorkingMemory.TEXT_COLOR
                 )
             );
         }
+    }
+
+    private updateRegisterTextMesh(meshName: string): void {
+        this.scene.remove(this.textMeshes.get(meshName));
+        this.textMeshes.get(meshName).geometry.dispose();
+        if (this.textMeshes.get(meshName).material instanceof Material)
+            (this.textMeshes.get(meshName).material as Material).dispose();
+        this.textMeshes.delete(meshName);
+        this.buildRegisterTextMesh(this.memoryAddressToUpdate);
+        this.scene.add(this.textMeshes.get(meshName));
+    }
+
+    private computeBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {
+        const body = {
+            width: bodyWidth,
+            height: bodyHeight,
+            xOffset: 0,
+            yOffset: 0,
+            color: WorkingMemory.BODY_COLOR,
+        };
+        this.meshProperties.set(this.bodyMesh, body);
+    }
+
+    private computeAddressMarginMeshProperties(bodyWidth: number, bodyHeight: number): void {
+        const memoryAddressMargin = {
+            width: 6 * WorkingMemory.CONTENTS_MARGIN,
+            height: bodyHeight,
+            xOffset: bodyWidth / 2 + WorkingMemory.CONTENTS_MARGIN + WorkingMemory.CONTENTS_MARGIN,
+            yOffset: 0,
+            color: WorkingMemory.BODY_COLOR,
+        };
+        this.meshProperties.set(this.memoryAddressMarginMesh, memoryAddressMargin);
+    }
+
+    private computeRegisterMeshProperties(bodyWidth: number, bodyHeight: number): void {
+        const registerFile = {
+            width: bodyWidth - (2 * WorkingMemory.CONTENTS_MARGIN),
+            height: bodyHeight - (2 * WorkingMemory.CONTENTS_MARGIN),
+            xOffset: 0,
+            yOffset: 0,
+            color: WorkingMemory.BODY_COLOR,
+        };
+        this.meshProperties.set(this.registerFileMesh, registerFile);
+
+        const registerNames = [];
+        for (let i = 0; i < this.size; i++)
+            registerNames.push(this.registerName(i));
+
+        this.drawRegisterGridArray(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames)
+            .forEach((dimensions, name) => {
+                this.scene.add( // draw the memory address on each register
+                    DrawUtils.buildTextMesh(name,
+                        this.position.x + dimensions.xOffset,
+                        this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
+                        WorkingMemory.TEXT_SIZE / 2, WorkingMemory.BODY_COLOR)
+                );
+            });
+    }
+
+    registerName(address: number): string {
+        return DrawUtils.toHex(address);
+    }
+
+    private registerTextMeshName(name: string): string {
+        return `${name}_CONTENT`;
     }
 }

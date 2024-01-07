@@ -119,7 +119,7 @@ export class DrawUtils {
         return textMesh;
     }
 
-    public static updateMeshText(mesh: Mesh, text: string): void {
+    public static updateText(mesh: Mesh, text: string): void {
         mesh.geometry.computeBoundingBox();
         const initialTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
         const size = mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1;
@@ -193,6 +193,20 @@ export class DrawUtils {
 
         changeMaterialColor(mesh.material);
         if (scale) mesh.scale.set(scale, scale, scale);
+    }
+
+    /**
+     * Converts a number to a hexadecimal string for display
+     *
+     * @param value the number to convert
+     * @protected
+     */
+    public static toHex(value: number): string {
+        return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+    }
+
+    public static formatFrequency(frequency: number): string {
+        return frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} KHz`;
     }
 }
 

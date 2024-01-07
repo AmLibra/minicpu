@@ -8,25 +8,27 @@ import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
 
 export class InstructionMemory extends ComputerChip {
-
-    public static readonly MEMORY_SIZE: number = 8;
-    private static readonly WIDTH: number = 0.8;
-    private static readonly BUFFER_HEIGHT: number = 0.12;
-    private static readonly HEIGHT: number = this.BUFFER_HEIGHT * InstructionMemory.MEMORY_SIZE;
-    private static readonly MARGIN = 0.03;
-    private static readonly COMPONENTS_SPACING = 0.01;
+    public static size: number = 8;
 
     private readonly instructionMemory: Queue<Instruction>;
-
+    private readonly workingMemory: WorkingMemory;
     private needsUpdate: boolean = true;
-    public readyToBeRead: boolean = false;
-    private readTimeout: number = 0.5;
+    private readyToBeRead: boolean = false;
+    private readTimeout: number = 0;
 
+    // Mesh names
+    private bodyMesh: string;
 
-    constructor(id: string, position: [number, number], scene: Scene) {
-        super(id, position, scene);
-        this.instructionMemory = new Queue<Instruction>(InstructionMemory.MEMORY_SIZE);
-        this.clockFrequency = 1; // frequencies higher than cpu clock frequency will cause problems
+    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
+        super(position, scene);
+        this.instructionMemory = new Queue<Instruction>(InstructionMemory.size);
+        this.workingMemory = workingMemory;
+        this.clockFrequency = clockFrequency;
+        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+    }
+
+    public isReadyToBeRead(): boolean {
+        return this.readyToBeRead;
     }
 
     public askForInstructions(cpu: CPU, n: number): void {
@@ -37,9 +39,9 @@ export class InstructionMemory extends ComputerChip {
         for (let i = 0; i < n; ++i) {
             if (this.instructionMemory.get(i)) {
                 const blinkColor = this.instructionMemory.get(i).isMemoryOperation() ?
-                    InstructionMemory.COLORS.get("MEMORY") : InstructionMemory.COLORS.get("ALU");
-                this.blink(`_BUFFER_${i}`, blinkColor);
-                this.textMeshes.get(`_BUFFER_${i}`).material = InstructionMemory.COLORS.get("COMPONENT");
+                    InstructionMemory.MEMORY_COLOR : InstructionMemory.ALU_COLOR;
+                this.blink(this.bufferMeshName(this.bodyMesh, i), blinkColor);
+                this.textMeshes.get(this.bufferMeshName(this.bodyMesh, i)).material = InstructionMemory.COMPONENT_COLOR;
             }
         }
         this.readTimeout = cpu.getClockFrequency() / this.clockFrequency;
@@ -56,80 +58,79 @@ export class InstructionMemory extends ComputerChip {
     }
 
     computeMeshProperties(): void {
-        this.meshProperties.set("INSTRUCTION_MEMORY",
-            new MeshProperties(InstructionMemory.WIDTH, InstructionMemory.HEIGHT, 0, 0, InstructionMemory.COLORS.get("BODY")));
-        this.drawBuffer("", this.meshProperties.get("INSTRUCTION_MEMORY"), InstructionMemory.MEMORY_SIZE,
-            InstructionMemory.MARGIN, InstructionMemory.COMPONENTS_SPACING, InstructionMemory.COLORS.get("COMPONENT"));
-        this.drawPins(this.meshProperties.get("INSTRUCTION_MEMORY"), 'left', InstructionMemory.MEMORY_SIZE).forEach((mesh, _name) => this.scene.add(mesh));
+        this.bodyMesh = "INSTRUCTION_MEMORY";
 
-        this.clockMesh = DrawUtils.buildTextMesh("clock: " + this.clockFrequency + " Hz",
-            this.position.x, this.position.y + InstructionMemory.HEIGHT / 2 + ComputerChip.TEXT_SIZE,
-            ComputerChip.TEXT_SIZE, ComputerChip.COLORS.get("HUD_TEXT"));
+        const bodyHeight = InstructionMemory.BUFFER_HEIGHT * InstructionMemory.size;
+        const bodyWidth = 0.8;
+
+        this.meshProperties.set(this.bodyMesh,
+            new MeshProperties(bodyWidth, bodyHeight, 0, 0, InstructionMemory.BODY_COLOR));
+        this.drawBuffer(this.bodyMesh, this.meshProperties.get(this.bodyMesh), InstructionMemory.size,
+            InstructionMemory.CONTENTS_MARGIN, InstructionMemory.INNER_SPACING, InstructionMemory.COMPONENT_COLOR);
+
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', InstructionMemory.size)
+            .forEach((mesh, _name) => this.scene.add(mesh));
+
+        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
+            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
+            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
     }
 
     update() {
         this.fillInstructionMemoryIfEmpty();
         if (this.readTimeout > 0) {
             this.readTimeout--;
-            if (this.readTimeout <= 0) {
-                this.readyToBeRead = true;
-            }
+            this.readyToBeRead = this.readTimeout <= 0;
         }
     }
 
     drawUpdate(): void {
-        DrawUtils.updateMeshText(this.clockMesh, "clock: " + this.clockFrequency + " Hz");
         if (!this.needsUpdate)
             return;
 
         this.clearMutableTextMeshes();
-        this.addBufferTextMeshes(this.instructionMemory, "");
+        this.addBufferTextMeshes(this.instructionMemory, this.bodyMesh);
         this.textMeshes.forEach(comp => this.scene.add(comp));
         this.needsUpdate = false;
     }
 
     private fillInstructionMemoryIfEmpty() {
         if (this.instructionMemory.isEmpty()) {
-            const instructions = this.typicalInstructionSequence(InstructionMemory.MEMORY_SIZE);
-            for (let i = 0; i < InstructionMemory.MEMORY_SIZE; ++i)
+            const instructions = this.typicalInstructionSequence(InstructionMemory.size);
+            for (let i = 0; i < InstructionMemory.size; ++i)
                 this.instructionMemory.enqueue(instructions.dequeue());
         }
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {
-        const typicalWorkload = new Queue<Instruction>(4);
+        const typicalWorkload = new Queue<Instruction>(6);
+
         // usually start with 2 memory operations to load 2 operands, then 1 ALU operation to compute the result
         typicalWorkload.enqueue(this.generateMemoryInstruction());
         typicalWorkload.enqueue(this.generateMemoryInstruction());
         typicalWorkload.enqueue(this.generateALUInstruction());
+        typicalWorkload.enqueue(this.generateALUInstruction());
         typicalWorkload.enqueue(this.generateMemoryInstruction());
+        typicalWorkload.enqueue(this.generateALUInstruction());
         const instructions = new Queue<Instruction>(n);
         for (let i = 0; i < n; ++i)
-            instructions.enqueue(typicalWorkload.get(i % 4));
+            instructions.enqueue(typicalWorkload.get(i % 6));
 
         return instructions;
     }
 
-
-    private generateInstruction(): Instruction {
-        if (Math.random() < 0.4)
-            return this.generateALUInstruction();
-        else
-            return this.generateMemoryInstruction();
-    }
-
     private generateMemoryInstruction(): Instruction {
         const opcode = CPU.MEMORY_OPCODES[Math.floor(Math.random() * CPU.MEMORY_OPCODES.length)];
-        const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
-        const address = Math.floor(Math.random() * WorkingMemory.SIZE);
+        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const address = Math.floor(Math.random() * this.workingMemory.getSize());
         return new Instruction(opcode, result_reg, undefined, undefined, address);
     }
 
     private generateALUInstruction(): Instruction {
         const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
-        const result_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
-        const op1_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
-        const op2_reg = CPU.REGISTER_NAMES[Math.floor(Math.random() * CPU.REGISTER_NAMES.length)];
+        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const op1_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const op2_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
         return new Instruction(opcode, result_reg, op1_reg, op2_reg);
     }
 }
