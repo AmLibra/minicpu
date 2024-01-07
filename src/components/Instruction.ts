@@ -1,5 +1,6 @@
 import {CPU} from "../actors/CPU";
 import {ComputerChip} from "../actors/ComputerChip";
+import {DrawUtils} from "../DrawUtils";
 
 /**
  * Instruction types:
@@ -72,9 +73,8 @@ export class Instruction {
      * Used to display the instruction in the UI
      */
     public toString(): string {
-        // return this.opcode + ", " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg + ";";
         if (this.type == InstructionType.MEMORY)
-            return this.opcode + " " + this.resultReg + ", [" + ComputerChip.toHex(this.address) + "]";
+            return this.opcode + " " + this.resultReg + ", [" + DrawUtils.toHex(this.address) + "]";
         else
             return this.opcode + " " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg;
     }
