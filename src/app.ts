@@ -4,6 +4,7 @@ import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
 import {InstructionMemory} from "./actors/InstructionMemory";
 import {WorkingMemory} from "./actors/WorkingMemory";
+import {HUD} from "./HUD";
 
 /**
  * This class is the entry point of the application.
@@ -11,26 +12,16 @@ import {WorkingMemory} from "./actors/WorkingMemory";
  *
  * @class App
  */
-class App {
-    private scene: Scene;
-    private camera: OrthographicCamera;
+export class App {
+    scene: Scene;
+    camera: OrthographicCamera;
+    paused: boolean = false;
+    document: Document;
+    cpu: CPU;
+
     private renderer: WebGLRenderer;
-
-    private raycaster = new Raycaster(); // mouse raycaster
-    private mouse = new Vector2(); // mouse coordinates
-
     private gameActors: ComputerChip[] = []
-    private cpu: CPU;
-
-    private pauseButtonMesh: Mesh; // the pause button
-    private playButtonMesh: Mesh; // the play button
-    private isHoveringMesh: Map<Mesh, boolean> = new Map<Mesh, boolean>();
-    private mouseClickEvents: Map<Function, Function> = new Map<Function, Function>();
-
-    private IPCMesh: Mesh;
-    private totalExecutedInstructions: Mesh;
-
-    private paused: boolean = false;
+    private hud: HUD;
 
     constructor() {
         this.init().then(() => {
@@ -38,7 +29,6 @@ class App {
                 this.startGameLoop()
             }
         )
-
     }
 
     /**
@@ -48,6 +38,7 @@ class App {
      */
     private async init(): Promise<void> {
         this.scene = new Scene(); // create the scene
+        this.document = document;
         this.renderer = new WebGLRenderer({antialias: true, alpha: true}); // create the WebGL renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1); // set the background color of the scene
@@ -76,31 +67,9 @@ class App {
             await DrawUtils.loadFont();
             DrawUtils.drawGrid(this.scene)
             this.loadGame();
-            this.addMouseClickEvents()
-            document.addEventListener('click', (event) => this.onMouseClick(event), false);
-            this.addMouseHoverEvents()
-            document.addEventListener('mousemove', (event) => this.onMouseMove(event), false);
         } catch (error) {
             throw new Error("Could not load font: " + error);
         }
-    }
-
-    private addMouseClickEvents(): void {
-        this.mouseClickEvents.set(
-            () => this.raycaster.intersectObject(this.pauseButtonMesh).concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
-            () => this.togglePauseState()
-        );
-    }
-
-    private addMouseHoverEvents(): void {
-        this.isHoveringMesh.set(this.pauseButtonMesh, false);
-        this.isHoveringMesh.set(this.playButtonMesh, false);
-    }
-
-    private togglePauseState(): void {
-        this.paused = !this.paused;
-        this.pauseButtonMesh.visible = !this.paused;
-        this.playButtonMesh.visible = this.paused;
     }
 
     /**
@@ -125,21 +94,9 @@ class App {
                 gameActor.update()
                 gameActor.drawUpdate()
             });
-            this.IPCMesh.geometry.dispose();
-            (this.IPCMesh.material as Material).dispose();
-            this.scene.remove(this.IPCMesh);
-            this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
-                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
-            this.scene.add(this.IPCMesh);
-
-            this.totalExecutedInstructions.geometry.dispose();
-            (this.totalExecutedInstructions.material as Material).dispose();
-            this.scene.remove(this.totalExecutedInstructions);
-            this.totalExecutedInstructions = DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(), 0, 0.6,
-                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
-            this.scene.add(this.totalExecutedInstructions);
+            this.hud.update()
         },
-            ComputerChip.ONE_SECOND / CPU.clockFrequency);
+            ComputerChip.ONE_SECOND / this.cpu.getClockFrequency());
     }
 
     /**
@@ -149,83 +106,7 @@ class App {
      */
     private loadGame(): void {
         this.addGameActors();
-        this.drawHUD();
-    }
-
-    /**
-     * Draws the HUD of the game.
-     *
-     * @private
-     */
-    private drawHUD(): void {
-        this.scene.add(  // clock speed text
-            DrawUtils.buildTextMesh("CPU clock: " + CPU.clockFrequency + " Hz", 0, 1,
-                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
-        );
-
-        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.8,
-                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
-        this.scene.add(this.IPCMesh);
-
-        this.totalExecutedInstructions = DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(), 0, 0.6,
-                0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")}))
-        this.scene.add(this.totalExecutedInstructions);
-
-        // pause button
-        this.pauseButtonMesh = DrawUtils.buildTriangleMesh(
-            0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        );
-        this.pauseButtonMesh.translateX(1.5).translateY(1).rotateZ(-Math.PI / 2);
-        this.scene.add(this.pauseButtonMesh);
-
-        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(
-            0.1, 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        );
-        this.playButtonMesh.visible = false;
-        this.playButtonMesh.translateX(1.5).translateY(1);
-        this.scene.add(this.playButtonMesh);
-    }
-
-    private onMouseClick(event: MouseEvent): void {
-        event.preventDefault();
-        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        this.mouseClickEvents.forEach((callback, condition) => {
-            if (condition()) callback()
-        });
-    }
-
-    private onMouseMove(event: MouseEvent): void {
-        event.preventDefault();
-        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        this.checkHoverState();
-    }
-
-    private checkHoverState(): void {
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        this.isHoveringMesh.forEach((_isHovering, mesh) => this.updateHoverStateForMesh(mesh));
-    }
-
-    private updateHoverStateForMesh(mesh: Mesh): void {
-        const intersected = this.raycaster.intersectObject(mesh).length > 0;
-        const wasHovering = this.isHoveringMesh.get(mesh) || false;
-
-        if (intersected && !wasHovering)
-            this.onHoverEnter(mesh);
-        else if (!intersected && wasHovering)
-            this.onHoverLeave(mesh);
-    }
-
-    private onHoverEnter(mesh: Mesh): void {
-        this.isHoveringMesh.set(mesh, true);
-        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("LIGHT"), 1.1);
-    }
-
-    private onHoverLeave(mesh: Mesh): void {
-        this.isHoveringMesh.set(mesh, false);
-        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT"), 1);
+        this.hud = new HUD(this).drawHUD();
     }
 
     /**
@@ -240,7 +121,7 @@ class App {
         const rom = new InstructionMemory("ROM0", [1.5, 0], this.scene)
         const cpu = new CPU("CPU0", [0, 0], this.scene, rom, mainMemory)
         this.cpu = cpu;
-        CPU.clockFrequency = 1;
+        //this.cpu.setPipelined();
         this.gameActors.push(cpu, rom, mainMemory);
     }
 }

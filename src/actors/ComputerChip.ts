@@ -22,16 +22,19 @@ import {CPU} from "./CPU";
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000;
     protected static readonly TEXT_SIZE: number = 0.05;
-    private static PIN_RADIUS = 0.02;
+    public static PIN_RADIUS = 0.02;
 
     public readonly id: string;
     protected readonly position: { x: number; y: number };
     protected readonly scene: Scene;
+    protected clockFrequency: number = 1;
+    protected clockMesh: Mesh;
 
     protected static readonly COLORS: Map<string, MeshBasicMaterial> = new Map([
         ["BODY", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")})],
         ["COMPONENT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARKER")})],
         ["TEXT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})],
+        ["HUD_TEXT", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})],
         ["MEMORY", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")})],
         ["ALU", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")})],
         ["PIN", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("GOLDEN_YELLOW")})]
@@ -62,6 +65,7 @@ export abstract class ComputerChip {
      */
     private addMeshesToScene(): void {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
+        this.scene.add(this.clockMesh);
     }
 
     /**
@@ -85,6 +89,10 @@ export abstract class ComputerChip {
      * @protected
      */
     abstract drawUpdate(): void;
+
+    public getClockFrequency(): number {
+        return this.clockFrequency;
+    }
 
     /**
      * Draws a simple graphic component, i.e. a quadrilateral with a solid color, used for the body of chips
@@ -134,7 +142,7 @@ export abstract class ComputerChip {
             const buffer = {
                 width: parent.width - (2 * margin),
                 height: rectangleHeight,
-                xOffset: 0,
+                xOffset: parent.xOffset,
                 yOffset: yOffset,
                 color: color,
                 immutable: true
@@ -220,7 +228,7 @@ export abstract class ComputerChip {
         if (pinNames && pinNames.length != pinCount)
             throw new Error("Number of pin names does not match the number of pins");
 
-        const pinRadius = 0.02;
+
         const pins = new Map<string, Mesh>();
         // Determine the starting position and spacing based on the side
         let startX, startY, pinSpacing;
@@ -230,29 +238,29 @@ export abstract class ComputerChip {
         switch (side) {
             case 'left':
             case 'right':
-                startX = side === 'left' ? this.position.x + parent.xOffset - parent.width / 2 - pinRadius - 0.01 :
-                    this.position.x + parent.xOffset + parent.width / 2 + pinRadius + 0.01;
-                startY = this.position.y + parent.yOffset + parent.height / 2 - margin - pinRadius;
-                pinSpacing = (spaceToFillVertical - pinCount * (2 * pinRadius)) / (pinCount - 1);
+                startX = side === 'left' ? this.position.x + parent.xOffset - parent.width / 2 - ComputerChip.PIN_RADIUS - 0.01 :
+                    this.position.x + parent.xOffset + parent.width / 2 + ComputerChip.PIN_RADIUS + 0.01;
+                startY = this.position.y + parent.yOffset + parent.height / 2 - margin - ComputerChip.PIN_RADIUS;
+                pinSpacing = (spaceToFillVertical - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
             case 'top':
             case 'bottom':
-                startY = side === 'top' ? this.position.y + parent.yOffset + parent.height / 2 + pinRadius + 0.01 :
-                    this.position.y + parent.yOffset - parent.height / 2 - pinRadius - 0.01;
-                startX = this.position.x + parent.xOffset - parent.width / 2 + margin + pinRadius;
-                pinSpacing = (spaceToFillHorizontal - pinCount * (2 * pinRadius)) / (pinCount - 1);
+                startY = side === 'top' ? this.position.y + parent.yOffset + parent.height / 2 + ComputerChip.PIN_RADIUS + 0.01 :
+                    this.position.y + parent.yOffset - parent.height / 2 - ComputerChip.PIN_RADIUS - 0.01;
+                startX = this.position.x + parent.xOffset - parent.width / 2 + margin + ComputerChip.PIN_RADIUS;
+                pinSpacing = (spaceToFillHorizontal - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
         }
 
         // Create and place pins
         for (let i = 0; i < pinCount; i++) {
-            const xOffset = side === 'left' || side === 'right' ? startX : startX + i * (2 * pinRadius + pinSpacing);
-            const yOffset = side === 'left' || side === 'right' ? startY - i * (2 * pinRadius + pinSpacing) : startY;
+            const xOffset = side === 'left' || side === 'right' ? startX : startX + i * (2 * ComputerChip.PIN_RADIUS + pinSpacing);
+            const yOffset = side === 'left' || side === 'right' ? startY - i * (2 * ComputerChip.PIN_RADIUS + pinSpacing) : startY;
 
             const pinName = pinNames ? pinNames[i] : `PIN${i}`;
             // const pin = DrawUtils.buildCircleMesh(pinRadius, ComputerChip.COLORS.get("PIN"));
-            const pin = (side === 'left' || side === 'right') ? DrawUtils.buildQuadrilateralMesh(pinRadius * 2, pinRadius, ComputerChip.COLORS.get("PIN")) :
-                DrawUtils.buildQuadrilateralMesh(pinRadius, pinRadius * 2, ComputerChip.COLORS.get("PIN"));
+            const pin = (side === 'left' || side === 'right') ? DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS, ComputerChip.COLORS.get("PIN")) :
+                DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS, ComputerChip.PIN_RADIUS * 2, ComputerChip.COLORS.get("PIN"));
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
@@ -302,7 +310,7 @@ export abstract class ComputerChip {
      * @param newMesh the new color of the component
      * @protected
      */
-    protected blink(componentName: string, newMesh: MeshBasicMaterial): void {
+    protected blink(componentName: string, newMesh: MeshBasicMaterial, blinkDuration?: number): void {
         // Cancel any ongoing blink for this component
         if (this.blinkStates.has(componentName)) {
             clearTimeout(this.blinkStates.get(componentName));
@@ -318,7 +326,7 @@ export abstract class ComputerChip {
                 this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
             }
             this.blinkStates.delete(componentName);
-        }, ComputerChip.ONE_SECOND / CPU.clockFrequency);
+        }, blinkDuration ? blinkDuration : ComputerChip.ONE_SECOND / this.clockFrequency);
 
         // Save the timeout so it can be cancelled if blink is called again
         this.blinkStates.set(componentName, timeout);

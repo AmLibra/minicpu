@@ -7,7 +7,8 @@ import {
     Mesh,
     MeshBasicMaterial,
     PlaneGeometry,
-    Scene
+    Scene,
+    TextureLoader
 } from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
@@ -33,6 +34,7 @@ export class DrawUtils {
         ["LIGHT_RED", "rgb(217,82,82)"],
     ]);
 
+    private static readonly textureLoader = new TextureLoader();
     private static readonly FONT_DIR: string = "../../res/Courier_New_Bold.json";
     public static font: Font = null;
 
@@ -40,8 +42,9 @@ export class DrawUtils {
     public static baseTextWidth: number;
 
     /**
-     * Loads the program font asynchronously. This function must be called before using any other function in this class.
-     * It also calculates the base text height and width for the font, which is used to center text all around the application.
+     * Loads the program font asynchronously. This function must be called before using any other function in this
+     * class. It also calculates the base text height and width for the font, which is used to center text all around
+     * the application.
      *
      * @returns a promise that resolves when the font is loaded
      * @throws an error if the font is already loaded
@@ -56,7 +59,8 @@ export class DrawUtils {
             new FontLoader().load(this.FONT_DIR, (font: Font) => {
                 this.font = font;
                 const mesh = this.buildTextMesh("M", 0, 0, 0.1,  // Use a dummy text to calculate the base text height and width
-                    // M is usually the widest character in the font, although it does not matter in this case due to the monospace font
+                    // M is usually the widest character in the font, although it does not matter in this case due to
+                    // the monospace font
                     new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
                 this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
                 this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
@@ -90,7 +94,7 @@ export class DrawUtils {
      *
      * @returns a text mesh
      */
-    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material): Mesh {
+    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material, centered: boolean = true): Mesh {
         if (!this.font)
             throw new Error("Font not loaded");
 
@@ -101,26 +105,37 @@ export class DrawUtils {
         });
 
         const textMesh = new Mesh(textGeometry, color);
-        textGeometry.computeBoundingBox();
-        const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-        const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
-        textMesh.position.set(
-            xOffset - textWidth / 2, // Center the text
-            yOffset - textHeight / 2, // use top of text as the origin
-            0
-        );
+        if (centered) {
+            textGeometry.computeBoundingBox();
+            const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+            const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
+            textMesh.position.set(
+                xOffset - textWidth / 2, // Center the text
+                yOffset - textHeight / 2, // use top of text as the origin
+                0
+            );
+        }
+
         return textMesh;
     }
 
-    public static updateTextMesh(textMesh: Mesh, text: string): void {
+    public static updateMeshText(mesh: Mesh, text: string): void {
+        mesh.geometry.computeBoundingBox();
+        const initialTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
+        const size = mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1;
+        mesh.geometry.dispose();
+
         const textGeometry = new TextGeometry(text, {
-            font: this.font,
-            size: textMesh.scale.x,
-            height: 0.1
+            font: DrawUtils.font,
+            size: size,
+            height: 0.1,
         });
 
-        textMesh.geometry.dispose();
-        textMesh.geometry = textGeometry;
+        mesh.geometry = textGeometry;
+        textGeometry.computeBoundingBox();
+        const newTextWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+        const difference = newTextWidth - initialTextWidth;
+        if (difference > 0.001 * size) mesh.position.x -= difference / 2;
     }
 
     public static drawGrid(scene: Scene): void {
@@ -149,14 +164,31 @@ export class DrawUtils {
         return new Mesh(geometry, material);
     }
 
+    public static buildImageMesh(image: string, width: number, height: number): Mesh {
+        let material: Material;
+        const geometry = new PlaneGeometry(width, height);
+        DrawUtils.textureLoader.load(image, function (texture) {
+            material = new MeshBasicMaterial({map: texture});
+        });
+
+        const mesh = new Mesh(geometry, material);
+        mesh.position.set(0, 0, 0); // Replace 0, 0, 0 with your desired position
+        return mesh;
+    }
+
     public static changeMeshAppearance(mesh: Mesh, colorHex: string | Color, scale?: number): void {
         function changeMaterialColor(material: Material | Material[]) {
             if (Array.isArray(material)) {
                 material.forEach(changeMaterialColor);
                 return;
             }
-            if ('color' in material && material.color instanceof Color)
-                material.color.set(colorHex);
+            if ('color' in material && material.color instanceof Color) {
+                if (typeof colorHex === 'string') {
+                    material.color.setStyle(colorHex); // If colorHex is a string, use setStyle
+                } else if (colorHex instanceof Color) {
+                    material.color.copy(colorHex); // If colorHex is a Color, use copy
+                }
+            }
         }
 
         changeMaterialColor(mesh.material);

@@ -1,6 +1,7 @@
 import {ComputerChip} from "./ComputerChip";
 import {Material, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
+import {CPU} from "./CPU";
 
 export class WorkingMemory extends ComputerChip {
 
@@ -10,8 +11,6 @@ export class WorkingMemory extends ComputerChip {
     public static readonly COL_COUNT = 4; // bytes per word
     public static readonly SIZE: number = WorkingMemory.ROW_COUNT * WorkingMemory.COL_COUNT;
     public static readonly REGISTER_SIZE: number = 0.15;
-
-    public static readonly MEMORY_OPERATION_DELAY: number = 5;
 
     public static readonly WIDTH: number = (WorkingMemory.REGISTER_SIZE) * WorkingMemory.COL_COUNT
         + WorkingMemory.COMPONENTS_INNER_MARGIN * 2;
@@ -34,14 +33,14 @@ export class WorkingMemory extends ComputerChip {
         super(id, position, scene);
         this.memory = new Array(WorkingMemory.SIZE);
         this.initialize();
+        this.clockFrequency = 1; // frequencies higher than cpu clock frequency will cause problems
     }
 
-    public askForMemoryOperation(address: number): void {
-        this.blink(WorkingMemory.MEMORY_ADDRESS_NAMES[address], WorkingMemory.COLORS.get("MEMORY"));
+    public askForMemoryOperation(cpu: CPU, address: number): void {
         if (this.memoryOperationTimeout > 0)
             return;
         this.readyToExecuteMemoryOperation = false;
-        this.memoryOperationTimeout = WorkingMemory.MEMORY_OPERATION_DELAY;
+        this.memoryOperationTimeout = cpu.getClockFrequency() / this.clockFrequency;
     }
 
     public read(address: number): number {
@@ -103,18 +102,28 @@ export class WorkingMemory extends ComputerChip {
                 );
             });
 
-         this.drawPins(this.meshProperties.get("MEMORY_ADDRESS_MARGIN"), 'right', WorkingMemory.ROW_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get("MEMORY_ADDRESS_MARGIN"), 'right', WorkingMemory.ROW_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+
+        this.clockMesh = DrawUtils.buildTextMesh("clock: " + this.clockFrequency + " Hz",
+            this.position.x + memoryAddressMargin.width / 2
+            , this.position.y + WorkingMemory.HEIGHT / 2 + ComputerChip.TEXT_SIZE,
+            ComputerChip.TEXT_SIZE, ComputerChip.COLORS.get("HUD_TEXT"));
     }
 
     update(): void {
         if (this.memoryOperationTimeout > 0) {
             this.memoryOperationTimeout--;
-            if (this.memoryOperationTimeout === 0)
+            if (this.memoryOperationTimeout <= 0
+                && this.blinkStates.size === 0
+            )
+            {
                 this.readyToExecuteMemoryOperation = true;
+            }
         }
     }
 
     drawUpdate(): void {
+        DrawUtils.updateMeshText(this.clockMesh, "clock: " + this.clockFrequency + " Hz");
         if (this.memoryAddressToUpdate < 0)
             return;
         const modifiedTextMeshName = `${WorkingMemory.MEMORY_ADDRESS_NAMES[this.memoryAddressToUpdate]}_CONTENT`;
@@ -148,7 +157,7 @@ export class WorkingMemory extends ComputerChip {
         this.textMeshes.set(
             `${WorkingMemory.MEMORY_ADDRESS_NAMES[address]}_CONTENT`,
             DrawUtils.buildTextMesh(this.memory[address].toString(),
-                this.position.x + memoryAddressRegister.xOffset         ,
+                this.position.x + memoryAddressRegister.xOffset,
                 this.position.y + memoryAddressRegister.yOffset
                 - DrawUtils.baseTextHeight / 4,
                 WorkingMemory.TEXT_SIZE, WorkingMemory.COLORS.get("TEXT")
@@ -164,7 +173,7 @@ export class WorkingMemory extends ComputerChip {
                     this.position.x + this.meshProperties.get("MEMORY_ADDRESS_MARGIN").xOffset
                     - WorkingMemory.COMPONENTS_INNER_MARGIN,
                     this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
-                    WorkingMemory.TEXT_SIZE/2, WorkingMemory.COLORS.get("TEXT")
+                    WorkingMemory.TEXT_SIZE / 2, WorkingMemory.COLORS.get("TEXT")
                 )
             );
         }
