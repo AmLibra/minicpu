@@ -23,7 +23,8 @@ export class CPU extends ComputerChip {
     private readonly decodeBuffer: Queue<Instruction>;
     private static aluCount: number = 1;
     private readonly ALUs: Queue<Instruction>;
-    private readonly memoryController: Instruction;
+    private static memoryControllerCount: number = 1;
+    private readonly memoryController: Queue<Instruction>
     private readonly registerValues: Map<string, number>;
 
     private readonly instructionMemory: InstructionMemory;
@@ -51,6 +52,7 @@ export class CPU extends ComputerChip {
         this.fetchBuffer = new Queue<Instruction>(CPU.fetcherCount)
         this.decodeBuffer = new Queue<Instruction>(CPU.decoderCount)
         this.ALUs = new Queue<Instruction>(CPU.aluCount)
+        this.memoryController = new Queue<Instruction>(CPU.memoryControllerCount)
         this.registerValues = new Map<string, number>();
 
         for (let i = 0; i < CPU.REGISTER_SIZE; ++i) this.registerValues.set(CPU.registerName(i), 0);
@@ -88,6 +90,7 @@ export class CPU extends ComputerChip {
 
         const aluWidth = 0.4;
         const registerFileWidth = CPU.WORD_SIZE * CPU.REGISTER_SIDE_LENGTH + (CPU.WORD_SIZE - 1) * CPU.INNER_SPACING;
+        // noinspection JSSuspiciousNameCombination - memory controller width is the same as the height of a buffer
         const memoryControllerWidth = CPU.BUFFER_HEIGHT;
         const bodyWidth: number = registerFileWidth + aluWidth + memoryControllerWidth
             + CPU.INNER_SPACING_L * 2 + CPU.CONTENTS_MARGIN * 2;
@@ -117,8 +120,7 @@ export class CPU extends ComputerChip {
 
     update() {
         if (this.isPipelined) {
-            if (!this.ALUs.isEmpty())
-                this.ALUs.clear();
+            this.ALUs.clear();
             this.decodeAll();
             this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
             this.requestInstructionBufferRefillIfEmpty();
@@ -127,8 +129,7 @@ export class CPU extends ComputerChip {
                 this.requestInstructionBufferRefillIfEmpty();
             this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
             this.decodeAll();
-            if (!this.ALUs.isEmpty())
-                this.ALUs.clear();
+            this.ALUs.clear();
         }
         this.updateRetiredInstructionCounters();
     }
@@ -200,20 +201,14 @@ export class CPU extends ComputerChip {
             this.instructionMemory.askForInstructions(this, CPU.fetcherCount);
     }
 
-    private delay(duration: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, duration));
-    }
-
     private async playAluAnimation(instruction: Instruction): Promise<void> {
-        const blinkDuration = ComputerChip.ONE_SECOND / this.instructionMemory.getClockFrequency() / this.clockFrequency / 2;
-        const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 5;
+        const blinkDuration = ComputerChip.ONE_SECOND / this.clockFrequency / this.instructionMemory.getClockFrequency();
+        const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 4; // 4 is the number of steps in the animation
 
         this.blink("FETCH_BUFFER_0", CPU.ALU_COLOR, blinkDuration);
         await this.delay(delay);
 
         this.blink("DECODE_BUFFER_0", CPU.ALU_COLOR, blinkDuration);
-        await this.delay(delay);
-
         this.blink(instruction.getOp1Reg(), CPU.ALU_COLOR, blinkDuration);
         this.blink(instruction.getOp2Reg(), CPU.ALU_COLOR, blinkDuration);
         await this.delay(delay);

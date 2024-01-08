@@ -350,6 +350,10 @@ export abstract class ComputerChip {
             blinkAction();
     }
 
+    protected delay(duration: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
     /**
      * Moves instructions from one buffer to another (for queues)
      *
