@@ -196,23 +196,15 @@ export class CPU extends ComputerChip {
     }
 
     private decodeAll(): void {
-        function decode(index: number): void {
-            const instruction = this.decodeBuffer.get(index);
-            console.log("Decoding instruction: " + instruction.toString());
-            if (instruction.isArithmetic())
-                this.ALUs.enqueue(this.decodeBuffer.dequeue())
-            else if (instruction.isMemoryOperation())
-            {
-                this.memoryController.enqueue(this.decodeBuffer.dequeue())
+        for (let i = 0; i < CPU.decoderCount; ++i){
+            const instruction = this.decodeBuffer.get(i);
+            if (instruction) {
+                if (instruction.isArithmetic())
+                    this.ALUs.enqueue(this.decodeBuffer.dequeue())
+                else if (instruction.isMemoryOperation())
+                    this.memoryController.enqueue(this.decodeBuffer.dequeue())
             }
         }
-
-        for (let i = 0; i < CPU.decoderCount; ++i)
-            if (this.decodeBuffer.get(i))
-            {
-                console.log("Decoding instruction: " + this.decodeBuffer.get(i).toString());
-                decode(i);
-            }
     }
 
     private requestInstructionBufferRefillIfEmpty(): void {
@@ -283,9 +275,8 @@ export class CPU extends ComputerChip {
     private processMemoryInstruction(): void {
         const instruction = this.memoryController.get(0)
         if (!instruction)
-                return;
+            return;
         if (this.workingMemory.isReady()) {
-
             if (instruction.getOpcode() == "LOAD") {
                 this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
                 if (!this.isPipelined)
