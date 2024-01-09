@@ -20,10 +20,9 @@ export class InstructionMemory extends ComputerChip {
     private bodyMesh: string;
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
-        super(position, scene);
+        super(position, scene, clockFrequency);
         this.instructionMemory = new Queue<Instruction>(InstructionMemory.size);
         this.workingMemory = workingMemory;
-        this.clockFrequency = clockFrequency;
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 
@@ -103,34 +102,64 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {
-        const typicalWorkload = new Queue<Instruction>(6);
+        let instructionsLeft = n;
+        let modifiedRegisters : number[] = [];
+        const typicalWorkload = new Queue<Instruction>(n);
 
-        // usually start with 2 memory operations to load 2 operands, then 1 ALU operation to compute the result
-        typicalWorkload.enqueue(this.generateMemoryInstruction());
-        typicalWorkload.enqueue(this.generateMemoryInstruction());
-        typicalWorkload.enqueue(this.generateALUInstruction());
-        typicalWorkload.enqueue(this.generateALUInstruction());
-        typicalWorkload.enqueue(this.generateMemoryInstruction());
-        typicalWorkload.enqueue(this.generateALUInstruction());
+        const numberOfLoadOperations = 3;
+        const randomRegisterNumbers = this.randomConsecutiveRegisterNumbers(numberOfLoadOperations);
+        const randomAddresses = this.randomConsecutiveAddresses(numberOfLoadOperations);
+        for (let i = 0; i < numberOfLoadOperations; ++i) {
+            modifiedRegisters.push(randomRegisterNumbers[i]);
+            typicalWorkload.enqueue(new Instruction("LOAD", this.registerName(randomRegisterNumbers[i]),
+                undefined, undefined, randomAddresses[i]));
+        }
+        instructionsLeft -= numberOfLoadOperations;
+
+        const numberOfALUOperations = 2 + Math.floor(Math.random() * (instructionsLeft - 2 - 1));
+        for (let i = 0; i < numberOfALUOperations; ++i) {
+            const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
+            const randomRegisterNumber = this.randomRegisterNumber();
+            const result_reg = this.registerName(randomRegisterNumber);
+            const op1_reg = this.registerName(modifiedRegisters[Math.floor(Math.random() * modifiedRegisters.length)]);
+            const op2_reg = this.registerName(modifiedRegisters[Math.floor(Math.random() * modifiedRegisters.length)]);
+            typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
+        }
+
+        const numberOfStoreOperations = instructionsLeft - numberOfALUOperations;
+        for (let i = 0; i < numberOfStoreOperations; ++i) {
+            const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
+            const randomModifiedRegister = Math.floor(Math.random() * modifiedRegisters.length);
+            typicalWorkload.enqueue(new Instruction("STORE",
+                this.registerName(modifiedRegisters[randomModifiedRegister]),
+                undefined, undefined, randomAddress));
+            modifiedRegisters = modifiedRegisters.filter(reg => reg !== modifiedRegisters[randomModifiedRegister]);
+        }
+
         const instructions = new Queue<Instruction>(n);
         for (let i = 0; i < n; ++i)
-            instructions.enqueue(typicalWorkload.get(i % 6));
+            instructions.enqueue(typicalWorkload.get(i));
 
         return instructions;
     }
 
-    private generateMemoryInstruction(): Instruction {
-        const opcode = CPU.MEMORY_OPCODES[Math.floor(Math.random() * CPU.MEMORY_OPCODES.length)];
-        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        const address = Math.floor(Math.random() * this.workingMemory.getSize());
-        return new Instruction(opcode, result_reg, undefined, undefined, address);
+    private randomRegisterNumber(): number {
+        return Math.floor(Math.random() * (CPU.REGISTER_SIZE - 1));
     }
 
-    private generateALUInstruction(): Instruction {
-        const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
-        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        const op1_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        const op2_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        return new Instruction(opcode, result_reg, op1_reg, op2_reg);
+    private randomConsecutiveRegisterNumbers(n:number): number[] {
+        const randomRegisterNumber = this.randomRegisterNumber();
+        const randomRegisterNumbers: number[] = [];
+        for (let i = 0; i < n; ++i)
+            randomRegisterNumbers.push((randomRegisterNumber + i) % CPU.REGISTER_SIZE);
+        return randomRegisterNumbers;
+    }
+
+    private randomConsecutiveAddresses(n:number): number[] {
+        const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize());
+        const randomAddresses: number[] = [];
+        for (let i = 0; i < n; ++i)
+            randomAddresses.push((randomAddress + i) % this.workingMemory.getSize());
+        return randomAddresses;
     }
 }

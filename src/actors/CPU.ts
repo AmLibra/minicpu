@@ -12,8 +12,8 @@ export class CPU extends ComputerChip {
     private static readonly POWER_PIN_COUNT = 6;
 
     // ISA
-    private static readonly WORDS = 2;
-    public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR", "XOR", "SHL", "SHR"];
+    private static readonly WORDS = 4;
+    public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
 
@@ -31,7 +31,7 @@ export class CPU extends ComputerChip {
     private readonly workingMemory: WorkingMemory;
 
     private isPipelined: boolean;
-    private waitingForMemory = false;
+    private memoryAnimationPlaying = false;
 
     // used for computing CPU metrics
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(20);
@@ -46,7 +46,7 @@ export class CPU extends ComputerChip {
     private memoryControllerMesh: string;
 
     constructor(position: [number, number], scene: Scene, rom: InstructionMemory, workingMemory: WorkingMemory, clockFrequency: number) {
-        super(position, scene)
+        super(position, scene, clockFrequency)
         this.instructionMemory = rom
 
         this.workingMemory = workingMemory
@@ -58,8 +58,10 @@ export class CPU extends ComputerChip {
 
         for (let i = 0; i < CPU.REGISTER_SIZE; ++i) this.registerValues.set(this.registerName(i), 0);
         this.isPipelined = false;
-        this.clockFrequency = clockFrequency;
-        this.drawAllRegisterValues();
+
+        this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
+        this.textMeshes.forEach(mesh => this.scene.add(mesh));
+
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 
@@ -148,142 +150,97 @@ export class CPU extends ComputerChip {
         this.textMeshes.forEach(comp => this.scene.add(comp));
     }
 
-    private processALU(): void {
-        if (!this.ALUs.isEmpty()) {
-            for (let i = 0; i < CPU.aluCount; ++i) {
-                const instruction = this.ALUs.get(i);
-                if (!this.isPipelined)
-                    this.playAluAnimation(instruction);
-                this.registerValues.set(instruction.getResultReg(),
-                    this.preventOverflow(this.computeALUResult(instruction)));
-                this.retiredInstructionCount++;
-            }
-        }
-        this.ALUs.clear();
-    }
-
-    private computeALUResult(alu: Instruction): number {
-        const op1 = this.registerValues.get(alu.getOp1Reg());
-        const op2 = this.registerValues.get(alu.getOp2Reg());
-        switch (alu.getOpcode()) {
-            case "ADD":
-                return op1 + op2;
-            case "SUB":
-                return op1 - op2;
-            case "MUL":
-                return op1 * op2;
-            case "AND":
-                return op1 & op2;
-            case "OR":
-                return op1 | op2;
-            case "XOR":
-                return op1 ^ op2;
-            case "SHL":
-                return op1 << op2;
-            case "SHR":
-                return op1 >> op2;
-            default:
-                throw new Error("Invalid ALU opcode: " + alu.getOpcode());
-        }
-    }
-
-    private updateRetiredInstructionCounters(): void {
-        if (this.previousRetiredInstructionCounts.isFull())
-            this.previousRetiredInstructionCounts.dequeue();
-        this.previousRetiredInstructionCounts.enqueue(this.retiredInstructionCount);
-        this.accumulatedInstructionCount += this.retiredInstructionCount;
-        this.retiredInstructionCount = 0;
-    }
-
-    private decodeAll(): void {
-        for (let i = 0; i < CPU.decoderCount; ++i){
-            const instruction = this.decodeBuffer.get(i);
-            if (instruction) {
-                if (instruction.isArithmetic())
-                    this.ALUs.enqueue(this.decodeBuffer.dequeue())
-                else if (instruction.isMemoryOperation())
-                    this.memoryController.enqueue(this.decodeBuffer.dequeue())
-            }
-        }
-    }
-
     private requestInstructionBufferRefillIfEmpty(): void {
-        if (!this.fetchBuffer.isEmpty()) return;
+        if (!this.fetchBuffer.isEmpty())
+            return;
         if (this.instructionMemory.isReadyToBeRead())
             this.moveInstructions(this.instructionMemory.read(CPU.fetcherCount), this.fetchBuffer, CPU.fetcherCount);
         else
             this.instructionMemory.askForInstructions(this, CPU.fetcherCount);
     }
 
-    private async playAluAnimation(instruction: Instruction): Promise<void> {
-        const clockCycleDuration = ComputerChip.ONE_SECOND / this.clockFrequency;
-        const blinkDuration = clockCycleDuration * (2 / 5);
-        const delay = clockCycleDuration / 5; // 4 is the number of steps in the animation, + 1 for overlap
+    private decodeAll(): void {
+        for (let i = 0; i < CPU.decoderCount; ++i){
+            const instruction = this.decodeBuffer.get(i);
+            if (instruction)
+                (instruction.isArithmetic() ? this.ALUs: this.memoryController)
+                    .enqueue(this.decodeBuffer.dequeue())
+        }
+    }
 
-        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.ALU_COLOR, blinkDuration);
+    private processALU(): void {
+        function computeALUResult(op1: number, op2: number, opcode: string): number {
+            switch (opcode) {
+                case "ADD":
+                    return op1 + op2;
+                case "SUB":
+                    return op1 - op2;
+                case "MUL":
+                    return op1 * op2;
+                case "AND":
+                    return op1 & op2;
+                case "OR":
+                    return op1 | op2;
+                default:
+                    throw new Error("Invalid ALU opcode: " + opcode);
+            }
+        }
+
+        if (!this.ALUs.isEmpty()) {
+            for (let i = 0; i < CPU.aluCount; ++i) {
+                const instruction = this.ALUs.get(i);
+                if (!this.isPipelined)
+                    this.playAluAnimation(instruction);
+                this.registerValues.set(instruction.getResultReg(),
+                    this.preventOverflow(computeALUResult(
+                        this.registerValues.get(instruction.getOp1Reg()),
+                        this.registerValues.get(instruction.getOp2Reg()),
+                        instruction.getOpcode())
+                    ));
+                // update the text mesh
+                if (!this.isPipelined){
+                    this.blink(instruction.getResultReg(), CPU.ALU_COLOR);
+                    this.updateRegisterTextMesh(this.registerTextMeshName(instruction.getResultReg()))
+                }
+                this.retiredInstructionCount++;
+            }
+        }
+        this.ALUs.clear();
+    }
+
+    private async playAluAnimation(instruction: Instruction): Promise<void> {
+        const blinkDuration = this.getClockCycleDuration() * (2 / 5);
+        const delay = this.getClockCycleDuration() / 5; // 4 is the number of steps in the animation, + 1 for overlap
+
+        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.ALU_COLOR, blinkDuration); // step 1
         await this.delay(delay);
 
         this.blink(this.bufferMeshName(this.decodeBufferMesh), CPU.ALU_COLOR, blinkDuration);
         this.blink(instruction.getOp1Reg(), CPU.ALU_COLOR, blinkDuration);
-        this.blink(instruction.getOp2Reg(), CPU.ALU_COLOR, blinkDuration);
+        this.blink(instruction.getOp2Reg(), CPU.ALU_COLOR, blinkDuration); // step 2
         await this.delay(delay);
 
-        this.blink(this.aluMeshName(), CPU.ALU_COLOR, blinkDuration);
+        this.blink(this.aluMeshName(), CPU.ALU_COLOR, blinkDuration); // step 3
         await this.delay(delay);
 
-        this.blink(instruction.getResultReg(), CPU.ALU_COLOR, blinkDuration);
-    }
-
-    private async playMemoryAnimation(instruction: Instruction): Promise<void> {
-        const blinkDuration = ComputerChip.ONE_SECOND / this.workingMemory.getClockFrequency() / 2;
-        const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 3;
-        if (this.waitingForMemory) {
-            this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR,
-                ComputerChip.ONE_SECOND / this.clockFrequency
-            );
-            if (instruction.getOpcode() == "STORE")
-                this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
-            return;
-        }
-        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
-        await this.delay(delay);
-        this.blink(this.bufferMeshName(this.decodeBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
-        await this.delay(delay);
-        this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR,
-            instruction.getOpcode() == "LOAD" ? blinkDuration * 4 : blinkDuration * 4
-        );
-        if (instruction.getOpcode() == "STORE")
-            this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
-        this.waitingForMemory = true;
-    }
-
-    private async playExtraLoadAnimation(instruction: Instruction): Promise<void> {
-        const blinkDuration = ComputerChip.ONE_SECOND / this.clockFrequency;
-        const delay = ComputerChip.ONE_SECOND / this.clockFrequency / 3;
-        await this.delay(delay);
-        this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
-        const modifiedTextMeshName = `${instruction.getResultReg()}_CONTENT`;
-        this.scene.remove(this.textMeshes.get(modifiedTextMeshName));
-        this.textMeshes.get(modifiedTextMeshName).geometry.dispose();
-        if (this.textMeshes.get(modifiedTextMeshName).material instanceof Material)
-            (this.textMeshes.get(modifiedTextMeshName).material as Material).dispose();
-        this.textMeshes.delete(modifiedTextMeshName);
-        this.drawRegisterValue(modifiedTextMeshName);
-        this.scene.add(this.textMeshes.get(modifiedTextMeshName));
+        this.blink(instruction.getResultReg(), CPU.ALU_COLOR, blinkDuration); // step 4
     }
 
     private processMemoryInstruction(): void {
-        const instruction = this.memoryController.get(0)
+        const instruction = this.memoryController.get(0);
         if (!instruction)
-            return;
+            return; // if there is no instruction to process, exit
         if (this.workingMemory.isReady()) {
             if (instruction.getOpcode() == "LOAD") {
                 this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
-                if (!this.isPipelined)
-                    this.playExtraLoadAnimation(instruction)
+                if (!this.isPipelined){
+                    this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR);
+                    this.updateRegisterTextMesh(this.registerTextMeshName(instruction.getResultReg()))
+                }
             } else if (instruction.getOpcode() == "STORE")
                 this.workingMemory.write(instruction.getAddress(), this.registerValues.get(instruction.getResultReg()));
-            this.waitingForMemory = false;
+
+            this.memoryAnimationPlaying = false;
             this.memoryController.clear();
             this.retiredInstructionCount++;
         } else {
@@ -293,25 +250,31 @@ export class CPU extends ComputerChip {
         }
     }
 
-    private drawRegisterValue(modifiedTextMeshName: string): void {
-        const register = modifiedTextMeshName.replace("_CONTENT", "")
-        this.textMeshes.set(modifiedTextMeshName, DrawUtils.buildTextMesh(this.registerValues.get(register).toString(),
-            this.position.x + this.meshProperties.get(register).xOffset,
-            this.position.y + this.meshProperties.get(register).yOffset - DrawUtils.baseTextHeight / 4,
-            CPU.TEXT_SIZE, CPU.TEXT_COLOR));
+    private async playMemoryAnimation(instruction: Instruction): Promise<void> {
+        const blinkDuration = this.getClockCycleDuration() * (2 / 4);
+        const delay = this.getClockCycleDuration() / 4;
+
+        if (this.memoryAnimationPlaying) {
+            this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR);
+            this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR);
+            return;
+        }
+
+        this.blink(this.bufferMeshName(this.fetchBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
+        await this.delay(delay);
+        this.blink(this.bufferMeshName(this.decodeBufferMesh), CPU.MEMORY_COLOR, blinkDuration);
+        await this.delay(delay);
+        this.blink(this.memoryControllerMesh, CPU.MEMORY_COLOR, blinkDuration);
+        this.blink(instruction.getResultReg(), CPU.MEMORY_COLOR, blinkDuration);
+        this.memoryAnimationPlaying = true;
     }
 
-    private drawAllRegisterValues(): void {
-        this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
-        this.textMeshes.forEach(mesh => this.scene.add(mesh));
-    }
-
-    private addRegisterValueMeshes(registerName: string): void {
-        this.textMeshes.set(registerName + "_CONTENT",
-            DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
-                this.position.x + this.meshProperties.get(registerName).xOffset,
-                this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
-                CPU.TEXT_SIZE, CPU.TEXT_COLOR));
+    private updateRetiredInstructionCounters(): void {
+        if (this.previousRetiredInstructionCounts.isFull())
+            this.previousRetiredInstructionCounts.dequeue();
+        this.previousRetiredInstructionCounts.enqueue(this.retiredInstructionCount);
+        this.accumulatedInstructionCount += this.retiredInstructionCount;
+        this.retiredInstructionCount = 0;
     }
 
     private drawALUText(i: number): void {
@@ -448,14 +411,39 @@ export class CPU extends ComputerChip {
         const size = this.previousRetiredInstructionCounts.size();
         if (size === 0) return 0;
 
-        for (let i = 0; i < size; ++i) {
+        for (let i = 0; i < size; ++i)
             sum += this.previousRetiredInstructionCounts.get(i);
-        }
+
         return sum / size;
     }
 
     private preventOverflow(n: number): number {
         const result = n % WorkingMemory.MAX_BYTE_VALUE;
         return result >= 0 ? result : result + WorkingMemory.MAX_BYTE_VALUE;
+    }
+
+    private addRegisterValueMeshes(registerName: string): void {
+        this.textMeshes.set(this.registerTextMeshName(registerName), DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
+            this.position.x + this.meshProperties.get(registerName).xOffset,
+            this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
+            CPU.TEXT_SIZE, CPU.TEXT_COLOR));
+    }
+
+    private registerTextMeshName(name: string): string {
+        return `${name}_CONTENT`;
+    }
+
+    private registerMeshName(name: string): string {
+        return name.replace("_CONTENT", "");
+    }
+
+    private updateRegisterTextMesh(registerName: string): void {
+        this.scene.remove(this.textMeshes.get(registerName));
+        this.textMeshes.get(registerName).geometry.dispose();
+        if (this.textMeshes.get(registerName).material instanceof Material)
+            (this.textMeshes.get(registerName).material as Material).dispose();
+        this.textMeshes.delete(registerName);
+        this.addRegisterValueMeshes(this.registerMeshName(registerName));
+        this.scene.add(this.textMeshes.get(registerName))
     }
 }

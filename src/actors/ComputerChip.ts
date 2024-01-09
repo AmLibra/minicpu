@@ -57,9 +57,10 @@ export abstract class ComputerChip {
     private paused: boolean = false;
     private queuedBlinks: Array<() => void> = [];
 
-    protected constructor(position: [number, number], scene: Scene) {
+    protected constructor(position: [number, number], scene: Scene, clockFrequency: number) {
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
+        this.clockFrequency = clockFrequency;
         this.meshes = new Map<string, Mesh>();
         this.meshProperties = new Map<string, MeshProperties>();
         this.textMeshes = new Map<string, Mesh>();
@@ -106,6 +107,10 @@ export abstract class ComputerChip {
      */
     public getClockFrequency(): number {
         return this.clockFrequency;
+    }
+
+    protected getClockCycleDuration(): number {
+        return ComputerChip.ONE_SECOND / this.clockFrequency;
     }
 
     /**
@@ -336,7 +341,7 @@ export abstract class ComputerChip {
                     this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
                 }
                 this.blinkStates.delete(componentName);
-            }, blinkDuration ? blinkDuration : ComputerChip.ONE_SECOND / this.clockFrequency);
+            }, blinkDuration ? blinkDuration : this.getClockCycleDuration());
 
             this.blinkStates.set(componentName, timeout);
         };

@@ -17,11 +17,10 @@ export class WorkingMemory extends ComputerChip {
     private memoryAddressMarginMesh: string;
     private registerFileMesh: string;
 
-    constructor(position: [number, number], scene: Scene, clockFrequency: number = 3) {
-        super(position, scene);
+    constructor(position: [number, number], scene: Scene, clockFrequency: number) {
+        super(position, scene, clockFrequency);
         this.memoryArray = new Array(this.size);
         this.initialize();
-        this.clockFrequency = clockFrequency; // frequencies higher than cpu clock frequency will cause problems
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 
@@ -84,7 +83,7 @@ export class WorkingMemory extends ComputerChip {
     update(): void {
         if (this.memoryOperationTimeout > 0) {
             this.memoryOperationTimeout--;
-            this.ready = this.memoryOperationTimeout <= 0 && this.blinkStates.size === 0;
+            this.ready = this.memoryOperationTimeout <= 0;
         }
     }
 
