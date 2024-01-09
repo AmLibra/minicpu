@@ -103,32 +103,34 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {
-        const typicalWorkload = new Queue<Instruction>(4);
+        const typicalWorkload = new Queue<Instruction>(6);
 
         // usually start with 2 memory operations to load 2 operands, then 1 ALU operation to compute the result
         typicalWorkload.enqueue(this.generateMemoryInstruction());
         typicalWorkload.enqueue(this.generateMemoryInstruction());
         typicalWorkload.enqueue(this.generateALUInstruction());
+        typicalWorkload.enqueue(this.generateALUInstruction());
         typicalWorkload.enqueue(this.generateMemoryInstruction());
+        typicalWorkload.enqueue(this.generateALUInstruction());
         const instructions = new Queue<Instruction>(n);
         for (let i = 0; i < n; ++i)
-            instructions.enqueue(typicalWorkload.get(i % 4));
+            instructions.enqueue(typicalWorkload.get(i % 6));
 
         return instructions;
     }
 
     private generateMemoryInstruction(): Instruction {
         const opcode = CPU.MEMORY_OPCODES[Math.floor(Math.random() * CPU.MEMORY_OPCODES.length)];
-        const result_reg = CPU.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
         const address = Math.floor(Math.random() * this.workingMemory.getSize());
         return new Instruction(opcode, result_reg, undefined, undefined, address);
     }
 
     private generateALUInstruction(): Instruction {
         const opcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
-        const result_reg = CPU.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        const op1_reg = CPU.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
-        const op2_reg = CPU.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const result_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const op1_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
+        const op2_reg = this.registerName(Math.floor(Math.random() * CPU.REGISTER_SIZE));
         return new Instruction(opcode, result_reg, op1_reg, op2_reg);
     }
 }

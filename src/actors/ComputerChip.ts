@@ -20,7 +20,8 @@ import {Queue} from "../components/Queue";
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000; // ms
     protected static readonly TEXT_SIZE: number = 0.05;
-    public static PIN_RADIUS = 0.02;
+    protected static readonly PIN_MARGIN = 0.1
+    protected static readonly PIN_RADIUS = 0.02;
 
     protected static readonly BUFFER_HEIGHT: number = 0.12;
     protected static readonly REGISTER_SIDE_LENGTH: number = 0.15;
@@ -200,7 +201,7 @@ export abstract class ComputerChip {
      * @param registerNames the names of the registers
      * @protected
      */
-    protected drawGrid(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
+    protected drawRegisterGridArray(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
     ): Map<string, MeshProperties> {
         if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
@@ -221,7 +222,7 @@ export abstract class ComputerChip {
                 const xOffset = startX + j * (registerWidth + padding);
                 const yOffset = startY - i * (registerHeight + padding);
 
-                const registerName = registerNames ? registerNames[i * columnCount + j] : `R${i * columnCount + j}`;
+                const registerName = registerNames ? registerNames[i * columnCount + j] : this.registerName(i * columnCount + j);
                 const register = {
                     width: registerWidth,
                     height: registerHeight,
@@ -237,32 +238,27 @@ export abstract class ComputerChip {
         return registers;
     }
 
-    protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number,
-                       pinNames?: string[], margin = 0.1): Map<string, Mesh> {
-        if (pinNames && pinNames.length != pinCount)
-            throw new Error("Number of pin names does not match the number of pins");
-
-
+    protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number): Map<string, Mesh> {
         const pins = new Map<string, Mesh>();
         let startX: number;
         let startY: number;
         let pinSpacing: number;
-        const spaceToFillHorizontal = parent.width - 2 * margin;
-        const spaceToFillVertical = parent.height - 2 * margin;
+        const spaceToFillHorizontal = parent.width - 2 * ComputerChip.PIN_MARGIN;
+        const spaceToFillVertical = parent.height - 2 * ComputerChip.PIN_MARGIN;
 
         switch (side) {
             case 'left':
             case 'right':
                 startX = side === 'left' ? this.position.x + parent.xOffset - parent.width / 2 - ComputerChip.PIN_RADIUS - 0.01 :
                     this.position.x + parent.xOffset + parent.width / 2 + ComputerChip.PIN_RADIUS + 0.01;
-                startY = this.position.y + parent.yOffset + parent.height / 2 - margin - ComputerChip.PIN_RADIUS;
+                startY = this.position.y + parent.yOffset + parent.height / 2 - ComputerChip.PIN_MARGIN - ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillVertical - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
             case 'top':
             case 'bottom':
                 startY = side === 'top' ? this.position.y + parent.yOffset + parent.height / 2 + ComputerChip.PIN_RADIUS + 0.01 :
                     this.position.y + parent.yOffset - parent.height / 2 - ComputerChip.PIN_RADIUS - 0.01;
-                startX = this.position.x + parent.xOffset - parent.width / 2 + margin + ComputerChip.PIN_RADIUS;
+                startX = this.position.x + parent.xOffset - parent.width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillHorizontal - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
         }
@@ -272,7 +268,7 @@ export abstract class ComputerChip {
             const xOffset = side === 'left' || side === 'right' ? startX : startX + i * (2 * ComputerChip.PIN_RADIUS + pinSpacing);
             const yOffset = side === 'left' || side === 'right' ? startY - i * (2 * ComputerChip.PIN_RADIUS + pinSpacing) : startY;
 
-            const pinName = pinNames ? pinNames[i] : `PIN${i}`;
+            const pinName = this.pinName(i);
             const pin = (side === 'left' || side === 'right') ?
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS,
                     ComputerChip.PIN_COLOR) :
@@ -369,7 +365,15 @@ export abstract class ComputerChip {
         }
     }
 
-    protected bufferMeshName(bufferName: string, index: number): string {
+    protected pinName(pinNumber: number): string {
+        return `PIN${pinNumber}`;
+    }
+
+    protected registerName(registerNumber: number): string {
+        return `R${registerNumber}`;
+    }
+
+    protected bufferMeshName(bufferName: string, index: number = 0): string {
         return `${bufferName}_BUFFER_${index}`;
     }
 

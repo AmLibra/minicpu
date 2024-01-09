@@ -177,7 +177,7 @@ export class WorkingMemory extends ComputerChip {
         for (let i = 0; i < this.size; i++)
             registerNames.push(this.registerName(i));
 
-        this.drawGrid(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames)
+        this.drawRegisterGridArray(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames)
             .forEach((dimensions, name) => {
                 this.scene.add( // draw the memory address on each register
                     DrawUtils.buildTextMesh(name,
@@ -188,7 +188,7 @@ export class WorkingMemory extends ComputerChip {
             });
     }
 
-    private registerName(address: number): string {
+    registerName(address: number): string {
         return DrawUtils.toHex(address);
     }
 
