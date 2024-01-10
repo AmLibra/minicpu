@@ -39,7 +39,7 @@ export class InstructionMemory extends ComputerChip {
             if (this.instructionMemory.get(i)) {
                 const blinkColor = this.instructionMemory.get(i).isMemoryOperation() ?
                     InstructionMemory.MEMORY_COLOR : InstructionMemory.ALU_COLOR;
-                this.blink(this.bufferMeshName(this.bodyMesh, i), blinkColor);
+                this.highlight(this.bufferMeshName(this.bodyMesh, i), blinkColor);
                 this.textMeshes.get(this.bufferMeshName(this.bodyMesh, i)).material = InstructionMemory.COMPONENT_COLOR;
             }
         }
@@ -102,11 +102,14 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {
+        const typicalWorkload = new Queue<Instruction>(n);
         let instructionsLeft = n;
         let modifiedRegisters : number[] = [];
-        const typicalWorkload = new Queue<Instruction>(n);
 
-        const numberOfLoadOperations = 3;
+        const minNumberOfLoadOperations = InstructionMemory.size / 4 + 1;
+        const maxNumberOfLoadOperations = InstructionMemory.size / 2;
+        const numberOfLoadOperations = minNumberOfLoadOperations
+            + Math.floor(Math.random() * (maxNumberOfLoadOperations - minNumberOfLoadOperations));
         const randomRegisterNumbers = this.randomConsecutiveRegisterNumbers(numberOfLoadOperations);
         const randomAddresses = this.randomConsecutiveAddresses(numberOfLoadOperations);
         for (let i = 0; i < numberOfLoadOperations; ++i) {
@@ -116,31 +119,34 @@ export class InstructionMemory extends ComputerChip {
         }
         instructionsLeft -= numberOfLoadOperations;
 
-        const numberOfALUOperations = 2 + Math.floor(Math.random() * (instructionsLeft - 2 - 1));
+        let resultRegisters: number[] = [];
+        const numberOfALUOperations = 3 + Math.floor(Math.random() * (instructionsLeft - 3 - 1));
         for (let i = 0; i < numberOfALUOperations; ++i) {
             const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
             const randomRegisterNumber = this.randomRegisterNumber();
             const result_reg = this.registerName(randomRegisterNumber);
-            const op1_reg = this.registerName(modifiedRegisters[Math.floor(Math.random() * modifiedRegisters.length)]);
-            const op2_reg = this.registerName(modifiedRegisters[Math.floor(Math.random() * modifiedRegisters.length)]);
+            const op1_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
+            const op2_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
+            resultRegisters.push(randomRegisterNumber);
             typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
         }
 
         const numberOfStoreOperations = instructionsLeft - numberOfALUOperations;
         for (let i = 0; i < numberOfStoreOperations; ++i) {
             const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
-            const randomModifiedRegister = Math.floor(Math.random() * modifiedRegisters.length);
+            const randomResultRegister = this.randomArrayElement(resultRegisters);
             typicalWorkload.enqueue(new Instruction("STORE",
-                this.registerName(modifiedRegisters[randomModifiedRegister]),
+                this.registerName(randomResultRegister),
                 undefined, undefined, randomAddress));
-            modifiedRegisters = modifiedRegisters.filter(reg => reg !== modifiedRegisters[randomModifiedRegister]);
+            if (resultRegisters.length > 2)
+                resultRegisters = resultRegisters.filter(reg => reg !== resultRegisters[randomResultRegister]);
         }
 
-        const instructions = new Queue<Instruction>(n);
-        for (let i = 0; i < n; ++i)
-            instructions.enqueue(typicalWorkload.get(i));
+        return typicalWorkload;
+    }
 
-        return instructions;
+    private randomArrayElement<T>(array: Array<T>): T {
+        return array[Math.floor(Math.random() * array.length)];
     }
 
     private randomRegisterNumber(): number {

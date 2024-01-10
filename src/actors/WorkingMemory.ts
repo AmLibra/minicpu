@@ -4,7 +4,7 @@ import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
 export class WorkingMemory extends ComputerChip {
-    public static readonly WORDS = 4;
+    public static readonly WORDS = 8;
     private size: number;
     private readonly memoryArray: number[];
 
@@ -43,7 +43,7 @@ export class WorkingMemory extends ComputerChip {
         if (!this.ready)
             throw new Error("MainMemory is not ready to be read");
 
-        this.blink(this.registerName(address), WorkingMemory.MEMORY_COLOR);
+        this.highlight(this.registerName(address), WorkingMemory.MEMORY_COLOR);
         this.ready = false;
         return this.memoryArray[address];
     }
@@ -52,7 +52,7 @@ export class WorkingMemory extends ComputerChip {
         if (!this.ready)
             throw new Error("MainMemory is not ready to be written to");
 
-        this.blink(this.registerName(address), WorkingMemory.MEMORY_COLOR);
+        this.highlight(this.registerName(address), WorkingMemory.MEMORY_COLOR);
         this.memoryArray[address] = value;
         this.memoryAddressToUpdate = address;
         this.ready = false;
@@ -66,8 +66,8 @@ export class WorkingMemory extends ComputerChip {
 
         // compute variable mesh properties
         this.size = WorkingMemory.WORDS * WorkingMemory.WORD_SIZE;
-        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS;
-        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2;
+        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2;
+        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2;
 
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
         this.computeAddressMarginMeshProperties(bodyWidth, bodyHeight)

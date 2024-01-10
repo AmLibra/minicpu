@@ -1,4 +1,4 @@
-import {Camera, Mesh, MeshBasicMaterial, Raycaster, Scene, Vector2} from "three";
+import {Camera, Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {App} from "./app";
@@ -25,7 +25,7 @@ export class HUD {
 
     private scene: Scene;
     private cpu: CPU;
-    private readonly camera: Camera;
+    private readonly camera: OrthographicCamera;
     private app: App;
 
     constructor(app: App) {
@@ -39,14 +39,16 @@ export class HUD {
     }
 
     public drawHUD(): HUD {
-        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0, 0.9,
+        const startY = this.camera.top / this.camera.zoom - 0.4;
+        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), 0,
+            startY,
             HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
 
         this.totalExecutedInstructions =
             DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(),
-                0, 0.8, HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
+                0, startY + 0.1, HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
 
-        this.IPSMesh = DrawUtils.buildTextMesh("IPS: " + this.cpu.getIPS(), 0, 0.7,
+        this.IPSMesh = DrawUtils.buildTextMesh("IPS: " + this.cpu.getIPS(), 0, startY + 0.2,
             HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
 
         this.scene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh);
@@ -65,13 +67,15 @@ export class HUD {
     }
 
     private drawPauseButton(): void {
+        const startY = this.camera.top / this.camera.zoom - 0.3;
+        const startX = this.camera.right / this.camera.zoom - 0.3;
         this.pauseButtonMesh = DrawUtils.buildTriangleMesh(
             0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        ).translateX(1.5).translateY(1).rotateZ(-Math.PI / 2);
+        ).translateX(startX).translateY(startY).rotateZ(-Math.PI / 2);
 
         this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(
             0.1, 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        ).translateX(1.5).translateY(1);
+        ).translateX(startX).translateY(startY);
         this.playButtonMesh.visible = false;
 
         this.scene.add(this.pauseButtonMesh, this.playButtonMesh);

@@ -50,7 +50,7 @@ export class App {
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
         this.camera.position.set(0, 0, 2); // Positioned along the Z-axis
         // Zoom out a bit so that the entire scene is visible, do not forget to update the projection matrix!
-        this.camera.zoom = 0.8;
+        this.camera.zoom = 0.6;
         this.camera.updateProjectionMatrix();
 
         // add a listener for the window resize event to update the camera and renderer size accordingly
@@ -117,8 +117,8 @@ export class App {
      * @private
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-1.5, 0], this.scene, 0.58)
-        const instructionMemory = new InstructionMemory([1.5, 0], this.scene, workingMemory, 0.58)
+        const workingMemory = new WorkingMemory([-2, 0], this.scene, 0.58)
+        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 0.58)
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2.4)
         this.cpu = cpu;
         //this.cpu.setPipelined();

@@ -23,12 +23,12 @@ export abstract class ComputerChip {
     protected static readonly PIN_MARGIN = 0.1
     protected static readonly PIN_RADIUS = 0.02;
 
-    protected static readonly BUFFER_HEIGHT: number = 0.12;
+    protected static readonly BUFFER_HEIGHT: number = 0.15;
     protected static readonly REGISTER_SIDE_LENGTH: number = 0.15;
     protected static readonly CONTENTS_MARGIN = 0.03;
     protected static readonly INNER_SPACING = 0.01;
     protected static readonly WORD_SIZE = 4; // bytes
-    protected static readonly MAX_BYTE_VALUE = 16;
+    protected static readonly MAX_BYTE_VALUE = 8;
 
     protected static readonly BODY_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
@@ -54,7 +54,7 @@ export abstract class ComputerChip {
     protected readonly scene: Scene;
     protected readonly position: { x: number; y: number };
     protected clockFrequency: number = 1;
-    private paused: boolean = false;
+    protected paused: boolean = false;
     private queuedBlinks: Array<() => void> = [];
 
     protected constructor(position: [number, number], scene: Scene, clockFrequency: number) {
@@ -187,7 +187,7 @@ export abstract class ComputerChip {
                 const bufferReg = this.meshProperties.get(this.bufferMeshName(bufferName, i));
                 this.textMeshes.set(this.bufferTextMeshName(bufferName, i),
                     DrawUtils.buildTextMesh(instruction.toString(),
-                        this.position.x,
+                        this.position.x + bufferReg.xOffset,
                         this.position.y + bufferReg.yOffset + DrawUtils.baseTextHeight / 8,
                         ComputerChip.TEXT_SIZE,
                         instruction.isMemoryOperation() ? ComputerChip.MEMORY_COLOR : ComputerChip.ALU_COLOR)
@@ -328,8 +328,8 @@ export abstract class ComputerChip {
      * @param blinkDuration the duration of the blink in ms
      * @protected
      */
-    protected blink(componentName: string, newMesh: MeshBasicMaterial, blinkDuration?: number): void {
-        const blinkAction = () => {
+    protected highlight(componentName: string, newMesh: MeshBasicMaterial, blinkDuration?: number): void {
+        const highlightAction = () => {
             if (this.blinkStates.has(componentName)) {
                 clearTimeout(this.blinkStates.get(componentName));
                 this.blinkStates.delete(componentName);
@@ -346,9 +346,9 @@ export abstract class ComputerChip {
             this.blinkStates.set(componentName, timeout);
         };
         if (this.paused)
-            this.queuedBlinks.push(blinkAction);
+            this.queuedBlinks.push(highlightAction);
         else
-            blinkAction();
+            highlightAction();
     }
 
     protected delay(duration: number): Promise<void> {
