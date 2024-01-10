@@ -14,7 +14,7 @@ import {Queue} from "../components/Queue";
  * @property {Map<string, MeshProperties>} meshProperties The properties of the graphic
  *     components
  * @property {Map<string, Mesh>} meshes The graphic components of the chip
- * @property {Map<string, Mesh>} textMeshes The text components of the chip
+ * @property {Map<string, Mesh>} textMeshNames The text components of the chip
  * @property {Map<string, string>} COLORS The colors of the chip
  */
 export abstract class ComputerChip {
@@ -47,15 +47,16 @@ export abstract class ComputerChip {
 
     protected readonly meshProperties: Map<string, MeshProperties>;
     protected readonly meshes: Map<string, Mesh>;
-    protected readonly textMeshes: Map<string, Mesh>;
+    protected readonly textMeshNames: Array<string>;
     protected readonly blinkStates = new Map<string, NodeJS.Timeout>();
+    private queuedBlinks: Array<() => void> = [];
     protected clockMesh: Mesh;
 
     protected readonly scene: Scene;
     protected readonly position: { x: number; y: number };
     protected clockFrequency: number = 1;
     protected paused: boolean = false;
-    private queuedBlinks: Array<() => void> = [];
+
 
     protected constructor(position: [number, number], scene: Scene, clockFrequency: number) {
         this.position = {x: position[0], y: position[1]};
@@ -63,7 +64,7 @@ export abstract class ComputerChip {
         this.clockFrequency = clockFrequency;
         this.meshes = new Map<string, Mesh>();
         this.meshProperties = new Map<string, MeshProperties>();
-        this.textMeshes = new Map<string, Mesh>();
+        this.textMeshNames = new Array<string>();
         this.computeMeshProperties();
         this.addMeshesToScene()
     }
@@ -185,7 +186,8 @@ export abstract class ComputerChip {
             const instruction = buffer.get(i);
             if (instruction) {
                 const bufferReg = this.meshProperties.get(this.bufferMeshName(bufferName, i));
-                this.textMeshes.set(this.bufferTextMeshName(bufferName, i),
+                this.textMeshNames.push(this.bufferTextMeshName(bufferName, i));
+                this.meshes.set(this.bufferTextMeshName(bufferName, i),
                     DrawUtils.buildTextMesh(instruction.toString(),
                         this.position.x + bufferReg.xOffset,
                         this.position.y + bufferReg.yOffset + DrawUtils.baseTextHeight / 8,
@@ -288,8 +290,8 @@ export abstract class ComputerChip {
 
     protected clearMutableTextMeshes(...exceptions: string[]): void {
         const toDispose = [];
-        this.textMeshes.forEach((mesh, componentName) => {
-                if (exceptions.includes(componentName))
+        this.meshes.forEach((mesh, componentName) => {
+                if (!this.textMeshNames.includes(componentName) || exceptions.includes(componentName))
                     return;
                 this.scene.remove(mesh);
                 mesh.geometry.dispose();
@@ -298,7 +300,10 @@ export abstract class ComputerChip {
                 toDispose.push(componentName);
             }
         );
-        toDispose.forEach(comp => this.textMeshes.delete(comp));
+        toDispose.forEach(comp => {
+            this.meshes.delete(comp);
+            this.textMeshNames.splice(this.textMeshNames.indexOf(comp), 1);
+        });
     }
 
     /**
@@ -383,7 +388,7 @@ export abstract class ComputerChip {
     }
 
     protected bufferTextMeshName(bufferName: string, index: number): string {
-        return `${bufferName}_BUFFER_${index}`;
+        return `T_${bufferName}_BUFFER_${index}`;
     }
 
     /**
@@ -394,6 +399,7 @@ export abstract class ComputerChip {
      */
     private addMeshesToScene(): void {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
+        this.textMeshNames.forEach(name => this.scene.add(this.meshes.get(name)));
         this.scene.add(this.clockMesh);
     }
 }

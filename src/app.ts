@@ -121,7 +121,7 @@ export class App {
         const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 0.58)
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2.4)
         this.cpu = cpu;
-        //this.cpu.setPipelined();
+        this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }

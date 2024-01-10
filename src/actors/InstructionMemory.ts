@@ -40,7 +40,7 @@ export class InstructionMemory extends ComputerChip {
                 const blinkColor = this.instructionMemory.get(i).isMemoryOperation() ?
                     InstructionMemory.MEMORY_COLOR : InstructionMemory.ALU_COLOR;
                 this.highlight(this.bufferMeshName(this.bodyMesh, i), blinkColor);
-                this.textMeshes.get(this.bufferMeshName(this.bodyMesh, i)).material = InstructionMemory.COMPONENT_COLOR;
+                this.meshes.get(this.bufferTextMeshName(this.bodyMesh, i)).material = InstructionMemory.COMPONENT_COLOR;
             }
         }
         this.readTimeout = cpu.getClockFrequency() / this.clockFrequency;
@@ -89,7 +89,7 @@ export class InstructionMemory extends ComputerChip {
 
         this.clearMutableTextMeshes();
         this.addBufferTextMeshes(this.instructionMemory, this.bodyMesh);
-        this.textMeshes.forEach(comp => this.scene.add(comp));
+        this.textMeshNames.forEach( meshNames => { this.scene.add(this.meshes.get(meshNames)) })
         this.needsUpdate = false;
     }
 
@@ -104,7 +104,7 @@ export class InstructionMemory extends ComputerChip {
     private typicalInstructionSequence(n: number): Queue<Instruction> {
         const typicalWorkload = new Queue<Instruction>(n);
         let instructionsLeft = n;
-        let modifiedRegisters : number[] = [];
+        let modifiedRegisters: number[] = [];
 
         const minNumberOfLoadOperations = InstructionMemory.size / 4 + 1;
         const maxNumberOfLoadOperations = InstructionMemory.size / 2;
@@ -153,7 +153,7 @@ export class InstructionMemory extends ComputerChip {
         return Math.floor(Math.random() * (CPU.REGISTER_SIZE - 1));
     }
 
-    private randomConsecutiveRegisterNumbers(n:number): number[] {
+    private randomConsecutiveRegisterNumbers(n: number): number[] {
         const randomRegisterNumber = this.randomRegisterNumber();
         const randomRegisterNumbers: number[] = [];
         for (let i = 0; i < n; ++i)
@@ -161,7 +161,7 @@ export class InstructionMemory extends ComputerChip {
         return randomRegisterNumbers;
     }
 
-    private randomConsecutiveAddresses(n:number): number[] {
+    private randomConsecutiveAddresses(n: number): number[] {
         const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize());
         const randomAddresses: number[] = [];
         for (let i = 0; i < n; ++i)

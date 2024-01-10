@@ -100,18 +100,19 @@ export class WorkingMemory extends ComputerChip {
             this.buildRegisterTextMesh(i);
         }
         this.drawMemoryWordAddressTags();
-        this.textMeshes.forEach(mesh => this.scene.add(mesh));
+        this.textMeshNames.forEach(mesh => this.scene.add(this.meshes.get(mesh)));
     }
 
     private buildRegisterTextMesh(address: number): void {
         const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
-        this.textMeshes.set(
+        this.meshes.set(
             this.registerTextMeshName(this.registerName(address)),
             DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
                 this.position.x + memoryAddressRegister.xOffset,
                 this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
                 WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
             ));
+        this.textMeshNames.push(this.registerTextMeshName(this.registerName(address)));
     }
 
     private drawMemoryWordAddressTags(): void {
@@ -131,13 +132,13 @@ export class WorkingMemory extends ComputerChip {
     }
 
     private updateRegisterTextMesh(meshName: string): void {
-        this.scene.remove(this.textMeshes.get(meshName));
-        this.textMeshes.get(meshName).geometry.dispose();
-        if (this.textMeshes.get(meshName).material instanceof Material)
-            (this.textMeshes.get(meshName).material as Material).dispose();
-        this.textMeshes.delete(meshName);
+        this.scene.remove(this.meshes.get(meshName));
+        this.meshes.get(meshName).geometry.dispose();
+        if (this.meshes.get(meshName).material instanceof Material)
+            (this.meshes.get(meshName).material as Material).dispose();
+        this.meshes.delete(meshName);
         this.buildRegisterTextMesh(this.memoryAddressToUpdate);
-        this.scene.add(this.textMeshes.get(meshName));
+        this.scene.add(this.meshes.get(meshName));
     }
 
     private computeBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {

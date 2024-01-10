@@ -61,7 +61,6 @@ export class CPU extends ComputerChip {
         this.isPipelined = false;
 
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
-        this.textMeshes.forEach(mesh => this.scene.add(mesh));
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
@@ -150,7 +149,7 @@ export class CPU extends ComputerChip {
         this.addBufferTextMeshes(this.decodeBuffer, this.decodeBufferMesh);
         this.addVerticalBufferTextMeshes(this.memoryController, this.memoryControllerMesh);
         for (let i = 0; i < CPU.aluCount; ++i) this.drawALUText(i);
-        this.textMeshes.forEach(comp => this.scene.add(comp));
+        this.textMeshNames.forEach(comp => this.scene.add(this.meshes.get(comp)));
     }
 
     private requestInstructionBufferRefillIfEmpty(): void {
@@ -293,9 +292,10 @@ export class CPU extends ComputerChip {
 
     private drawALUText(i: number): void {
         const drawALUTextComponent = (key: string, text: string, xOffset: number, yOffset: number): void => {
-            this.textMeshes.set(key, DrawUtils.buildTextMesh(text,
+            this.meshes.set(key, DrawUtils.buildTextMesh(text,
                 this.position.x + xOffset,
                 this.position.y + yOffset, CPU.TEXT_SIZE, CPU.ALU_COLOR));
+            this.textMeshNames.push(key)
         };
         const distanceToCenter = 0.08;
 
@@ -441,10 +441,11 @@ export class CPU extends ComputerChip {
     }
 
     private addRegisterValueMeshes(registerName: string): void {
-        this.textMeshes.set(this.registerTextMeshName(registerName), DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
+        this.meshes.set(this.registerTextMeshName(registerName), DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
             this.position.x + this.meshProperties.get(registerName).xOffset,
             this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
             CPU.TEXT_SIZE, CPU.TEXT_COLOR));
+        this.textMeshNames.push(this.registerTextMeshName(registerName));
     }
 
     private registerTextMeshName(name: string): string {
@@ -456,13 +457,13 @@ export class CPU extends ComputerChip {
     }
 
     private updateRegisterTextMesh(registerName: string): void {
-        this.scene.remove(this.textMeshes.get(registerName));
-        this.textMeshes.get(registerName).geometry.dispose();
-        if (this.textMeshes.get(registerName).material instanceof Material)
-            (this.textMeshes.get(registerName).material as Material).dispose();
-        this.textMeshes.delete(registerName);
+        this.scene.remove(this.meshes.get(registerName));
+        this.meshes.get(registerName).geometry.dispose();
+        if (this.meshes.get(registerName).material instanceof Material)
+            (this.meshes.get(registerName).material as Material).dispose();
+        this.meshes.delete(registerName);
         this.addRegisterValueMeshes(this.registerMeshName(registerName));
-        this.scene.add(this.textMeshes.get(registerName))
+        this.scene.add(this.meshes.get(registerName))
     }
 
     private addVerticalBufferTextMeshes(buffer: Queue<Instruction>, bufferMeshName: string): void {
@@ -473,7 +474,7 @@ export class CPU extends ComputerChip {
             CPU.MEMORY_COLOR);
         bufferTextMesh.geometry.center().rotateZ(Math.PI / 2);
         bufferTextMesh.position.set(bufferMesh.xOffset, bufferMesh.yOffset, 0)
-        this.textMeshes.set(bufferMeshName, bufferTextMesh);
-        //this.scene.add(bufferTextMesh);
+        this.meshes.set(bufferMeshName, bufferTextMesh);
+        this.textMeshNames.push(bufferMeshName);
     }
 }
