@@ -35,7 +35,7 @@ export class DrawUtils {
     ]);
 
     private static readonly textureLoader = new TextureLoader();
-    private static readonly FONT_DIR: string = "res/Courier_New_Bold.json";
+    private static readonly FONT_DIR: string = "Courier_New_Bold.json";
     public static font: Font = null;
 
     public static baseTextHeight: number;
