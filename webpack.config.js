@@ -7,6 +7,11 @@ module.exports = {
     module: {
         rules: [
             {
+                test: /\.json$/,
+                loader: 'json-loader',
+                type: 'javascript/auto',
+            },
+            {
                 test: /\.tsx?$/,
                 use: 'ts-loader',
                 exclude: /node_modules/
@@ -21,7 +26,8 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        path: path.resolve(__dirname, 'docs')
+        path: path.resolve(__dirname, 'docs'),
+        publicPath: '/'
     },
     devServer: {
         static: [
