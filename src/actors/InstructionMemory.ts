@@ -53,6 +53,10 @@ export class InstructionMemory extends ComputerChip {
         return instructions;
     }
 
+    displayName(): string {
+        return "RAM";
+    }
+
     computeMeshProperties(): void {
         this.bodyMesh = "INSTRUCTION_MEMORY";
 
@@ -73,8 +77,14 @@ export class InstructionMemory extends ComputerChip {
     }
 
     update() {
-        if (this.instructionMemory.isEmpty())
-            this.instructionMemory = this.typicalInstructionSequence(InstructionMemory.size);
+        if (this.instructionMemory.isEmpty()) {
+            for (let i = 0; i < InstructionMemory.size; i+=8) {
+                const typicalWorkload = this.typicalInstructionSequence(8);
+                for (let j = 0; j < 8; ++j)
+                    this.instructionMemory.enqueue(typicalWorkload.dequeue());
+            }
+        }
+
         if (this.readTimeout > 0) {
             this.readTimeout--;
             this.readyToBeRead = this.readTimeout <= 0;
@@ -96,8 +106,8 @@ export class InstructionMemory extends ComputerChip {
         let instructionsLeft = n;
         let modifiedRegisters: number[] = [];
 
-        const minNumberOfLoadOperations = InstructionMemory.size / 4 + 1;
-        const maxNumberOfLoadOperations = InstructionMemory.size / 2;
+        const minNumberOfLoadOperations = n / 4 + 1;
+        const maxNumberOfLoadOperations = n / 2;
         const numberOfLoadOperations = minNumberOfLoadOperations
             + Math.floor(Math.random() * (maxNumberOfLoadOperations - minNumberOfLoadOperations));
         const randomRegisterNumbers = this.randomConsecutiveRegisterNumbers(numberOfLoadOperations);
@@ -127,10 +137,11 @@ export class InstructionMemory extends ComputerChip {
         for (let i = 0; i < instructionsLeft; ++i) {
             const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
             const randomResultRegister = this.randomArrayElement(resultRegisters);
+            console.log(randomResultRegister);
             typicalWorkload.enqueue(new Instruction("STORE", this.registerName(randomResultRegister),
                 undefined, undefined, randomAddress));
             if (resultRegisters.length > 1)
-                resultRegisters = resultRegisters.splice(resultRegisters.indexOf(randomResultRegister), 1);
+                resultRegisters.splice(resultRegisters.indexOf(randomResultRegister), 1);
         }
 
         return typicalWorkload;

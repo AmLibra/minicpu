@@ -82,6 +82,8 @@ export abstract class ComputerChip {
         this.selectedMesh.renderOrder = -1;
     }
 
+    abstract displayName(): string;
+
     /**
      * Computes the dimensions of the graphic components of the chip
      * Is called in the constructor of all computer chips
@@ -131,11 +133,13 @@ export abstract class ComputerChip {
 
     public select(): ComputerChip {
         this.scene.add(this.selectedMesh);
+        this.clockMesh.visible = true;
         return this;
     }
 
     public deselect(): undefined {
         this.scene.remove(this.selectedMesh);
+        this.clockMesh.visible = false;
         return undefined;
     }
 
@@ -514,6 +518,7 @@ export abstract class ComputerChip {
     private addMeshesToScene(): void {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
         this.textMeshNames.forEach(name => this.scene.add(this.meshes.get(name)));
+        this.clockMesh.visible = false;
         this.scene.add(this.clockMesh);
     }
 }

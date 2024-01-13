@@ -84,6 +84,10 @@ export class CPU extends ComputerChip {
         return this.accumulatedInstructionCount;
     }
 
+    displayName(): string {
+        return "CPU";
+    }
+
     computeMeshProperties(): void {
         this.bodyMesh = "CPU";
         this.registerFileParentMesh = "REGISTER_FILE";

@@ -79,9 +79,9 @@ export class App {
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-2, 0], this.scene, 3)
-        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 3)
-        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 8)
+        const workingMemory = new WorkingMemory([-2, 0], this.scene, 1)
+        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 1)
+        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2)
         this.cpu = cpu;
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }

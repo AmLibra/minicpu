@@ -1,5 +1,5 @@
 import {ComputerChip} from "./ComputerChip";
-import {Material, Scene} from "three";
+import {Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
@@ -56,6 +56,10 @@ export class WorkingMemory extends ComputerChip {
         this.ready = false;
     }
 
+    displayName(): string {
+        return "Main Memory";
+    }
+
     computeMeshProperties(): void {
         // define mesh names
         this.bodyMesh = "BODY";
@@ -105,10 +109,10 @@ export class WorkingMemory extends ComputerChip {
     private buildRegisterTextMesh(address: number): void {
         const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
         const mesh = DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
-                this.position.x + memoryAddressRegister.xOffset,
-                this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
-                WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
-            );
+            this.position.x + memoryAddressRegister.xOffset,
+            this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
+            WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
+        );
         this.addTextMesh(this.registerTextMeshName(this.registerName(address)), mesh);
     }
 
