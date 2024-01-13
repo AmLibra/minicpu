@@ -1,4 +1,4 @@
-import {Material, Scene} from "three";
+import {Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
@@ -35,12 +35,11 @@ export class CPU extends ComputerChip {
     private memoryAnimationPlaying = false;
 
     // used for computing CPU metrics
-    private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(20);
+    private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(30);
     private retiredInstructionCount: number = 0;
     private accumulatedInstructionCount: number = 0;
 
     // Mesh names
-    private bodyMesh: string;
     private registerFileParentMesh: string;
     private fetchBufferMesh: string;
     private decodeBufferMesh: string;
@@ -162,9 +161,9 @@ export class CPU extends ComputerChip {
     }
 
     private decodeAll(): void {
-        for (let i = 0; i < CPU.decoderCount; ++i){
+        for (let i = 0; i < CPU.decoderCount; ++i) {
             const instruction = this.decodeBuffer.get(i);
-            if (instruction){
+            if (instruction) {
                 const executePipelineEmpty = this.ALUs.isEmpty() && this.memoryController.isEmpty();
                 if (instruction.isArithmetic() && executePipelineEmpty)
                     this.ALUs.enqueue(this.decodeBuffer.dequeue());
@@ -199,7 +198,7 @@ export class CPU extends ComputerChip {
                 if (!instruction)
                     continue;
                 if (!this.isPipelined)
-                    this.playAluAnimation(instruction);
+                    this.playAluAnimation(instruction).catch(reason => console.error(reason));
                 else {
                     this.highlight(instruction.getOp1Reg(), CPU.ALU_COLOR);
                     this.highlight(instruction.getOp2Reg(), CPU.ALU_COLOR);
@@ -210,9 +209,9 @@ export class CPU extends ComputerChip {
                         this.registerValues.get(instruction.getOp2Reg()),
                         instruction.getOpcode())
                     ));
-                // update the text mesh
                 this.highlight(instruction.getResultReg(), CPU.ALU_COLOR);
-                this.updateRegisterTextMesh(this.registerTextMeshName(instruction.getResultReg()))
+                DrawUtils.updateText(this.meshes.get(this.registerTextMeshName(instruction.getResultReg())),
+                    this.registerValues.get(instruction.getResultReg()).toString());
 
                 this.retiredInstructionCount++;
             }
@@ -246,7 +245,8 @@ export class CPU extends ComputerChip {
             if (instruction.getOpcode() == "LOAD") {
                 this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
                 this.highlight(instruction.getResultReg(), CPU.MEMORY_COLOR);
-                this.updateRegisterTextMesh(this.registerTextMeshName(instruction.getResultReg()))
+                DrawUtils.updateText(this.meshes.get(this.registerTextMeshName(instruction.getResultReg())),
+                    this.registerValues.get(instruction.getResultReg()).toString());
             } else if (instruction.getOpcode() == "STORE")
                 this.workingMemory.write(instruction.getAddress(), this.registerValues.get(instruction.getResultReg()));
 
@@ -256,7 +256,7 @@ export class CPU extends ComputerChip {
         } else {
             this.workingMemory.askForMemoryOperation(this);
             if (!this.isPipelined)
-                this.playMemoryAnimation(instruction);
+                this.playMemoryAnimation(instruction).catch(reason => console.error(reason));
             else
                 this.highlight(instruction.getResultReg(), CPU.MEMORY_COLOR);
         }
@@ -290,11 +290,11 @@ export class CPU extends ComputerChip {
     }
 
     private drawALUText(i: number): void {
-        const drawALUTextComponent = (key: string, text: string, xOffset: number, yOffset: number): void => {
-            this.meshes.set(key, DrawUtils.buildTextMesh(text,
+        const drawALUTextComponent = (meshName: string, text: string, xOffset: number, yOffset: number): void => {
+            const mesh = DrawUtils.buildTextMesh(text,
                 this.position.x + xOffset,
-                this.position.y + yOffset, CPU.TEXT_SIZE, CPU.ALU_COLOR));
-            this.textMeshNames.push(key)
+                this.position.y + yOffset, CPU.TEXT_SIZE, CPU.ALU_COLOR)
+            this.addTextMesh(meshName, mesh);
         };
         const distanceToCenter = 0.08;
 
@@ -370,13 +370,7 @@ export class CPU extends ComputerChip {
             color: CPU.BODY_COLOR,
         };
         this.meshProperties.set(this.registerFileParentMesh, registerFile);
-        this.drawRegisterGridArray(registerFile, CPU.WORDS, CPU.WORD_SIZE, CPU.INNER_SPACING)
-            .forEach((dimensions, name) => {
-                this.scene.add(DrawUtils.buildTextMesh(name,
-                    this.position.x + dimensions.xOffset,
-                    this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
-                    CPU.TEXT_SIZE / 2, CPU.BODY_COLOR));
-            });
+        this.drawRegisterGridArray(registerFile, CPU.WORDS, CPU.WORD_SIZE, CPU.INNER_SPACING);
         return registerFile;
     }
 
@@ -439,32 +433,18 @@ export class CPU extends ComputerChip {
         return result >= 0 ? result : result + WorkingMemory.MAX_BYTE_VALUE;
     }
 
-    private addRegisterValueMeshes(registerName: string): void {
-        this.meshes.set(this.registerTextMeshName(registerName), DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
-            this.position.x + this.meshProperties.get(registerName).xOffset,
-            this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
-            CPU.TEXT_SIZE, CPU.TEXT_COLOR));
-        this.textMeshNames.push(this.registerTextMeshName(registerName));
-        if (!this.isPipelined)
-            this.scene.add(this.meshes.get(this.registerTextMeshName(registerName)));
-    }
-
     private registerTextMeshName(name: string): string {
         return `${name}_CONTENT`;
     }
 
-    private registerMeshName(name: string): string {
-        return name.replace("_CONTENT", "");
-    }
-
-    private updateRegisterTextMesh(registerName: string): void {
-        this.scene.remove(this.meshes.get(registerName));
-        this.meshes.get(registerName).geometry.dispose();
-        if (this.meshes.get(registerName).material instanceof Material)
-            (this.meshes.get(registerName).material as Material).dispose();
-        this.meshes.delete(registerName);
-        this.addRegisterValueMeshes(this.registerMeshName(registerName));
-        this.scene.add(this.meshes.get(registerName))
+    private addRegisterValueMeshes(registerName: string): void {
+        const mesh = DrawUtils.buildTextMesh(this.registerValues.get(registerName).toString(),
+            this.position.x + this.meshProperties.get(registerName).xOffset,
+            this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
+            CPU.TEXT_SIZE, CPU.TEXT_COLOR);
+        this.addTextMesh(this.registerTextMeshName(registerName), mesh);
+        if (!this.isPipelined)
+            this.scene.add(this.meshes.get(this.registerTextMeshName(registerName)));
     }
 
     private addVerticalBufferTextMeshes(buffer: Queue<Instruction>, bufferMeshName: string): void {
@@ -475,7 +455,6 @@ export class CPU extends ComputerChip {
             CPU.MEMORY_COLOR);
         bufferTextMesh.geometry.center().rotateZ(Math.PI / 2);
         bufferTextMesh.position.set(bufferMesh.xOffset, bufferMesh.yOffset, 0)
-        this.meshes.set(bufferMeshName, bufferTextMesh);
-        this.textMeshNames.push(bufferMeshName);
+        this.addTextMesh(bufferMeshName, bufferTextMesh);
     }
 }

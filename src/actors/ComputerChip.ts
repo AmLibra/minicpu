@@ -55,13 +55,14 @@ export abstract class ComputerChip {
     }>();
     private readonly pausedBlinks: Map<string, MeshBasicMaterial>;
     private queuedBlinks: Array<() => void> = [];
+    protected bodyMesh: string;
+    protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
 
     protected readonly scene: Scene;
     protected readonly position: { x: number; y: number };
     protected clockFrequency: number = 1;
     protected paused: boolean = false;
-
 
     protected constructor(position: [number, number], scene: Scene, clockFrequency: number) {
         this.position = {x: position[0], y: position[1]};
@@ -73,6 +74,12 @@ export abstract class ComputerChip {
         this.pausedBlinks = new Map<string, MeshBasicMaterial>();
         this.computeMeshProperties();
         this.addMeshesToScene()
+        this.selectedMesh = DrawUtils.buildQuadrilateralMesh(
+            this.meshProperties.get(this.bodyMesh).width + 0.01,
+            this.meshProperties.get(this.bodyMesh).height + 0.01,
+            ComputerChip.TEXT_COLOR);
+        this.selectedMesh.position.set(this.position.x, this.position.y, 0);
+        this.selectedMesh.renderOrder = -1;
     }
 
     /**
@@ -99,7 +106,7 @@ export abstract class ComputerChip {
      */
     abstract drawUpdate(): void;
 
-    togglePauseState() {
+    public togglePauseState() {
         this.paused = !this.paused;
 
         if (!this.paused) {
@@ -109,7 +116,6 @@ export abstract class ComputerChip {
         }
     }
 
-
     /**
      * Returns the clock frequency of the chip
      *
@@ -117,6 +123,18 @@ export abstract class ComputerChip {
      */
     public getClockFrequency(): number {
         return this.clockFrequency;
+    }
+
+    public getHitboxMesh(): Mesh {
+        return this.meshes.get(this.bodyMesh);
+    }
+
+    public select(): void {
+        this.scene.add(this.selectedMesh);
+    }
+
+    public deselect(): void {
+        this.scene.remove(this.selectedMesh);
     }
 
     protected getClockCycleDuration(): number {
@@ -249,6 +267,11 @@ export abstract class ComputerChip {
 
                 this.meshProperties.set(registerName, register);
                 registers.set(registerName, register);
+                const nameMesh = DrawUtils.buildTextMesh(registerName,
+                    this.position.x + xOffset,
+                    this.position.y + yOffset + register.height / 2 - DrawUtils.baseTextHeight / 4,
+                    ComputerChip.TEXT_SIZE / 2, ComputerChip.BODY_COLOR);
+                this.addTextMesh(this.registerNameTextMeshName(registerName), nameMesh);
             }
         }
         return registers;
@@ -469,6 +492,15 @@ export abstract class ComputerChip {
 
     protected bufferTextMeshName(bufferName: string, index: number): string {
         return `T_${bufferName}_BUFFER_${index}`;
+    }
+
+    protected registerNameTextMeshName(registerName: string): string {
+        return `T_${registerName}`;
+    }
+
+    protected addTextMesh(name: string, mesh: Mesh): void {
+        this.textMeshNames.push(name);
+        this.meshes.set(name, mesh);
     }
 
     /**

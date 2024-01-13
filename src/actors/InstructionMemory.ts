@@ -16,9 +16,6 @@ export class InstructionMemory extends ComputerChip {
     private readyToBeRead: boolean = false;
     private readTimeout: number = 0;
 
-    // Mesh names
-    private bodyMesh: string;
-
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
         super(position, scene, clockFrequency);
         this.instructionMemory = new Queue<Instruction>(InstructionMemory.size);

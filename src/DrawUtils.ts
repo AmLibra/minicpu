@@ -119,27 +119,21 @@ export class DrawUtils {
         return textMesh;
     }
 
-    public static updateText(mesh: Mesh, text: string): void {
-        mesh.geometry.computeBoundingBox();
-        const initialTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
-        const size = mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1;
+    public static updateText(mesh: Mesh, text: string, centered?: boolean): void {
         mesh.geometry.dispose();
-
         const textGeometry = new TextGeometry(text, {
             font: DrawUtils.font,
-            size: size,
+            size: mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1,
             height: 0.1,
         });
 
         mesh.geometry = textGeometry;
-        textGeometry.computeBoundingBox();
-        const newTextWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-        const difference = newTextWidth - initialTextWidth;
-        if (difference > 0.001 * size) mesh.position.x -= difference / 2;
+        if (centered)
+            mesh.geometry.center();
     }
 
     public static drawGrid(scene: Scene): void {
-        const gridColor = DrawUtils.COLOR_PALETTE.get("DARK");
+        const gridColor = DrawUtils.COLOR_PALETTE.get("DARKER");
         const size = 100; // A large size to simulate infinity
         const divisions = 1000; // Number of divisions in the grid
         const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);
@@ -176,24 +170,6 @@ export class DrawUtils {
         return mesh;
     }
 
-    public static changeMeshAppearance(mesh: Mesh, colorHex: string | Color, scale?: number): void {
-        function changeMaterialColor(material: Material | Material[]) {
-            if (Array.isArray(material)) {
-                material.forEach(changeMaterialColor);
-                return;
-            }
-            if ('color' in material && material.color instanceof Color) {
-                if (typeof colorHex === 'string') {
-                    material.color.setStyle(colorHex); // If colorHex is a string, use setStyle
-                } else if (colorHex instanceof Color) {
-                    material.color.copy(colorHex); // If colorHex is a Color, use copy
-                }
-            }
-        }
-
-        changeMaterialColor(mesh.material);
-        if (scale) mesh.scale.set(scale, scale, scale);
-    }
 
     /**
      * Converts a number to a hexadecimal string for display

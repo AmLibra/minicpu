@@ -51,7 +51,6 @@ export class App {
         // create an orthographic camera,
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
         this.camera.position.set(0, 0, 2); // Positioned along the Z-axis
-        // Zoom out a bit so that the entire scene is visible, do not forget to update the projection matrix!
         this.camera.zoom = 0.6;
         this.camera.updateProjectionMatrix();
 
@@ -67,7 +66,7 @@ export class App {
         // Load the font and start the game
         try {
             await DrawUtils.loadFont();
-            // DrawUtils.drawGrid(this.scene)
+            DrawUtils.drawGrid(this.scene)
             this.loadGame();
         } catch (error) {
             throw new Error("Could not load font: " + error);

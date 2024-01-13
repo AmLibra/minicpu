@@ -2,16 +2,20 @@ import {Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2} 
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {App} from "./app";
+import {ComputerChip} from "./actors/ComputerChip";
 
 export class HUD {
-    private static readonly COLORS: Map<string, MeshBasicMaterial> = new Map([
-        ["BASE", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})],
-        ["HOVER", new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")})],
-    ]);
-
+    private static readonly BASE_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")});
+    private static readonly HOVER_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")});
     private static readonly TEXT_SIZE: number = 0.05;
+
     private static readonly ZOOM_FACTOR: number = 0.0001;
-    private static readonly SCALE_FACTOR: number = 1.1;
+    private static readonly MAX_ZOOM: number = 0.5;
+    private static readonly MIN_ZOOM: number = 1;
+    private static readonly HOVER_SCALE_FACTOR: number = 1.1;
+    private static SCROLL_SPEED: number = 2;
 
     private raycaster = new Raycaster(); // mouse raycaster
     private mouse = new Vector2(); // mouse coordinates
@@ -28,6 +32,7 @@ export class HUD {
     private cpu: CPU;
     private readonly camera: OrthographicCamera;
     private app: App;
+    private selectedActor: ComputerChip;
 
     private isHoveringMesh: Map<Mesh, boolean> = new Map<Mesh, boolean>();
     private mouseClickEvents: Map<Function, Function> = new Map<Function, Function>();
@@ -38,27 +43,27 @@ export class HUD {
         this.camera = app.camera;
         this.app = app;
         this.addMouseClickEvents();
+
         app.document.addEventListener('click', this.onMouseClick.bind(this), false);
         app.document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
-
-        app.renderer.domElement.addEventListener('mousedown', this.onMouseDown);
-        app.renderer.domElement.addEventListener('mousemove', this.onMouseDrag);
-        app.renderer.domElement.addEventListener('mouseup', this.onMouseUp);
-        app.renderer.domElement.addEventListener('wheel', this.onMouseWheel);
+        app.document.addEventListener('mousedown', this.onMouseDown);
+        app.document.addEventListener('mousemove', this.onMouseDrag);
+        app.document.addEventListener('mouseup', this.onMouseUp);
+        app.document.addEventListener('wheel', this.onMouseWheel);
     }
 
     public drawHUD(): HUD {
-        const startY = this.topMiddle().y;
-        const middleX = this.topMiddle().x;
+        const startY = this.topLeft().y;
+        const middleX = this.topLeft().x;
         const padding = 0.2
         this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), middleX,
             startY,
-            HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
+            HUD.TEXT_SIZE, HUD.BASE_COLOR)
         this.totalExecutedInstructions =
             DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(),
-                middleX, startY + padding, HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
+                middleX, startY + padding, HUD.TEXT_SIZE, HUD.BASE_COLOR)
         this.IPSMesh = DrawUtils.buildTextMesh("IPS: " + this.cpu.getIPS(), middleX, startY + 2 * padding,
-            HUD.TEXT_SIZE, HUD.COLORS.get("BASE"))
+            HUD.TEXT_SIZE, HUD.BASE_COLOR)
 
         this.scene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh);
 
@@ -75,19 +80,15 @@ export class HUD {
         DrawUtils.updateText(this.totalExecutedInstructions,
             "Total executed instructions: " + this.cpu.getAccumulatedInstructionCount());
         DrawUtils.updateText(this.IPSMesh, "IPS: " + this.cpu.getIPS());
-        this.updateMeshPositions();
     }
 
-    updateMeshPositions(): void {
-        const startY = this.topMiddle().y;
-        const middleX = this.topMiddle().x;
+    private updateMeshPositions(): void {
+        const startY = this.topLeft().y;
+        const middleX = this.topLeft().x;
         const padding = 0.1 / this.camera.zoom;
         this.IPCMesh.position.set(middleX, startY, 0);
-        this.IPCMesh.geometry.center();
         this.totalExecutedInstructions.position.set(middleX, startY + padding, 0);
-        this.totalExecutedInstructions.geometry.center();
         this.IPSMesh.position.set(middleX, startY + padding * 2, 0);
-        this.IPSMesh.geometry.center();
 
         const startX = this.topRight().x;
         this.pauseButtonMesh.position.set(startX, this.topRight().y, 0);
@@ -95,12 +96,16 @@ export class HUD {
     }
 
     private updateMeshScale(): void {
-        const scale = 1 / this.camera.zoom;
+        const scale = this.getMeshScale();
         this.IPCMesh.scale.set(scale, scale, scale);
         this.totalExecutedInstructions.scale.set(scale, scale, scale);
         this.IPSMesh.scale.set(scale, scale, scale);
         this.pauseButtonMesh.scale.set(scale, scale, scale);
         this.playButtonMesh.scale.set(scale, scale, scale);
+    }
+
+    private getMeshScale(): number {
+        return 1 / this.camera.zoom;
     }
 
     private topRight(): Vector2 {
@@ -109,32 +114,11 @@ export class HUD {
         return new Vector2(startX, startY);
     }
 
-    private topMiddle(): Vector2 {
-        const startX = this.camera.position.x;
+    private topLeft(): Vector2 {
+        const startX = this.camera.position.x + (this.camera.left + 0.1) / this.camera.zoom;
         const startY = this.camera.position.y + (this.camera.top - 0.3) / this.camera.zoom;
         return new Vector2(startX, startY);
     }
-
-    private onMouseDown = (event: MouseEvent) => {
-        this.mouseDown = true;
-        this.initialMousePosition.set(event.clientX, event.clientY);
-    }
-
-    private onMouseUp = () => {
-        this.mouseDown = false;
-    }
-
-    private onMouseWheel = (event: WheelEvent) => {
-        const delta = event.deltaY;
-
-        // Adjust the camera zoom
-        this.camera.zoom += delta * -HUD.ZOOM_FACTOR;
-        this.camera.zoom = Math.max(0.5, this.camera.zoom); // prevent zooming too far in or out
-        this.camera.updateProjectionMatrix();
-        this.updateMeshPositions();
-        this.updateMeshScale();
-    }
-
 
     private drawPauseButton(): void {
         const startY = this.topRight().y;
@@ -156,6 +140,17 @@ export class HUD {
             () => this.raycaster.intersectObject(this.pauseButtonMesh).concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
             () => this.togglePauseState()
         );
+
+        this.app.gameActors.forEach(actor => {
+            this.mouseClickEvents.set(
+                () => this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0,
+                () => {
+                    if (this.selectedActor) this.selectedActor.deselect();
+                    actor.select()
+                    this.selectedActor = actor;
+                }
+            );
+        });
     }
 
     public togglePauseState(): void {
@@ -170,6 +165,41 @@ export class HUD {
         this.isHoveringMesh.set(this.playButtonMesh, false);
     }
 
+    private onMouseDown = (event: MouseEvent) => {
+        this.mouseDown = true;
+        this.initialMousePosition.set(event.clientX, event.clientY);
+    }
+
+    private onMouseUp = () => {
+        this.mouseDown = false;
+    }
+
+    private onMouseWheel = (event: WheelEvent) => {
+        this.camera.zoom += event.deltaY * -HUD.ZOOM_FACTOR;
+        this.camera.zoom = Math.max(HUD.MAX_ZOOM, this.camera.zoom); // prevent zooming too far in
+        this.camera.zoom = Math.min(HUD.MIN_ZOOM, this.camera.zoom); // prevent zooming too far out
+        this.camera.updateProjectionMatrix();
+        this.updateMeshPositions();
+        this.updateMeshScale();
+    }
+
+    private onMouseDrag = (event: MouseEvent) => {
+        if (!this.mouseDown) return;
+
+        const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
+        const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
+        const aspectRatio = window.innerWidth / window.innerHeight;
+
+        const scaleX = aspectRatio * HUD.SCROLL_SPEED / this.camera.zoom;
+        const scaleY = HUD.SCROLL_SPEED / this.camera.zoom;
+
+        this.camera.position.x -= deltaX * scaleX;
+        this.camera.position.y += deltaY * scaleY;
+
+        this.initialMousePosition.set(event.clientX, event.clientY);
+        this.updateMeshPositions();
+    }
+
     private updateMouseCoordinates(event: MouseEvent): void {
         event.preventDefault();
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -179,24 +209,9 @@ export class HUD {
     private onMouseClick(event: MouseEvent): void {
         this.updateMouseCoordinates(event);
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        this.mouseClickEvents.forEach((callback, condition) => {
-            if (condition()) callback()
+        this.mouseClickEvents.forEach((executeCallback, condition) => {
+            if (condition()) executeCallback()
         });
-    }
-
-    private onMouseDrag = (event: MouseEvent) => {
-        if (!this.mouseDown) return;
-
-        const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
-        const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
-
-        const scale = 2 / this.camera.zoom;
-
-        this.camera.position.x -= deltaX * scale;
-        this.camera.position.y += deltaY * scale;
-
-        this.initialMousePosition.set(event.clientX, event.clientY);
-        this.updateMeshPositions();
     }
 
     private onMouseMove(event: MouseEvent): void {
@@ -206,26 +221,28 @@ export class HUD {
 
     private checkHoverState(): void {
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        this.isHoveringMesh.forEach((_isHovering, mesh) => this.updateHoverStateForMesh(mesh));
-    }
+        this.isHoveringMesh.forEach((wasHovering, mesh) => {
+            const intersected = this.raycaster.intersectObject(mesh).length > 0;
 
-    private updateHoverStateForMesh(mesh: Mesh): void {
-        const intersected = this.raycaster.intersectObject(mesh).length > 0;
-        const wasHovering = this.isHoveringMesh.get(mesh) || false;
-
-        if (intersected && !wasHovering)
-            this.onHoverEnter(mesh);
-        else if (!intersected && wasHovering)
-            this.onHoverLeave(mesh);
+            if (intersected && !wasHovering)
+                this.onHoverEnter(mesh);
+            else if (!intersected && wasHovering)
+                this.onHoverLeave(mesh);
+        });
     }
 
     private onHoverEnter(mesh: Mesh): void {
         this.isHoveringMesh.set(mesh, true);
-        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("LIGHT"), HUD.SCALE_FACTOR);
+        HUD.changeMeshAppearance(mesh, HUD.HOVER_COLOR, this.getMeshScale() * HUD.HOVER_SCALE_FACTOR);
     }
 
     private onHoverLeave(mesh: Mesh): void {
         this.isHoveringMesh.set(mesh, false);
-        DrawUtils.changeMeshAppearance(mesh, DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT"), 1);
+        HUD.changeMeshAppearance(mesh, HUD.BASE_COLOR, this.getMeshScale());
+    }
+
+    private static changeMeshAppearance(mesh: Mesh, color: MeshBasicMaterial, scale?: number): void {
+        mesh.material = color;
+        if (scale) mesh.scale.set(scale, scale, scale);
     }
 }

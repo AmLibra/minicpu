@@ -13,7 +13,6 @@ export class WorkingMemory extends ComputerChip {
     private memoryOperationTimeout: number = 0;
 
     // Mesh names
-    private bodyMesh: string;
     private memoryAddressMarginMesh: string;
     private registerFileMesh: string;
 
@@ -90,7 +89,8 @@ export class WorkingMemory extends ComputerChip {
     drawUpdate(): void {
         if (this.memoryAddressToUpdate < 0)
             return;
-        this.updateRegisterTextMesh(this.registerTextMeshName(this.registerName(this.memoryAddressToUpdate)));
+        DrawUtils.updateText(this.meshes.get(this.registerTextMeshName(this.registerName(this.memoryAddressToUpdate))),
+            this.memoryArray[this.memoryAddressToUpdate].toString());
         this.memoryAddressToUpdate = -1;
     }
 
@@ -101,18 +101,6 @@ export class WorkingMemory extends ComputerChip {
         }
         this.drawMemoryWordAddressTags();
         this.textMeshNames.forEach(mesh => this.scene.add(this.meshes.get(mesh)));
-    }
-
-    private buildRegisterTextMesh(address: number): void {
-        const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
-        this.meshes.set(
-            this.registerTextMeshName(this.registerName(address)),
-            DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
-                this.position.x + memoryAddressRegister.xOffset,
-                this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
-                WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
-            ));
-        this.textMeshNames.push(this.registerTextMeshName(this.registerName(address)));
     }
 
     private drawMemoryWordAddressTags(): void {
@@ -131,14 +119,14 @@ export class WorkingMemory extends ComputerChip {
         }
     }
 
-    private updateRegisterTextMesh(meshName: string): void {
-        this.scene.remove(this.meshes.get(meshName));
-        this.meshes.get(meshName).geometry.dispose();
-        if (this.meshes.get(meshName).material instanceof Material)
-            (this.meshes.get(meshName).material as Material).dispose();
-        this.meshes.delete(meshName);
-        this.buildRegisterTextMesh(this.memoryAddressToUpdate);
-        this.scene.add(this.meshes.get(meshName));
+    private buildRegisterTextMesh(address: number): void {
+        const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
+        const mesh = DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
+                this.position.x + memoryAddressRegister.xOffset,
+                this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
+                WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
+            );
+        this.addTextMesh(this.registerTextMeshName(this.registerName(address)), mesh);
     }
 
     private computeBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {
@@ -177,15 +165,7 @@ export class WorkingMemory extends ComputerChip {
         for (let i = 0; i < this.size; i++)
             registerNames.push(this.registerName(i));
 
-        this.drawRegisterGridArray(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames)
-            .forEach((dimensions, name) => {
-                this.scene.add( // draw the memory address on each register
-                    DrawUtils.buildTextMesh(name,
-                        this.position.x + dimensions.xOffset,
-                        this.position.y + dimensions.yOffset + dimensions.height / 2 - DrawUtils.baseTextHeight / 4,
-                        WorkingMemory.TEXT_SIZE / 2, WorkingMemory.BODY_COLOR)
-                );
-            });
+        this.drawRegisterGridArray(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames);
     }
 
     registerName(address: number): string {
