@@ -129,12 +129,14 @@ export abstract class ComputerChip {
         return this.meshes.get(this.bodyMesh);
     }
 
-    public select(): void {
+    public select(): ComputerChip {
         this.scene.add(this.selectedMesh);
+        return this;
     }
 
-    public deselect(): void {
+    public deselect(): undefined {
         this.scene.remove(this.selectedMesh);
+        return undefined;
     }
 
     protected getClockCycleDuration(): number {

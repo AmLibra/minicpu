@@ -144,11 +144,7 @@ export class HUD {
         this.app.gameActors.forEach(actor => {
             this.mouseClickEvents.set(
                 () => this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0,
-                () => {
-                    if (this.selectedActor) this.selectedActor.deselect();
-                    actor.select()
-                    this.selectedActor = actor;
-                }
+                () => this.selectedActor = actor.select()
             );
         });
     }
@@ -184,7 +180,7 @@ export class HUD {
     }
 
     private onMouseDrag = (event: MouseEvent) => {
-        if (!this.mouseDown) return;
+        if (!this.mouseDown || this.selectedActor) return;
 
         const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
         const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
@@ -209,6 +205,8 @@ export class HUD {
     private onMouseClick(event: MouseEvent): void {
         this.updateMouseCoordinates(event);
         this.raycaster.setFromCamera(this.mouse, this.camera);
+        if (this.selectedActor)
+            this.selectedActor = this.selectedActor.deselect();
         this.mouseClickEvents.forEach((executeCallback, condition) => {
             if (condition()) executeCallback()
         });
