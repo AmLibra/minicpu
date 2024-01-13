@@ -74,9 +74,9 @@ export class Instruction {
      */
     public toString(): string {
         if (this.type == InstructionType.MEMORY)
-            return this.opcode + " " + this.resultReg + ", [" + DrawUtils.toHex(this.address) + "]";
+            return (this.opcode == "STORE" ? "ST" : "LD") + " " + this.resultReg + ",[" + DrawUtils.toHex(this.address) + "]";
         else
-            return this.opcode + " " + this.resultReg + ", " + this.op1Reg + ", " + this.op2Reg;
+            return this.opcode + " " + this.resultReg + "," + this.op1Reg + "," + this.op2Reg;
     }
 
     /**

@@ -168,6 +168,17 @@ export class DrawUtils {
         return mesh;
     }
 
+    public static buildLineMesh(x1: number, y1: number, x2: number, y2: number, color: Color | Material): Mesh {
+        const geometry = new BufferGeometry();
+        const vertices = new Float32Array([
+            x1, y1, 0.0,  // Vertex 1 (X, Y, Z)
+            x2, y2, 0.0,   // Vertex 2 (X, Y, Z)
+        ]);
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
+
+        const material = color instanceof Material ? color : new MeshBasicMaterial({color: color});
+        return new Mesh(geometry, material);
+    }
 
     /**
      * Converts a number to a hexadecimal string for display

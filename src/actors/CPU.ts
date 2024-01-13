@@ -12,7 +12,7 @@ export class CPU extends ComputerChip {
     private static readonly POWER_PIN_COUNT = 6;
 
     // ISA
-    private static readonly WORDS = 1;
+    private static readonly WORDS = 2;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
@@ -105,7 +105,7 @@ export class CPU extends ComputerChip {
         const fetchBufferHeight = CPU.BUFFER_HEIGHT * CPU.fetcherCount;
         const decoderHeight = CPU.BUFFER_HEIGHT * CPU.decoderCount;
         const registerFileHeight = CPU.WORDS * CPU.REGISTER_SIDE_LENGTH + (CPU.WORDS - 1) * CPU.INNER_SPACING;
-        const bodyHeight: number = fetchBufferHeight + decoderHeight + registerFileHeight + 2 * CPU.INNER_SPACING_L
+        const bodyHeight: number = fetchBufferHeight + decoderHeight + registerFileHeight + (CPU.WORDS > 1 ? 2 : 4) * CPU.INNER_SPACING_L
             + CPU.CONTENTS_MARGIN * 2;
 
         this.computeCPUBodyMeshProperties(bodyWidth, bodyHeight)
@@ -300,18 +300,40 @@ export class CPU extends ComputerChip {
                 this.position.y + yOffset, CPU.TEXT_SIZE, CPU.ALU_COLOR)
             this.addTextMesh(meshName, mesh);
         };
-        const distanceToCenter = 0.08;
 
-        const alu = this.ALUs.get(i);
-        if (!alu)
+        const opcodeSymbol = (opcode: string): string => {
+            switch (opcode) {
+                case "ADD":
+                    return "+";
+                case "SUB":
+                    return "-";
+                case "MUL":
+                    return "x";
+                case "AND":
+                    return "&";
+                case "OR":
+                    return "v";
+                default:
+                    throw new Error("Invalid ALU opcode: " + opcode);
+            }
+        }
+        const distanceToCenter = 0.09;
+
+        const instruction = this.ALUs.get(i);
+        if (!instruction)
             return;
         const aluProps = this.meshProperties.get(this.aluMeshName(i));
-        drawALUTextComponent(`${this.aluMeshName(i)}_OPCODE`, alu.getOpcode(), aluProps.xOffset, aluProps.yOffset);
-        drawALUTextComponent(`${this.aluMeshName(i)}_OP1`, alu.getOp1Reg(),
-            aluProps.xOffset + distanceToCenter, aluProps.yOffset - 0.07);
-        drawALUTextComponent(`${this.aluMeshName(i)}_OP2`, alu.getOp2Reg(),
-            aluProps.xOffset - distanceToCenter, aluProps.yOffset - 0.07);
-        drawALUTextComponent(`${this.aluMeshName(i)}_RESULT`, alu.getResultReg(), aluProps.xOffset, aluProps.yOffset + 0.08);
+        drawALUTextComponent(`${this.aluMeshName(i)}_OPCODE`, opcodeSymbol(instruction.getOpcode()), aluProps.xOffset,
+            aluProps.yOffset - 0.03);
+        if (instruction.getOpcode() == "SUB")
+            this.meshes.get(`${this.aluMeshName(i)}_OPCODE`).position.y -= 0.02;
+
+        drawALUTextComponent(`${this.aluMeshName(i)}_OP1`, instruction.getOp1Reg(),
+            aluProps.xOffset + distanceToCenter, aluProps.yOffset - 0.03);
+        drawALUTextComponent(`${this.aluMeshName(i)}_OP2`, instruction.getOp2Reg(),
+            aluProps.xOffset - distanceToCenter, aluProps.yOffset - 0.03);
+        drawALUTextComponent(`${this.aluMeshName(i)}_RESULT`, instruction.getResultReg(), aluProps.xOffset,
+            aluProps.yOffset + 0.04);
     }
 
     private computeCPUBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {
@@ -350,7 +372,8 @@ export class CPU extends ComputerChip {
             height: decoderHeight,
             xOffset: 2 * CPU.CONTENTS_MARGIN + memoryControllerWidth + (bufferWidth / 2) - (bodyWidth / 2) -
                 CPU.INNER_SPACING,
-            yOffset: fetchBuffer.yOffset + (fetchBuffer.height / 2) + CPU.INNER_SPACING_L + (decoderHeight / 2),
+            yOffset: fetchBuffer.yOffset + (fetchBuffer.height / 2) +
+                (CPU.WORDS > 1 ? 1 : 3) * CPU.INNER_SPACING_L + (decoderHeight / 2),
             color: CPU.COMPONENT_COLOR,
         };
         this.drawBuffer(this.decodeBufferMesh, decodeBuffer, CPU.decoderCount, 0, CPU.INNER_SPACING_L / 2,
@@ -370,7 +393,7 @@ export class CPU extends ComputerChip {
             xOffset: 2 * CPU.CONTENTS_MARGIN + (registerFileWidth / 2) - (bodyWidth / 2) + memoryControllerWidth -
                 CPU.INNER_SPACING,
             yOffset: decodeBuffer.yOffset + decodeBuffer.height / 2 + CPU.INNER_SPACING_L +
-                (innerHeight - fetchBuffer.height - decodeBuffer.height - 2 * CPU.INNER_SPACING_L) / 2,
+                (innerHeight - fetchBuffer.height - decodeBuffer.height - (CPU.WORDS > 1 ? 2 : 4) * CPU.INNER_SPACING_L) / 2,
             color: CPU.BODY_COLOR,
         };
         this.meshProperties.set(this.registerFileParentMesh, registerFile);

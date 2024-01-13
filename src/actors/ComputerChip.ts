@@ -1,4 +1,4 @@
-import {Material, Mesh, MeshBasicMaterial, Scene} from "three";
+import {Material, Mesh, MeshBasicMaterial, Scene, Vector2} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
@@ -56,6 +56,7 @@ export abstract class ComputerChip {
     private readonly pausedBlinks: Map<string, MeshBasicMaterial>;
     private queuedBlinks: Array<() => void> = [];
     protected bodyMesh: string;
+    protected pinMeshes: Map<string, { position: Vector2, side: 'left' | 'right' | 'top' | 'bottom' }>;
     protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
 
@@ -71,6 +72,7 @@ export abstract class ComputerChip {
         this.meshes = new Map<string, Mesh>();
         this.meshProperties = new Map<string, MeshProperties>();
         this.textMeshNames = new Array<string>();
+        this.pinMeshes = new Map<string, { position: Vector2, side: 'left' | 'right' | 'top' | 'bottom' }>();
         this.pausedBlinks = new Map<string, MeshBasicMaterial>();
         this.computeMeshProperties();
         this.addMeshesToScene()
@@ -322,6 +324,7 @@ export abstract class ComputerChip {
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
+            this.pinMeshes.set(pinName, {position: new Vector2(xOffset, yOffset), side: side});
         }
         return pins;
     }

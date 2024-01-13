@@ -80,9 +80,10 @@ export class App {
 
     private addGameActors(): void {
         const workingMemory = new WorkingMemory([-2, 0], this.scene, 1)
-        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 1)
+        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 2)
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2)
         this.cpu = cpu;
+        this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }

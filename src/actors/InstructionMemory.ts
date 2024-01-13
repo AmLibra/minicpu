@@ -61,7 +61,7 @@ export class InstructionMemory extends ComputerChip {
         this.bodyMesh = "INSTRUCTION_MEMORY";
 
         const bodyHeight = InstructionMemory.BUFFER_HEIGHT * InstructionMemory.size;
-        const bodyWidth = 0.8;
+        const bodyWidth = 0.6;
 
         this.meshProperties.set(this.bodyMesh,
             new MeshProperties(bodyWidth, bodyHeight, 0, 0, InstructionMemory.BODY_COLOR));
