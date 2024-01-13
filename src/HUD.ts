@@ -11,6 +11,8 @@ export class HUD {
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")});
     private static readonly TEXT_SIZE: number = 0.05;
 
+    private static MENU_LAYER: number = 0.1;
+
     private static readonly ZOOM_FACTOR: number = 0.0001;
     private static readonly MAX_ZOOM: number = 0.5;
     private static readonly MIN_ZOOM: number = 1;
@@ -37,6 +39,10 @@ export class HUD {
     private isHoveringMesh: Map<Mesh, boolean> = new Map<Mesh, boolean>();
     private mouseClickEvents: Map<Function, Function> = new Map<Function, Function>();
 
+    private menuMesh: Mesh; // Menu mesh
+    private menuIsOpen: boolean = false;
+    private menuTimeout: NodeJS.Timeout;
+
     constructor(app: App) {
         this.scene = app.scene;
         this.cpu = app.cpu;
@@ -44,32 +50,38 @@ export class HUD {
         this.app = app;
         this.addMouseClickEvents();
 
-        app.document.addEventListener('click', this.onMouseClick.bind(this), false);
-        app.document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
-        app.document.addEventListener('mousedown', this.onMouseDown);
-        app.document.addEventListener('mousemove', this.onMouseDrag);
-        app.document.addEventListener('mouseup', this.onMouseUp);
-        app.document.addEventListener('wheel', this.onMouseWheel);
+        document.addEventListener('click', this.onMouseClick.bind(this), false);
+        document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
+        document.addEventListener('mousedown', this.onMouseDown);
+        document.addEventListener('mousemove', this.onMouseDrag);
+        document.addEventListener('mouseup', this.onMouseUp);
+        document.addEventListener('wheel', this.onMouseWheel);
+        window.addEventListener('resize', () => this.onWindowResize());
     }
 
     public drawHUD(): HUD {
-        const startY = this.topLeft().y;
-        const middleX = this.topLeft().x;
+        const textY = this.topLeft().y;
+        const textX = this.topLeft().x;
         const padding = 0.2
-        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), middleX,
-            startY,
+        this.IPCMesh = DrawUtils.buildTextMesh("IPC: " + this.cpu.getIPC(), textX, textY,
+            HUD.TEXT_SIZE, HUD.BASE_COLOR)
+        this.IPSMesh = DrawUtils.buildTextMesh("IPS: " + this.cpu.getIPS(), textX, textY + padding,
             HUD.TEXT_SIZE, HUD.BASE_COLOR)
         this.totalExecutedInstructions =
-            DrawUtils.buildTextMesh("Total executed instructions: " + this.cpu.getAccumulatedInstructionCount(),
-                middleX, startY + padding, HUD.TEXT_SIZE, HUD.BASE_COLOR)
-        this.IPSMesh = DrawUtils.buildTextMesh("IPS: " + this.cpu.getIPS(), middleX, startY + 2 * padding,
-            HUD.TEXT_SIZE, HUD.BASE_COLOR)
+            DrawUtils.buildTextMesh("Retired instructions: " + this.cpu.getAccRetiredInstructionsCount(),
+                textX, textY + 2 * padding, HUD.TEXT_SIZE, HUD.BASE_COLOR)
 
-        this.scene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh);
+        this.menuMesh = DrawUtils.buildQuadrilateralMesh(this.camera.right * 2, this.camera.top,
+            new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")})
+        );
+        this.menuMesh.position.set(this.bottomCenter().x,
+            this.bottomCenter().y - (this.menuMesh.geometry as any).parameters.height / this.camera.zoom,
+            HUD.MENU_LAYER);
+        this.scene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh, this.menuMesh);
 
         this.drawPauseButton();
-        this.addMouseHoverEvents();
 
+        this.addMouseHoverEvents();
         this.updateMeshScale();
         this.updateMeshPositions();
         return this;
@@ -77,22 +89,29 @@ export class HUD {
 
     update(): void {
         DrawUtils.updateText(this.IPCMesh, "IPC: " + this.cpu.getIPC());
-        DrawUtils.updateText(this.totalExecutedInstructions,
-            "Total executed instructions: " + this.cpu.getAccumulatedInstructionCount());
+        DrawUtils.updateText(this.totalExecutedInstructions, "Retired instructions: " + this.cpu.getAccRetiredInstructionsCount());
         DrawUtils.updateText(this.IPSMesh, "IPS: " + this.cpu.getIPS());
+    }
+
+    public pullMenuUp(): void {
+        if (this.menuIsOpen) return;
+        this.menuIsOpen = true;
+        this.menuMesh.position.y = this.bottomCenter().y;
     }
 
     private updateMeshPositions(): void {
         const startY = this.topLeft().y;
         const middleX = this.topLeft().x;
         const padding = 0.1 / this.camera.zoom;
-        this.IPCMesh.position.set(middleX, startY, 0);
-        this.totalExecutedInstructions.position.set(middleX, startY + padding, 0);
-        this.IPSMesh.position.set(middleX, startY + padding * 2, 0);
+        this.IPCMesh.position.set(middleX, startY, HUD.MENU_LAYER);
+        this.IPSMesh.position.set(middleX, startY + padding, HUD.MENU_LAYER);
+        this.totalExecutedInstructions.position.set(middleX, startY + 2 * padding, HUD.MENU_LAYER);
+        this.menuMesh.position.set(this.bottomCenter().x,
+            this.bottomCenter().y - (this.menuMesh.geometry as any).parameters.height / this.camera.zoom, HUD.MENU_LAYER);
 
         const startX = this.topRight().x;
-        this.pauseButtonMesh.position.set(startX, this.topRight().y, 0);
-        this.playButtonMesh.position.set(startX, this.topRight().y, 0);
+        this.pauseButtonMesh.position.set(startX, this.topRight().y, HUD.MENU_LAYER);
+        this.playButtonMesh.position.set(startX, this.topRight().y, HUD.MENU_LAYER);
     }
 
     private updateMeshScale(): void {
@@ -102,6 +121,7 @@ export class HUD {
         this.IPSMesh.scale.set(scale, scale, scale);
         this.pauseButtonMesh.scale.set(scale, scale, scale);
         this.playButtonMesh.scale.set(scale, scale, scale);
+        this.menuMesh.scale.set(scale, scale, scale);
     }
 
     private getMeshScale(): number {
@@ -117,6 +137,12 @@ export class HUD {
     private topLeft(): Vector2 {
         const startX = this.camera.position.x + (this.camera.left + 0.1) / this.camera.zoom;
         const startY = this.camera.position.y + (this.camera.top - 0.3) / this.camera.zoom;
+        return new Vector2(startX, startY);
+    }
+
+    private bottomCenter(): Vector2 {
+        const startX = this.camera.position.x;
+        const startY = this.camera.position.y - (this.camera.top - 0.1) / this.camera.zoom;
         return new Vector2(startX, startY);
     }
 
@@ -144,7 +170,10 @@ export class HUD {
         this.app.gameActors.forEach(actor => {
             this.mouseClickEvents.set(
                 () => this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0,
-                () => this.selectedActor = actor.select()
+                () => {
+                    this.selectedActor = actor.select()
+                    this.pullMenuUp();
+                }
             );
         });
     }
@@ -162,6 +191,20 @@ export class HUD {
     }
 
     private onMouseDown = (event: MouseEvent) => {
+        // check if the mouse is hovering over a mesh, if so, don't drag the camera
+        this.updateMouseCoordinates(event);
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        if (this.selectedActor) this.selectedActor = this.selectedActor.deselect();
+        this.menuIsOpen = false;
+        this.updateMeshPositions();
+        if (this.app.gameActors.some(actor => {
+            if (this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0) {
+                this.selectedActor = actor.select();
+                return true;
+            }
+        }))
+            return;
+
         this.mouseDown = true;
         this.initialMousePosition.set(event.clientX, event.clientY);
     }
@@ -180,8 +223,12 @@ export class HUD {
     }
 
     private onMouseDrag = (event: MouseEvent) => {
-        if (!this.mouseDown || this.selectedActor) return;
-
+        if (!this.mouseDown) return;
+        if (this.selectedActor) {
+            this.selectedActor = this.selectedActor.deselect();
+            this.menuIsOpen = false;
+            this.updateMeshPositions();
+        }
         const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
         const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
         const aspectRatio = window.innerWidth / window.innerHeight;
@@ -205,8 +252,6 @@ export class HUD {
     private onMouseClick(event: MouseEvent): void {
         this.updateMouseCoordinates(event);
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        if (this.selectedActor)
-            this.selectedActor = this.selectedActor.deselect();
         this.mouseClickEvents.forEach((executeCallback, condition) => {
             if (condition()) executeCallback()
         });
@@ -237,6 +282,16 @@ export class HUD {
     private onHoverLeave(mesh: Mesh): void {
         this.isHoveringMesh.set(mesh, false);
         HUD.changeMeshAppearance(mesh, HUD.BASE_COLOR, this.getMeshScale());
+    }
+
+    private onWindowResize(): void {
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        this.camera.left = -aspectRatio;
+        this.camera.right = aspectRatio;
+        this.camera.updateProjectionMatrix();
+        this.app.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.updateMeshPositions();
+        this.updateMeshScale();
     }
 
     private static changeMeshAppearance(mesh: Mesh, color: MeshBasicMaterial, scale?: number): void {

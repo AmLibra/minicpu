@@ -12,7 +12,7 @@ export class CPU extends ComputerChip {
     private static readonly POWER_PIN_COUNT = 6;
 
     // ISA
-    private static readonly WORDS = 3;
+    private static readonly WORDS = 1;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
@@ -80,7 +80,7 @@ export class CPU extends ComputerChip {
         return (this.calculateAverageInstructionCount() * this.clockFrequency).toFixed(2);
     }
 
-    public getAccumulatedInstructionCount(): number {
+    public getAccRetiredInstructionsCount(): number {
         return this.accumulatedInstructionCount;
     }
 
@@ -142,7 +142,7 @@ export class CPU extends ComputerChip {
     drawUpdate(): void {
         if (!this.isPipelined)
             return
-        this.clearMutableTextMeshes();
+        this.clearTextMeshes();
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
         this.addBufferTextMeshes(this.fetchBuffer, this.fetchBufferMesh);
         this.addBufferTextMeshes(this.decodeBuffer, this.decodeBufferMesh);
@@ -163,14 +163,14 @@ export class CPU extends ComputerChip {
     private decodeAll(): void {
         for (let i = 0; i < CPU.decoderCount; ++i) {
             const instruction = this.decodeBuffer.get(i);
-            if (instruction) {
-                const executePipelineEmpty = this.ALUs.isEmpty() && this.memoryController.isEmpty();
-                if (instruction.isArithmetic() && executePipelineEmpty)
+            const executePipelineEmpty = this.ALUs.isEmpty() && this.memoryController.isEmpty();
+
+            if (instruction && executePipelineEmpty) {
+                if (instruction.isArithmetic() )
                     this.ALUs.enqueue(this.decodeBuffer.dequeue());
-                else if (instruction.isMemoryOperation() && executePipelineEmpty)
+                else if (instruction.isMemoryOperation())
                     this.memoryController.enqueue(this.decodeBuffer.dequeue());
             }
-
         }
     }
 
@@ -202,6 +202,7 @@ export class CPU extends ComputerChip {
                 else {
                     this.highlight(instruction.getOp1Reg(), CPU.ALU_COLOR);
                     this.highlight(instruction.getOp2Reg(), CPU.ALU_COLOR);
+                    this.highlight(instruction.getResultReg(), CPU.ALU_COLOR);
                 }
                 this.registerValues.set(instruction.getResultReg(),
                     this.preventOverflow(computeALUResult(
@@ -209,7 +210,6 @@ export class CPU extends ComputerChip {
                         this.registerValues.get(instruction.getOp2Reg()),
                         instruction.getOpcode())
                     ));
-                this.highlight(instruction.getResultReg(), CPU.ALU_COLOR);
                 DrawUtils.updateText(this.meshes.get(this.registerTextMeshName(instruction.getResultReg())),
                     this.registerValues.get(instruction.getResultReg()).toString());
 
@@ -392,7 +392,7 @@ export class CPU extends ComputerChip {
     }
 
     private computeALUMeshProperties(bodyWidth: number, aluWidth: number, registerFile: MeshProperties): void {
-        const aluHeight = CPU.REGISTER_SIDE_LENGTH * 2 + CPU.INNER_SPACING;
+        const aluHeight = CPU.REGISTER_SIDE_LENGTH;
         for (let i = 0; i < CPU.aluCount; ++i) {
             const alu = {
                 width: aluWidth,
@@ -407,7 +407,7 @@ export class CPU extends ComputerChip {
     }
 
     private drawCPUPins(): void {
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', 4).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', InstructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));

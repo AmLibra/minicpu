@@ -59,8 +59,7 @@ export class DrawUtils {
             new FontLoader().load(this.FONT_DIR, (font: Font) => {
                 this.font = font;
                 const mesh = this.buildTextMesh("M", 0, 0, 0.1,  // Use a dummy text to calculate the base text height and width
-                    // M is usually the widest character in the font, although it does not matter in this case due to
-                    // the monospace font
+                    // M is usually the widest character in the font, although it does not matter in this case due to the monospace font
                     new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
                 this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
                 this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
@@ -101,7 +100,7 @@ export class DrawUtils {
         const textGeometry = new TextGeometry(text, {
             font: this.font,
             size: size,
-            height: 0.1
+            height: 0.05
         });
 
         const textMesh = new Mesh(textGeometry, color);
@@ -115,7 +114,6 @@ export class DrawUtils {
                 0
             );
         }
-
         return textMesh;
     }
 

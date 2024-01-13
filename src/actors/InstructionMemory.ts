@@ -8,9 +8,9 @@ import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
 
 export class InstructionMemory extends ComputerChip {
-    public static size: number = 8;
+    public static size: number = 16;
 
-    private readonly instructionMemory: Queue<Instruction>;
+    private instructionMemory: Queue<Instruction>;
     private readonly workingMemory: WorkingMemory;
     private needsUpdate: boolean = true;
     private readyToBeRead: boolean = false;
@@ -73,7 +73,8 @@ export class InstructionMemory extends ComputerChip {
     }
 
     update() {
-        this.fillInstructionMemoryIfEmpty();
+        if (this.instructionMemory.isEmpty())
+            this.instructionMemory = this.typicalInstructionSequence(InstructionMemory.size);
         if (this.readTimeout > 0) {
             this.readTimeout--;
             this.readyToBeRead = this.readTimeout <= 0;
@@ -84,18 +85,10 @@ export class InstructionMemory extends ComputerChip {
         if (!this.needsUpdate)
             return;
 
-        this.clearMutableTextMeshes();
+        this.clearTextMeshes();
         this.addBufferTextMeshes(this.instructionMemory, this.bodyMesh);
         this.textMeshNames.forEach( meshNames => { this.scene.add(this.meshes.get(meshNames)) })
         this.needsUpdate = false;
-    }
-
-    private fillInstructionMemoryIfEmpty() {
-        if (this.instructionMemory.isEmpty()) {
-            const instructions = this.typicalInstructionSequence(InstructionMemory.size);
-            for (let i = 0; i < InstructionMemory.size; ++i)
-                this.instructionMemory.enqueue(instructions.dequeue());
-        }
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {
@@ -117,26 +110,27 @@ export class InstructionMemory extends ComputerChip {
         instructionsLeft -= numberOfLoadOperations;
 
         let resultRegisters: number[] = [];
-        const numberOfALUOperations = 3 + Math.floor(Math.random() * (instructionsLeft - 3 - 1));
+        const minNumberOfALUOperations = 3;
+        const numberOfALUOperations = minNumberOfALUOperations
+            + Math.floor(Math.random() * (instructionsLeft - minNumberOfALUOperations - 2));
         for (let i = 0; i < numberOfALUOperations; ++i) {
             const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
             const randomRegisterNumber = this.randomRegisterNumber();
             const result_reg = this.registerName(randomRegisterNumber);
             const op1_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
             const op2_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
-            resultRegisters.push(randomRegisterNumber);
+            if (!resultRegisters.includes(randomRegisterNumber)) resultRegisters.push(randomRegisterNumber);
             typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
         }
+        instructionsLeft -= numberOfALUOperations;
 
-        const numberOfStoreOperations = instructionsLeft - numberOfALUOperations;
-        for (let i = 0; i < numberOfStoreOperations; ++i) {
+        for (let i = 0; i < instructionsLeft; ++i) {
             const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
             const randomResultRegister = this.randomArrayElement(resultRegisters);
-            typicalWorkload.enqueue(new Instruction("STORE",
-                this.registerName(randomResultRegister),
+            typicalWorkload.enqueue(new Instruction("STORE", this.registerName(randomResultRegister),
                 undefined, undefined, randomAddress));
-            if (resultRegisters.length > 2)
-                resultRegisters = resultRegisters.filter(reg => reg !== resultRegisters[randomResultRegister]);
+            if (resultRegisters.length > 1)
+                resultRegisters = resultRegisters.splice(resultRegisters.indexOf(randomResultRegister), 1);
         }
 
         return typicalWorkload;

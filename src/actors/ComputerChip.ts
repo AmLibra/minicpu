@@ -77,7 +77,7 @@ export abstract class ComputerChip {
         this.selectedMesh = DrawUtils.buildQuadrilateralMesh(
             this.meshProperties.get(this.bodyMesh).width + 0.01,
             this.meshProperties.get(this.bodyMesh).height + 0.01,
-            ComputerChip.TEXT_COLOR);
+            ComputerChip.HUD_TEXT_COLOR);
         this.selectedMesh.position.set(this.position.x, this.position.y, 0);
         this.selectedMesh.renderOrder = -1;
     }
@@ -322,7 +322,7 @@ export abstract class ComputerChip {
         return pins;
     }
 
-    protected clearMutableTextMeshes(...exceptions: string[]): void {
+    protected clearTextMeshes(...exceptions: string[]): void {
         const toDispose = [];
         this.meshes.forEach((mesh, componentName) => {
                 if (!this.textMeshNames.includes(componentName) || exceptions.includes(componentName))

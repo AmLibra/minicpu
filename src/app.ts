@@ -1,4 +1,4 @@
-import {Material, Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2, WebGLRenderer} from "three";
+import {OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
@@ -17,8 +17,6 @@ export class App {
     renderer: WebGLRenderer;
     camera: OrthographicCamera;
     paused: boolean = false;
-    document: Document;
-    window: Window;
     cpu: CPU;
     gameActors: ComputerChip[] = []
 
@@ -32,97 +30,59 @@ export class App {
         )
     }
 
-    /**
-     * Initializes the scene and the game.
-     *
-     * @private
-     */
     private async init(): Promise<void> {
-        this.scene = new Scene(); // create the scene
-        this.document = document;
-        this.window = window;
-        this.renderer = new WebGLRenderer({antialias: true, alpha: true}); // create the WebGL renderer
+        this.scene = new Scene();
+        this.renderer = this.setupRenderer();
+        this.setupCamera();
+
+        await DrawUtils.loadFont();
+        this.loadGame();
+    }
+
+    private setupRenderer(): WebGLRenderer {
+        this.renderer = new WebGLRenderer({antialias: true, alpha: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1); // set the background color of the scene
-        document.body.appendChild(this.renderer.domElement); // add the renderer to the DOM
+        document.body.appendChild(this.renderer.domElement);
+        return this.renderer;
+    }
 
-        const aspect = window.innerWidth / window.innerHeight; // set the aspect ratio of the camera
-
-        // create an orthographic camera,
+    private setupCamera(): void {
+        const aspect = window.innerWidth / window.innerHeight;
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
         this.camera.position.set(0, 0, 2); // Positioned along the Z-axis
         this.camera.zoom = 0.6;
         this.camera.updateProjectionMatrix();
-
-        // add a listener for the window resize event to update the camera and renderer size accordingly
-        window.addEventListener('resize', () => {
-            const aspectRatio = window.innerWidth / window.innerHeight;
-            this.camera.left = -aspectRatio;
-            this.camera.right = aspectRatio;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Load the font and start the game
-        try {
-            await DrawUtils.loadFont();
-            DrawUtils.drawGrid(this.scene)
-            this.loadGame();
-        } catch (error) {
-            throw new Error("Could not load font: " + error);
-        }
     }
 
-    /**
-     * The main animation loop.
-     *
-     * @private
-     */
     private animate(): void {
         requestAnimationFrame(() => this.animate());
         this.renderer.render(this.scene, this.camera);
     }
 
-    /**
-     * Starts the game loop.
-     *
-     * @private
-     */
     private startGameLoop(): void {
         setInterval(() => {
-            if (this.paused) return;
-            this.gameActors.forEach(gameActor => {
-                gameActor.update()
-                gameActor.drawUpdate()
-            });
-            this.hud.update()
-        },
+                if (this.paused) return;
+                this.gameActors.forEach(gameActor => {
+                    gameActor.update()
+                    gameActor.drawUpdate()
+                });
+                this.hud.update()
+            },
             ComputerChip.ONE_SECOND / this.cpu.getClockFrequency());
     }
 
-    /**
-     * Loads the game.
-     *
-     * @private
-     */
     private loadGame(): void {
+        DrawUtils.drawGrid(this.scene)
         this.addGameActors();
         this.hud = new HUD(this).drawHUD();
     }
 
-    /**
-     * Adds the game actors to the scene.
-     * The order in which the actors are added is important.
-     * The CPU must be added first so that it can read from ROM and MainMemory.
-     *
-     * @private
-     */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-2, 0], this.scene, 0.58)
-        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 0.58)
-        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 1.4)
+        const workingMemory = new WorkingMemory([-2, 0], this.scene, 3)
+        const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 3)
+        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 8)
         this.cpu = cpu;
-        //this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }
