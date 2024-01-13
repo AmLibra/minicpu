@@ -243,7 +243,6 @@ export class CPU extends ComputerChip {
         if (!instruction)
             return; // if there is no instruction to process, exit
         if (this.workingMemory.isReady()) {
-            console.log(instruction.toString());
             if (instruction.getOpcode() == "LOAD") {
                 this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
                 this.highlight(instruction.getResultReg(), CPU.MEMORY_COLOR);
@@ -446,6 +445,8 @@ export class CPU extends ComputerChip {
             this.position.y + this.meshProperties.get(registerName).yOffset - DrawUtils.baseTextHeight / 4,
             CPU.TEXT_SIZE, CPU.TEXT_COLOR));
         this.textMeshNames.push(this.registerTextMeshName(registerName));
+        if (!this.isPipelined)
+            this.scene.add(this.meshes.get(this.registerTextMeshName(registerName)));
     }
 
     private registerTextMeshName(name: string): string {

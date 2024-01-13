@@ -14,13 +14,14 @@ import {HUD} from "./HUD";
  */
 export class App {
     scene: Scene;
+    renderer: WebGLRenderer;
     camera: OrthographicCamera;
     paused: boolean = false;
     document: Document;
+    window: Window;
     cpu: CPU;
     gameActors: ComputerChip[] = []
 
-    private renderer: WebGLRenderer;
     private hud: HUD;
 
     constructor() {
@@ -39,6 +40,7 @@ export class App {
     private async init(): Promise<void> {
         this.scene = new Scene(); // create the scene
         this.document = document;
+        this.window = window;
         this.renderer = new WebGLRenderer({antialias: true, alpha: true}); // create the WebGL renderer
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1); // set the background color of the scene
@@ -65,7 +67,7 @@ export class App {
         // Load the font and start the game
         try {
             await DrawUtils.loadFont();
-            DrawUtils.drawGrid(this.scene)
+            // DrawUtils.drawGrid(this.scene)
             this.loadGame();
         } catch (error) {
             throw new Error("Could not load font: " + error);
@@ -119,9 +121,9 @@ export class App {
     private addGameActors(): void {
         const workingMemory = new WorkingMemory([-2, 0], this.scene, 0.58)
         const instructionMemory = new InstructionMemory([2, 0], this.scene, workingMemory, 0.58)
-        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2.4)
+        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 1.4)
         this.cpu = cpu;
-        this.cpu.setPipelined();
+        //this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }

@@ -48,7 +48,12 @@ export abstract class ComputerChip {
     protected readonly meshProperties: Map<string, MeshProperties>;
     protected readonly meshes: Map<string, Mesh>;
     protected readonly textMeshNames: Array<string>;
-    protected readonly blinkStates = new Map<string, NodeJS.Timeout>();
+    protected readonly blinkStates = new Map<string, {
+        timeout: NodeJS.Timeout,
+        startTime: number,
+        duration: number
+    }>();
+    private readonly pausedBlinks: Map<string, MeshBasicMaterial>;
     private queuedBlinks: Array<() => void> = [];
     protected clockMesh: Mesh;
 
@@ -65,6 +70,7 @@ export abstract class ComputerChip {
         this.meshes = new Map<string, Mesh>();
         this.meshProperties = new Map<string, MeshProperties>();
         this.textMeshNames = new Array<string>();
+        this.pausedBlinks = new Map<string, MeshBasicMaterial>();
         this.computeMeshProperties();
         this.addMeshesToScene()
     }
@@ -93,13 +99,16 @@ export abstract class ComputerChip {
      */
     abstract drawUpdate(): void;
 
-    public togglePauseState() {
+    togglePauseState() {
         this.paused = !this.paused;
+
         if (!this.paused) {
-            this.queuedBlinks.forEach(blinkAction => blinkAction());
-            this.queuedBlinks = []; // Clear the queue
+            this.resumeBlinks();
+        } else {
+            this.pauseBlinks();
         }
     }
+
 
     /**
      * Returns the clock frequency of the chip
@@ -324,6 +333,74 @@ export abstract class ComputerChip {
         mesh.material = newMesh;
     }
 
+    resumeBlinks() {
+        // Then, resume paused blinks for components that are not in the queue
+        this.pausedBlinks.forEach((blinkMeshMaterial, componentName) => {
+            if (!this.queuedBlinks.some(blinkAction => blinkAction.name === componentName)) {
+                // Only resume blinks for components not affected by queued actions
+                const remainingTime = this.getRemainingBlinkTime(componentName);
+                this.changeComponentMesh(componentName, blinkMeshMaterial);
+
+                if (remainingTime >= 0) {
+                    const timeout = setTimeout(() => {
+                        this.updateComponentMaterialToDefault(componentName);
+                    }, remainingTime);
+
+                    this.blinkStates.set(componentName, {timeout, startTime: Date.now(), duration: remainingTime});
+                } else {
+                    console.log("remaining time: " + remainingTime);
+                    this.updateComponentMaterialToDefault(componentName);
+                }
+            }
+        });
+        this.pausedBlinks.clear();
+        // First, execute all queued blink actions
+        this.queuedBlinks.forEach(blinkAction => blinkAction());
+        this.queuedBlinks = []; // Clear the queue after executing
+    }
+
+    pauseBlinks() {
+        this.blinkStates.forEach((blinkInfo, componentName) => {
+            clearTimeout(blinkInfo.timeout); // Clear existing timeout
+            const blinkMeshMaterial = this.getMeshMaterial(componentName);
+            this.pausedBlinks.set(componentName, blinkMeshMaterial);
+            this.changeComponentMesh(componentName, blinkMeshMaterial);
+        });
+        this.blinkStates.clear(); // Clear blink states as they are paused
+    }
+
+    updateComponentMaterialToDefault(componentName: string) {
+        if (this.meshProperties.has(componentName)) {
+            this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
+        }
+        this.blinkStates.delete(componentName);
+    }
+
+    getMeshMaterial(componentName: string) {
+        return this.meshes.get(componentName).material as MeshBasicMaterial;
+    }
+
+    protected startBlink(componentName: string, newMesh: MeshBasicMaterial, blinkDuration: number) {
+        const startTime = Date.now();
+        const timeout = setTimeout(() => {
+            this.updateComponentMaterialToDefault(componentName);
+        }, blinkDuration);
+
+        this.blinkStates.set(componentName, {timeout, startTime, duration: blinkDuration});
+        this.changeComponentMesh(componentName, newMesh);
+    }
+
+    // Method to get the remaining time for a blink
+    protected getRemainingBlinkTime(componentName: string): number {
+        const blink = this.blinkStates.get(componentName);
+        if (!blink) {
+            return 0;
+        }
+
+        const elapsedTime = Date.now() - blink.startTime;
+        return Math.max(blink.duration - elapsedTime, 0);
+    }
+
 
     /**
      * Changes the color of a graphic component for a short period of time
@@ -335,26 +412,29 @@ export abstract class ComputerChip {
      */
     protected highlight(componentName: string, newMesh: MeshBasicMaterial, blinkDuration?: number): void {
         const highlightAction = () => {
+            // If there's already a blink for this component, clear it before starting a new one
             if (this.blinkStates.has(componentName)) {
-                clearTimeout(this.blinkStates.get(componentName));
+                const existingBlink = this.blinkStates.get(componentName);
+                clearTimeout(existingBlink.timeout);
                 this.blinkStates.delete(componentName);
             }
 
-            this.changeComponentMesh(componentName, newMesh);
-            const timeout = setTimeout(() => {
-                if (this.meshProperties.has(componentName)) {
-                    this.changeComponentMesh(componentName, this.meshProperties.get(componentName).color);
-                }
-                this.blinkStates.delete(componentName);
-            }, blinkDuration ? blinkDuration : this.getClockCycleDuration());
+            // Use the provided blinkDuration or default to a clock cycle duration
+            const duration = blinkDuration ? blinkDuration : this.getClockCycleDuration();
 
-            this.blinkStates.set(componentName, timeout);
+            // Start the new blink
+            this.startBlink(componentName, newMesh, duration);
         };
-        if (this.paused)
+
+        if (this.paused) {
+            // If the system is paused, queue the highlight action
             this.queuedBlinks.push(highlightAction);
-        else
+        } else {
+            // Otherwise, execute it immediately
             highlightAction();
+        }
     }
+
 
     protected delay(duration: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, duration));
