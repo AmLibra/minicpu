@@ -13,7 +13,6 @@ export class WorkingMemory extends ComputerChip {
     private memoryOperationTimeout: number = 0;
 
     // Mesh names
-    private memoryAddressMarginMesh: string;
     private registerFileMesh: string;
 
     constructor(position: [number, number], scene: Scene, clockFrequency: number) {
@@ -60,21 +59,21 @@ export class WorkingMemory extends ComputerChip {
     computeMeshProperties(): void {
         // define mesh names
         this.bodyMesh = "BODY";
-        this.memoryAddressMarginMesh = "MEMORY_ADDRESS_MARGIN";
         this.registerFileMesh = "REGISTER_FILE";
 
         // compute variable mesh properties
         this.size = WorkingMemory.WORDS * WorkingMemory.WORD_SIZE;
-        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2;
-        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2;
+        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2
+            + (WorkingMemory.WORDS - 1) * WorkingMemory.INNER_SPACING;
+        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2
+            + (WorkingMemory.WORD_SIZE - 1) * WorkingMemory.INNER_SPACING;
 
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
-        this.computeAddressMarginMeshProperties(bodyWidth, bodyHeight)
         this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawPins(this.meshProperties.get(this.memoryAddressMarginMesh), 'right', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
-            this.position.x + this.meshProperties.get(this.memoryAddressMarginMesh).width / 2,
+            this.position.x,
             this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
             ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
     }
@@ -99,24 +98,8 @@ export class WorkingMemory extends ComputerChip {
             this.memoryArray[i] = Math.floor(Math.random() * WorkingMemory.MAX_BYTE_VALUE);
             this.buildRegisterTextMesh(i);
         }
-        this.drawMemoryWordAddressTags();
+        // this.drawMemoryWordAddressTags();
         this.textMeshNames.forEach(mesh => this.scene.add(this.meshes.get(mesh)));
-    }
-
-    private drawMemoryWordAddressTags(): void {
-        for (let i = 0; i < WorkingMemory.WORDS; i++) {
-            const memoryAddressRegister =
-                this.meshProperties.get(this.registerName(i * WorkingMemory.WORD_SIZE));
-            this.scene.add(
-                DrawUtils.buildTextMesh(
-                    DrawUtils.toHex(i * WorkingMemory.WORD_SIZE),
-                    this.position.x + this.meshProperties.get(this.memoryAddressMarginMesh).xOffset
-                    - WorkingMemory.CONTENTS_MARGIN,
-                    this.position.y + memoryAddressRegister.yOffset + memoryAddressRegister.height / 2,
-                    WorkingMemory.TEXT_SIZE / 2, WorkingMemory.TEXT_COLOR
-                )
-            );
-        }
     }
 
     private buildRegisterTextMesh(address: number): void {
@@ -138,17 +121,6 @@ export class WorkingMemory extends ComputerChip {
             color: WorkingMemory.BODY_COLOR,
         };
         this.meshProperties.set(this.bodyMesh, body);
-    }
-
-    private computeAddressMarginMeshProperties(bodyWidth: number, bodyHeight: number): void {
-        const memoryAddressMargin = {
-            width: 6 * WorkingMemory.CONTENTS_MARGIN,
-            height: bodyHeight,
-            xOffset: bodyWidth / 2 + WorkingMemory.CONTENTS_MARGIN + WorkingMemory.CONTENTS_MARGIN,
-            yOffset: 0,
-            color: WorkingMemory.BODY_COLOR,
-        };
-        this.meshProperties.set(this.memoryAddressMarginMesh, memoryAddressMargin);
     }
 
     private computeRegisterMeshProperties(bodyWidth: number, bodyHeight: number): void {
