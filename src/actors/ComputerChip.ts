@@ -1,4 +1,4 @@
-import {Material, Mesh, MeshBasicMaterial, Scene, Vector2} from "three";
+import {Group, Material, Mesh, MeshBasicMaterial, Scene, Vector2} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
@@ -15,12 +15,11 @@ import {Queue} from "../components/Queue";
  *     components
  * @property {Map<string, Mesh>} meshes The graphic components of the chip
  * @property {Map<string, Mesh>} textMeshNames The text components of the chip
- * @property {Map<string, string>} COLORS The colors of the chip
  */
 export abstract class ComputerChip {
     public static readonly ONE_SECOND: number = 1000; // ms
     protected static readonly TEXT_SIZE: number = 0.05;
-    protected static readonly PIN_MARGIN = 0.1
+    protected static readonly PIN_MARGIN = 0.05;
     protected static readonly PIN_RADIUS = 0.02;
 
     protected static readonly BUFFER_HEIGHT: number = 0.15;
@@ -56,7 +55,7 @@ export abstract class ComputerChip {
     private readonly pausedBlinks: Map<string, MeshBasicMaterial>;
     private queuedBlinks: Array<() => void> = [];
     protected bodyMesh: string;
-    protected pinMeshes: Map<string, { position: Vector2, side: 'left' | 'right' | 'top' | 'bottom' }>;
+    protected pinPositions: Map<string, Vector2>;
     protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
 
@@ -72,7 +71,7 @@ export abstract class ComputerChip {
         this.meshes = new Map<string, Mesh>();
         this.meshProperties = new Map<string, MeshProperties>();
         this.textMeshNames = new Array<string>();
-        this.pinMeshes = new Map<string, { position: Vector2, side: 'left' | 'right' | 'top' | 'bottom' }>();
+        this.pinPositions = new Map<string, Vector2>();
         this.pausedBlinks = new Map<string, MeshBasicMaterial>();
         this.computeMeshProperties();
         this.addMeshesToScene()
@@ -143,6 +142,10 @@ export abstract class ComputerChip {
         this.scene.remove(this.selectedMesh);
         this.clockMesh.visible = false;
         return undefined;
+    }
+
+    public getPinPosition(n: number, side: 'left' | 'right' | 'top' | 'bottom'): Vector2 {
+        return this.pinPositions.get(this.pinName(n, side));
     }
 
     protected getClockCycleDuration(): number {
@@ -241,19 +244,18 @@ export abstract class ComputerChip {
      * @param columnCount the number of columns in the grid
      * @param padding the padding between each register
      * @param registerNames the names of the registers
+     * @param transposed whether to draw the grid transposed (for naming)
      * @protected
      */
-    protected drawRegisterGridArray(parent: MeshProperties, rowCount: number, columnCount: number, padding: number, registerNames?: string[]
-    ): Map<string, MeshProperties> {
+    protected drawRegisterGridArray(parent: MeshProperties, rowCount: number, columnCount: number, padding: number,
+                                    registerNames?: string[], transposed: boolean = false): Map<string, MeshProperties> {
         if (registerNames && registerNames.length != rowCount * columnCount) {
             throw new Error("Number of register names does not match the number of registers");
         }
 
-        // Calculate dimensions for each individual register file, accounting for margins
         const registerWidth = (parent.width - padding * (columnCount - 1)) / columnCount;
         const registerHeight = (parent.height - padding * (rowCount - 1)) / rowCount;
 
-        // Calculating the starting position
         const startX = parent.xOffset - parent.width / 2 + registerWidth / 2;
         const startY = parent.yOffset + parent.height / 2 - registerHeight / 2;
 
@@ -264,7 +266,9 @@ export abstract class ComputerChip {
                 const xOffset = startX + j * (registerWidth + padding);
                 const yOffset = startY - i * (registerHeight + padding);
 
-                const registerName = registerNames ? registerNames[i * columnCount + j] : this.registerName(i * columnCount + j);
+                // Determine the index based on whether the grid is transposed
+                const index = transposed ? j * rowCount + i : i * columnCount + j;
+                const registerName = registerNames ? registerNames[index] : this.registerName(index);
                 const register = {
                     width: registerWidth,
                     height: registerHeight,
@@ -284,6 +288,7 @@ export abstract class ComputerChip {
         }
         return registers;
     }
+
 
     protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number): Map<string, Mesh> {
         const pins = new Map<string, Mesh>();
@@ -315,7 +320,7 @@ export abstract class ComputerChip {
             const xOffset = side === 'left' || side === 'right' ? startX : startX + i * (2 * ComputerChip.PIN_RADIUS + pinSpacing);
             const yOffset = side === 'left' || side === 'right' ? startY - i * (2 * ComputerChip.PIN_RADIUS + pinSpacing) : startY;
 
-            const pinName = this.pinName(i);
+            const pinName = this.pinName(i, side);
             const pin = (side === 'left' || side === 'right') ?
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS,
                     ComputerChip.PIN_COLOR) :
@@ -324,9 +329,55 @@ export abstract class ComputerChip {
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
-            this.pinMeshes.set(pinName, {position: new Vector2(xOffset, yOffset), side: side});
+            this.pinPositions.set(pinName, new Vector2(xOffset, yOffset));
         }
         return pins;
+    }
+
+    protected buildTrace(pinPosition1: Vector2, side1: 'left' | 'right' | 'top' | 'bottom',
+                         pinPosition2: Vector2, side2: 'left' | 'right' | 'top' | 'bottom', offset: number): Group {
+
+        // Calculate extended start and end points
+        const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
+        const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, offset);
+
+        // Calculate intermediate point
+        const intermediatePoint = new Vector2(extendedStart.x, extendedEnd.y);
+
+        // Create segments
+        const startSegment = DrawUtils.buildLineMesh(
+            pinPosition1.x, pinPosition1.y, extendedStart.x, extendedStart.y, ComputerChip.PIN_COLOR
+        );
+        const horizontalSegment = DrawUtils.buildLineMesh(
+            extendedStart.x, extendedStart.y, intermediatePoint.x, intermediatePoint.y, ComputerChip.PIN_COLOR
+        );
+        const verticalSegment = DrawUtils.buildLineMesh(
+            intermediatePoint.x, intermediatePoint.y, extendedEnd.x, extendedEnd.y, ComputerChip.PIN_COLOR
+        );
+        const endSegment = DrawUtils.buildLineMesh(
+            extendedEnd.x, extendedEnd.y, pinPosition2.x, pinPosition2.y, ComputerChip.PIN_COLOR
+        );
+
+        // Group the segments
+        const trace = new Group();
+        trace.add(startSegment, horizontalSegment, verticalSegment, endSegment);
+
+        return trace;
+    }
+
+    private calculateExtendedPoint(position: Vector2, side: 'left' | 'right' | 'top' | 'bottom', offset: number): Vector2 {
+        switch (side) {
+            case 'left':
+                return new Vector2(position.x - offset, position.y);
+            case 'right':
+                return new Vector2(position.x + offset, position.y);
+            case 'top':
+                return new Vector2(position.x, position.y + offset);
+            case 'bottom':
+                return new Vector2(position.x, position.y - offset);
+            default:
+                return position;
+        }
     }
 
     protected clearTextMeshes(...exceptions: string[]): void {
@@ -487,8 +538,8 @@ export abstract class ComputerChip {
         }
     }
 
-    protected pinName(pinNumber: number): string {
-        return `PIN${pinNumber}`;
+    protected pinName(pinNumber: number, side: 'left' | 'right' | 'top' | 'bottom'): string {
+        return `PIN${pinNumber}_${side.toUpperCase()}`;
     }
 
     protected registerName(registerNumber: number): string {

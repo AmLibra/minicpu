@@ -12,7 +12,7 @@ export class CPU extends ComputerChip {
     private static readonly POWER_PIN_COUNT = 6;
 
     // ISA
-    private static readonly WORDS = 2;
+    private static readonly WORDS = 1;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
@@ -62,6 +62,10 @@ export class CPU extends ComputerChip {
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+        for (let i = 0; i < InstructionMemory.size; ++i)
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')), 'right', this.instructionMemory.getPinPosition(i, 'left'), 'left', 0.25));
+        for (let i = 0; i < WorkingMemory.WORDS; ++i)
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')), 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top', 0.1));
     }
 
     public setPipelined(): void {
@@ -434,10 +438,10 @@ export class CPU extends ComputerChip {
     }
 
     private drawCPUPins(): void {
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        //this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', InstructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+        //this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     private aluMeshName(index: number = 0): string {

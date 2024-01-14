@@ -4,7 +4,7 @@ import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
 export class WorkingMemory extends ComputerChip {
-    public static readonly WORDS = 8;
+    public static readonly WORDS = 12;
     private size: number;
     private readonly memoryArray: number[];
 
@@ -67,15 +67,15 @@ export class WorkingMemory extends ComputerChip {
 
         // compute variable mesh properties
         this.size = WorkingMemory.WORDS * WorkingMemory.WORD_SIZE;
-        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2
-            + (WorkingMemory.WORDS - 1) * WorkingMemory.INNER_SPACING;
-        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2
+        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2
             + (WorkingMemory.WORD_SIZE - 1) * WorkingMemory.INNER_SPACING;
+        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2
+            + (WorkingMemory.WORDS - 1) * WorkingMemory.INNER_SPACING;
 
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
         this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
             this.position.x,
             this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
@@ -141,7 +141,8 @@ export class WorkingMemory extends ComputerChip {
         for (let i = 0; i < this.size; i++)
             registerNames.push(this.registerName(i));
 
-        this.drawRegisterGridArray(registerFile, WorkingMemory.WORDS, WorkingMemory.WORD_SIZE, WorkingMemory.INNER_SPACING, registerNames);
+        this.drawRegisterGridArray(registerFile, WorkingMemory.WORD_SIZE, WorkingMemory.WORDS,
+            WorkingMemory.INNER_SPACING, registerNames, true);
     }
 
     registerName(address: number): string {
