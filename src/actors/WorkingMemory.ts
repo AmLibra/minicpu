@@ -75,7 +75,7 @@ export class WorkingMemory extends ComputerChip {
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
         this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', WorkingMemory.WORDS * 2).forEach((mesh, _name) => this.scene.add(mesh));
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
             this.position.x,
             this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,

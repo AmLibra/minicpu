@@ -69,7 +69,7 @@ export class CPU extends ComputerChip {
     }
 
     private drawBottomTraces(baseOffset:number, distanceBetweenPins: number): void {
-        const halfwayWorkingMem = this.findMatchingWidth(WorkingMemory.WORDS / 2, 'bottom')
+        const halfwayWorkingMem = this.findMatchingWidth(WorkingMemory.WORDS * 2 / 2, 'bottom')
         console.log(halfwayWorkingMem)
         for (let i = 0; i < halfwayWorkingMem; ++i) {
              console.log(this.workingMemory.getPinPosition(i, 'top'))
@@ -77,7 +77,7 @@ export class CPU extends ComputerChip {
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
                 baseOffset + (distanceBetweenPins * i) ));
         }
-        for (let i = halfwayWorkingMem; i < WorkingMemory.WORDS; ++i) {
+        for (let i = halfwayWorkingMem; i < WorkingMemory.WORDS * 2; ++i) {
             console.log(this.workingMemory.getPinPosition(i, 'top'))
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
@@ -502,7 +502,7 @@ export class CPU extends ComputerChip {
         //this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', InstructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
         //this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', WorkingMemory.WORDS * 2).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     private aluMeshName(index: number = 0): string {
