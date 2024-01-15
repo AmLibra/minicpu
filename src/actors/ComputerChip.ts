@@ -341,22 +341,15 @@ export abstract class ComputerChip {
         const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
         const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, 0.02);
 
-        // Calculate intermediate point
         const intermediatePoint = new Vector2(extendedStart.x, extendedEnd.y);
-
-        // Create segments
-        const startSegment = DrawUtils.buildLineMesh(
-            pinPosition1.x, pinPosition1.y, extendedStart.x, extendedStart.y, ComputerChip.PIN_COLOR
-        );
-        const horizontalSegment = DrawUtils.buildLineMesh(
-            extendedStart.x, extendedStart.y, intermediatePoint.x, intermediatePoint.y, ComputerChip.PIN_COLOR
-        );
-        const verticalSegment = DrawUtils.buildLineMesh(
-            intermediatePoint.x, intermediatePoint.y, extendedEnd.x, extendedEnd.y, ComputerChip.PIN_COLOR
-        );
-        const endSegment = DrawUtils.buildLineMesh(
-            extendedEnd.x, extendedEnd.y, pinPosition2.x, pinPosition2.y, ComputerChip.PIN_COLOR
-        );
+        if (side1 === 'top' || side1 === 'bottom') {
+            intermediatePoint.x = extendedEnd.x;
+            intermediatePoint.y = extendedStart.y;
+        }
+        const startSegment = DrawUtils.buildLineMesh(pinPosition1, extendedStart, ComputerChip.PIN_COLOR);
+        const horizontalSegment = DrawUtils.buildLineMesh(extendedStart, intermediatePoint, ComputerChip.PIN_COLOR);
+        const verticalSegment = DrawUtils.buildLineMesh(intermediatePoint, extendedEnd, ComputerChip.PIN_COLOR);
+        const endSegment = DrawUtils.buildLineMesh(extendedEnd, pinPosition2, ComputerChip.PIN_COLOR);
 
         // Group the segments
         const trace = new Group();

@@ -137,7 +137,6 @@ export class InstructionMemory extends ComputerChip {
         for (let i = 0; i < instructionsLeft; ++i) {
             const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
             const randomResultRegister = this.randomArrayElement(resultRegisters);
-            console.log(randomResultRegister);
             typicalWorkload.enqueue(new Instruction("STORE", this.registerName(randomResultRegister),
                 undefined, undefined, randomAddress));
             if (resultRegisters.length > 1)

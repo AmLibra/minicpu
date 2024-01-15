@@ -61,22 +61,72 @@ export class CPU extends ComputerChip {
 
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
 
+
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
 
-        const halfway = InstructionMemory.size / 2;
-        for (let i = 0; i < halfway; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
-                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                0.7 * (0.03 * (halfway - (halfway - i) )) ));
-        }
-        for (let i = halfway; i < InstructionMemory.size; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
-                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                1 * (0.03 * (halfway - (i - halfway) )) ));
-        }
+        this.drawRightTraces(0.3, 0.02);
+        this.drawBottomTraces(0.05, 0.02);
+    }
 
-        for (let i = 0; i < WorkingMemory.WORDS; ++i)
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')), 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top', 0.1));
+    private drawBottomTraces(baseOffset:number, distanceBetweenPins: number): void {
+        const halfwayWorkingMem = this.findMatchingWidth(WorkingMemory.WORDS / 2, 'bottom')
+        console.log(halfwayWorkingMem)
+        for (let i = 0; i < halfwayWorkingMem; ++i) {
+             console.log(this.workingMemory.getPinPosition(i, 'top'))
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
+                'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
+                baseOffset + (distanceBetweenPins * i) ));
+        }
+        for (let i = halfwayWorkingMem; i < WorkingMemory.WORDS; ++i) {
+            console.log(this.workingMemory.getPinPosition(i, 'top'))
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
+                'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
+                baseOffset + (distanceBetweenPins * halfwayWorkingMem) - (distanceBetweenPins * (i - halfwayWorkingMem )) ));
+        }
+    }
+
+    private drawRightTraces(baseOffset:number, distanceBetweenPins: number): void {
+        const halfwayInstructionMem = this.findMatchingHeight(InstructionMemory.size / 2, 'right')
+        for (let i = 0; i < halfwayInstructionMem; ++i) {
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
+                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
+                baseOffset + (distanceBetweenPins * i) ));
+        }
+        for (let i = halfwayInstructionMem; i < InstructionMemory.size; ++i) {
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
+                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
+                baseOffset + (distanceBetweenPins * halfwayInstructionMem) - (distanceBetweenPins * (i - halfwayInstructionMem )) ));
+        }
+    }
+
+
+    private findMatchingHeight(pin: number, side: "left" | "right" | "top" | "bottom"): number {
+        const pinPositionY = this.pinPositions.get(this.pinName(pin, side)).y;
+        console.log(this.pinName(pin, side))
+        let closest = 0;
+        for (let i = 0; i < InstructionMemory.size; ++i) {
+            const instructionPositionY = this.instructionMemory.getPinPosition(i, 'left').y;
+            if (Math.abs(instructionPositionY - pinPositionY) < Math.abs(
+                this.instructionMemory.getPinPosition(closest, 'left').y - pinPositionY)) {
+                closest = i;
+                console.log(i)
+            }
+        }
+        return closest;
+    }
+
+
+    private findMatchingWidth(pin: number, side: "left" | "right" | "top" | "bottom"): number {
+        const pinPositionX = this.pinPositions.get(this.pinName(pin, side)).x;
+        let closest = 0;
+        for (let i = 0; i < WorkingMemory.WORDS; ++i) {
+            const instructionPositionX = this.workingMemory.getPinPosition(i, 'top').x;
+            if (Math.abs(instructionPositionX - pinPositionX) < Math.abs(
+                this.workingMemory.getPinPosition(closest, 'top').x - pinPositionX)) {
+                closest = i;
+            }
+        }
+        return closest;
     }
 
     public setPipelined(): void {

@@ -8,7 +8,7 @@ import {
     MeshBasicMaterial,
     PlaneGeometry,
     Scene,
-    TextureLoader
+    TextureLoader, Vector2
 } from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
@@ -169,11 +169,11 @@ export class DrawUtils {
         return mesh;
     }
 
-    public static buildLineMesh(x1: number, y1: number, x2: number, y2: number, color: Color | Material): Line {
+    public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color | Material): Line {
         const geometry = new BufferGeometry();
         const vertices = new Float32Array([
-            x1, y1, 0.0,  // Vertex 1 (X, Y, Z)
-            x2, y2, 0.0,   // Vertex 2 (X, Y, Z)
+            v1.x, v1.y, 0.0,  // Vertex 1 (X, Y, Z)
+            v2.x, v2.y, 0.0,   // Vertex 2 (X, Y, Z)
         ]);
         geometry.setAttribute('position', new BufferAttribute(vertices, 3));
 
