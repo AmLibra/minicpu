@@ -339,7 +339,7 @@ export abstract class ComputerChip {
 
         // Calculate extended start and end points
         const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
-        const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, offset);
+        const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, 0.02);
 
         // Calculate intermediate point
         const intermediatePoint = new Vector2(extendedStart.x, extendedEnd.y);

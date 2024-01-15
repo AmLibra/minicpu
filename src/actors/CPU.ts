@@ -62,8 +62,19 @@ export class CPU extends ComputerChip {
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
-        for (let i = 0; i < InstructionMemory.size; ++i)
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')), 'right', this.instructionMemory.getPinPosition(i, 'left'), 'left', 0.25));
+
+        const halfway = InstructionMemory.size / 2;
+        for (let i = 0; i < halfway; ++i) {
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
+                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
+                0.7 * (0.03 * (halfway - (halfway - i) )) ));
+        }
+        for (let i = halfway; i < InstructionMemory.size; ++i) {
+            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
+                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
+                1 * (0.03 * (halfway - (i - halfway) )) ));
+        }
+
         for (let i = 0; i < WorkingMemory.WORDS; ++i)
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')), 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top', 0.1));
     }
