@@ -42,7 +42,7 @@ export abstract class ComputerChip {
     protected static readonly ALU_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")});
     protected static readonly PIN_COLOR: MeshBasicMaterial =
-        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("GOLDEN_YELLOW")});
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
 
     protected readonly meshProperties: Map<string, MeshProperties>;
     protected readonly meshes: Map<string, Mesh>;
@@ -73,14 +73,6 @@ export abstract class ComputerChip {
         this.textMeshNames = new Array<string>();
         this.pinPositions = new Map<string, Vector2>();
         this.pausedBlinks = new Map<string, MeshBasicMaterial>();
-        this.computeMeshProperties();
-        this.addMeshesToScene()
-        this.selectedMesh = DrawUtils.buildQuadrilateralMesh(
-            this.meshProperties.get(this.bodyMesh).width + 0.01,
-            this.meshProperties.get(this.bodyMesh).height + 0.01,
-            ComputerChip.HUD_TEXT_COLOR);
-        this.selectedMesh.position.set(this.position.x, this.position.y, 0);
-        this.selectedMesh.renderOrder = -1;
     }
 
     abstract displayName(): string;
@@ -165,7 +157,7 @@ export abstract class ComputerChip {
 
         const mesh = this.meshProperties.get(name);
         const quadrilateralMesh = DrawUtils.buildQuadrilateralMesh(
-            mesh.width, mesh.height, mesh.color);
+            mesh.width, mesh.height, mesh.color, {x: this.position.x + mesh.xOffset, y: this.position.y + mesh.yOffset});
         quadrilateralMesh.position.set(this.position.x + mesh.xOffset, this.position.y + mesh.yOffset, 0);
         this.meshes.set(name, quadrilateralMesh);
         return quadrilateralMesh;
@@ -323,9 +315,9 @@ export abstract class ComputerChip {
             const pinName = this.pinName(i, side);
             const pin = (side === 'left' || side === 'right') ?
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS,
-                    ComputerChip.PIN_COLOR) :
+                    ComputerChip.PIN_COLOR, {x: xOffset, y: yOffset}) :
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS, ComputerChip.PIN_RADIUS * 2,
-                    ComputerChip.PIN_COLOR);
+                    ComputerChip.PIN_COLOR, {x: xOffset, y: yOffset});
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
@@ -511,9 +503,13 @@ export abstract class ComputerChip {
         }
     }
 
-
     protected delay(duration: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
+    protected initGraphics(): void {
+        this.computeMeshProperties();
+        this.addMeshesToScene()
     }
 
     /**
@@ -566,6 +562,13 @@ export abstract class ComputerChip {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
         this.textMeshNames.forEach(name => this.scene.add(this.meshes.get(name)));
         this.clockMesh.visible = false;
+        this.selectedMesh = DrawUtils.buildQuadrilateralMesh(
+            this.meshProperties.get(this.bodyMesh).width + 0.01,
+            this.meshProperties.get(this.bodyMesh).height + 0.01,
+            ComputerChip.HUD_TEXT_COLOR, {x: this.position.x, y: this.position.y});
+        this.selectedMesh.position.set(this.position.x, this.position.y, 0);
+        this.selectedMesh.renderOrder = -1;
+
         this.scene.add(this.clockMesh);
     }
 }

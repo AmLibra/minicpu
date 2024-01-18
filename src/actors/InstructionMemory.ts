@@ -10,7 +10,7 @@ import {Queue} from "../components/Queue";
 export class InstructionMemory extends ComputerChip {
     public static size: number = 16;
 
-    private instructionMemory: Queue<Instruction>;
+    private readonly instructionMemory: Queue<Instruction>;
     private readonly workingMemory: WorkingMemory;
     private needsUpdate: boolean = true;
     private readyToBeRead: boolean = false;
@@ -20,6 +20,7 @@ export class InstructionMemory extends ComputerChip {
         super(position, scene, clockFrequency);
         this.instructionMemory = new Queue<Instruction>(InstructionMemory.size);
         this.workingMemory = workingMemory;
+        this.initGraphics();
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
     }
 

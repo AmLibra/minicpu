@@ -6,6 +6,7 @@ import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
+import {InstructionBuffer} from "./InstructionBuffer";
 
 export class CPU extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
@@ -59,29 +60,33 @@ export class CPU extends ComputerChip {
         for (let i = 0; i < CPU.REGISTER_SIZE; ++i) this.registerValues.set(this.registerName(i), 0);
         this.isPipelined = false;
 
+        this.initGraphics();
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
 
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
 
-        this.drawRightTraces(0.3, 0.02);
+        this.drawRightTraces(0.05, 0.02);
         this.drawBottomTraces(0.05, 0.02);
+
+        const instructionBuffer = new InstructionBuffer(this, this.scene, {
+            x: this.position.x - 1,
+            y: this.position.y
+        }, 5, true, false);
+        instructionBuffer.initializeGraphics();
     }
 
     private drawBottomTraces(baseOffset:number, distanceBetweenPins: number): void {
-        const halfwayWorkingMem = this.findMatchingWidth(WorkingMemory.WORDS * 2 / 2, 'bottom')
-        console.log(halfwayWorkingMem)
+        const halfwayWorkingMem = this.findMatchingWidth(this.workingMemory.getNumberOfWords() * 2 / 2, 'bottom')
         for (let i = 0; i < halfwayWorkingMem; ++i) {
-             console.log(this.workingMemory.getPinPosition(i, 'top'))
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
                 baseOffset + (distanceBetweenPins * i) ));
         }
-        for (let i = halfwayWorkingMem; i < WorkingMemory.WORDS * 2; ++i) {
-            console.log(this.workingMemory.getPinPosition(i, 'top'))
+        for (let i = halfwayWorkingMem; i < this.workingMemory.getNumberOfWords() * 2; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
-                baseOffset + (distanceBetweenPins * halfwayWorkingMem) - (distanceBetweenPins * (i - halfwayWorkingMem )) ));
+                baseOffset + (distanceBetweenPins * (halfwayWorkingMem + 1)) - (distanceBetweenPins * (i - halfwayWorkingMem )) ));
         }
     }
 
@@ -119,7 +124,7 @@ export class CPU extends ComputerChip {
     private findMatchingWidth(pin: number, side: "left" | "right" | "top" | "bottom"): number {
         const pinPositionX = this.pinPositions.get(this.pinName(pin, side)).x;
         let closest = 0;
-        for (let i = 0; i < WorkingMemory.WORDS; ++i) {
+        for (let i = 0; i < this.workingMemory.getNumberOfWords(); ++i) {
             const instructionPositionX = this.workingMemory.getPinPosition(i, 'top').x;
             if (Math.abs(instructionPositionX - pinPositionX) < Math.abs(
                 this.workingMemory.getPinPosition(closest, 'top').x - pinPositionX)) {
@@ -499,10 +504,10 @@ export class CPU extends ComputerChip {
     }
 
     private drawCPUPins(): void {
-        //this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', WorkingMemory.WORDS).forEach((mesh, _name) => this.scene.add(mesh));
+        //this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', this.workingMemory.numberOfWords()).forEach((mesh, _name) => this.scene.add(mesh));
         this.drawPins(this.meshProperties.get(this.bodyMesh), 'right', InstructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
         //this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', CPU.POWER_PIN_COUNT).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', WorkingMemory.WORDS * 2).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'bottom', this.workingMemory.getNumberOfWords() * 2).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     private aluMeshName(index: number = 0): string {

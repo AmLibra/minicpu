@@ -80,8 +80,10 @@ export class DrawUtils {
      *
      * @returns a quadrilateral mesh
      */
-    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material): Mesh {
-        return new Mesh(new PlaneGeometry(width, height), color);
+    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material, position: {x:number, y:number}): Mesh {
+        const mesh = new Mesh(new PlaneGeometry(width, height), color)
+        mesh.position.set(position.x, position.y, 0);
+        return mesh;
     }
 
     /**
@@ -194,7 +196,7 @@ export class DrawUtils {
     }
 
     public static formatFrequency(frequency: number): string {
-        return frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} KHz`;
+        return frequency < 1000 ? `${frequency} KHz` : `${(frequency / 1000).toFixed(2)} MHz`;
     }
 }
 

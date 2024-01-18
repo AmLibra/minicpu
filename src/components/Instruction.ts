@@ -1,5 +1,4 @@
 import {CPU} from "../actors/CPU";
-import {ComputerChip} from "../actors/ComputerChip";
 import {DrawUtils} from "../DrawUtils";
 
 /**

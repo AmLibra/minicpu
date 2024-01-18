@@ -80,6 +80,13 @@ export class Queue<T> {
         return this.items[index];
     }
 
+    moveTo(to: Queue<T>, count: number): void {
+        for (let i = 0; i < count; ++i) {
+            if (this.isEmpty() || to.size() >= to.maxSize) break;
+            to.enqueue(this.dequeue());
+        }
+    }
+
     /**
      * Used to iterate over the queue
      * @returns {Iterator<T>} The iterator

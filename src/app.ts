@@ -62,7 +62,8 @@ export class App {
 
     private startGameLoop(): void {
         setInterval(() => {
-                if (this.paused) return;
+                if (this.paused)
+                    return;
                 this.gameActors.forEach(gameActor => {
                     gameActor.update()
                     gameActor.drawUpdate()
@@ -73,14 +74,13 @@ export class App {
     }
 
     private loadGame(): void {
-        DrawUtils.drawGrid(this.scene)
         this.addGameActors();
         this.hud = new HUD(this).drawHUD();
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1], this.scene, 1)
-        const instructionMemory = new InstructionMemory([1.5, 0.5], this.scene, workingMemory, 2)
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 2, 20)
+        const instructionMemory = new InstructionMemory([1.3, 0.905], this.scene, workingMemory, 2)
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 2)
         this.cpu = cpu;
         this.cpu.setPipelined();

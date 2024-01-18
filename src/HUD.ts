@@ -157,7 +157,7 @@ export class HUD {
     }
 
     private drawMenu(): void {
-        this.menuMesh = DrawUtils.buildQuadrilateralMesh(this.camera.right * 2, this.camera.top, HUD.MENU_COLOR);
+        this.menuMesh = DrawUtils.buildQuadrilateralMesh(this.camera.right * 2, this.camera.top, HUD.MENU_COLOR, this.bottomCenter());
         this.menuMesh.position.set(this.bottomCenter().x, this.bottomCenter().y, HUD.MENU_LAYER);
         this.menuMesh.visible = false;
 
@@ -173,13 +173,9 @@ export class HUD {
     private drawPauseButton(): void {
         const startY = this.topRight().y;
         const startX = this.topRight().x;
-        this.pauseButtonMesh = DrawUtils.buildTriangleMesh(
-            0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        ).translateX(startX).translateY(startY).rotateZ(-Math.PI / 2);
+        this.pauseButtonMesh = DrawUtils.buildTriangleMesh(0.1, HUD.BASE_COLOR).translateX(startX).translateY(startY).rotateZ(-Math.PI / 2);
 
-        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(
-            0.1, 0.1, new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")})
-        ).translateX(startX).translateY(startY);
+        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(0.1, 0.1, HUD.BASE_COLOR, {x: startX,y: startY}).translateX(startX).translateY(startY);
         this.playButtonMesh.visible = false;
 
         this.scene.add(this.pauseButtonMesh, this.playButtonMesh);
@@ -195,6 +191,8 @@ export class HUD {
             this.mouseClickEvents.set(
                 () => this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0,
                 () => {
+                    if (this.selectedActor)
+                        this.selectedActor = this.selectedActor.deselect();
                     this.selectedActor = actor.select()
                     this.showMenu();
                 }
@@ -215,22 +213,6 @@ export class HUD {
     }
 
     private onMouseDown = (event: MouseEvent) => {
-        // check if the mouse is hovering over a mesh, if so, don't drag the camera
-        this.updateMouseCoordinates(event);
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        if (this.selectedActor) {
-            this.selectedActor = this.selectedActor.deselect();
-            this.hideMenu();
-        }
-        this.updateMeshPositions();
-        if (this.app.gameActors.some(actor => {
-            if (this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0) {
-                this.selectedActor = actor.select();
-                return true;
-            }
-        }))
-            return;
-
         this.mouseDown = true;
         this.initialMousePosition.set(event.clientX, event.clientY);
     }
@@ -250,11 +232,6 @@ export class HUD {
 
     private onMouseDrag = (event: MouseEvent) => {
         if (!this.mouseDown) return;
-        if (this.selectedActor) {
-            this.selectedActor = this.selectedActor.deselect();
-            this.hideMenu();
-            this.updateMeshPositions();
-        }
         const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
         const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
         const aspectRatio = window.innerWidth / window.innerHeight;

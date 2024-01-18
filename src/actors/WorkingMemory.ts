@@ -4,7 +4,7 @@ import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
 export class WorkingMemory extends ComputerChip {
-    public static readonly WORDS = 12;
+    private numberOfWords: number;
     private size: number;
     private readonly memoryArray: number[];
 
@@ -15,11 +15,17 @@ export class WorkingMemory extends ComputerChip {
     // Mesh names
     private registerFileMesh: string;
 
-    constructor(position: [number, number], scene: Scene, clockFrequency: number) {
+    constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfWords: number = 8) {
         super(position, scene, clockFrequency);
         this.memoryArray = new Array(this.size);
+        this.numberOfWords = numberOfWords;
+        this.initGraphics();
         this.initialize();
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+    }
+
+    public getNumberOfWords(): number {
+        return this.numberOfWords;
     }
 
     public getSize(): number {
@@ -66,16 +72,16 @@ export class WorkingMemory extends ComputerChip {
         this.registerFileMesh = "REGISTER_FILE";
 
         // compute variable mesh properties
-        this.size = WorkingMemory.WORDS * WorkingMemory.WORD_SIZE;
+        this.size = this.numberOfWords * WorkingMemory.WORD_SIZE;
         const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2
             + (WorkingMemory.WORD_SIZE - 1) * WorkingMemory.INNER_SPACING;
-        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORDS + WorkingMemory.CONTENTS_MARGIN * 2
-            + (WorkingMemory.WORDS - 1) * WorkingMemory.INNER_SPACING;
+        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * this.numberOfWords + WorkingMemory.CONTENTS_MARGIN * 2
+            + (this.numberOfWords - 1) * WorkingMemory.INNER_SPACING;
 
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
         this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', WorkingMemory.WORDS * 2).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', this.numberOfWords * 2).forEach((mesh, _name) => this.scene.add(mesh));
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
             this.position.x,
             this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
@@ -141,7 +147,7 @@ export class WorkingMemory extends ComputerChip {
         for (let i = 0; i < this.size; i++)
             registerNames.push(this.registerName(i));
 
-        this.drawRegisterGridArray(registerFile, WorkingMemory.WORD_SIZE, WorkingMemory.WORDS,
+        this.drawRegisterGridArray(registerFile, WorkingMemory.WORD_SIZE, this.numberOfWords,
             WorkingMemory.INNER_SPACING, registerNames, true);
     }
 
