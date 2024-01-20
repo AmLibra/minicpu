@@ -1,4 +1,4 @@
-import {MeshBasicMaterial, Scene} from "three";
+import {Mesh, MeshBasicMaterial, Scene} from "three";
 import {ComputerChip} from "./ComputerChip";
 import {DrawUtils} from "../DrawUtils";
 
@@ -9,6 +9,7 @@ export abstract class ComputerChipMacro {
 
     protected height: number;
     protected width: number;
+    protected meshes: Mesh[] = [];
 
     protected static readonly BODY_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});

@@ -68,12 +68,6 @@ export class CPU extends ComputerChip {
 
         this.drawRightTraces(0.05, 0.02);
         this.drawBottomTraces(0.05, 0.02);
-
-        const instructionBuffer = new InstructionBuffer(this, this.scene, {
-            x: this.position.x - 1,
-            y: this.position.y
-        }, 5, true, false);
-        instructionBuffer.initializeGraphics();
     }
 
     private drawBottomTraces(baseOffset:number, distanceBetweenPins: number): void {

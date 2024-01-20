@@ -6,6 +6,7 @@ import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
 import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
+import {InstructionBuffer} from "./InstructionBuffer";
 
 export class InstructionMemory extends ComputerChip {
     public static size: number = 16;
@@ -16,12 +17,18 @@ export class InstructionMemory extends ComputerChip {
     private readyToBeRead: boolean = false;
     private readTimeout: number = 0;
 
+    private instructionBuffer = new InstructionBuffer(this, this.scene, {
+            x: this.position.x + 1,
+            y: this.position.y
+        }, 8, true, false);
+
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
         super(position, scene, clockFrequency);
         this.instructionMemory = new Queue<Instruction>(InstructionMemory.size);
         this.workingMemory = workingMemory;
         this.initGraphics();
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+        this.instructionBuffer.initializeGraphics();
     }
 
     public isReadyToBeRead(): boolean {
@@ -51,6 +58,7 @@ export class InstructionMemory extends ComputerChip {
         this.moveInstructions(this.instructionMemory, instructions, n)
         this.needsUpdate = true;
         this.readyToBeRead = false;
+        this.instructionBuffer.read(1)
         return instructions;
     }
 
@@ -84,12 +92,14 @@ export class InstructionMemory extends ComputerChip {
                 for (let j = 0; j < 8; ++j)
                     this.instructionMemory.enqueue(typicalWorkload.dequeue());
             }
+            this.instructionBuffer.write(this.typicalInstructionSequence(8))
         }
 
         if (this.readTimeout > 0) {
             this.readTimeout--;
             this.readyToBeRead = this.readTimeout <= 0;
         }
+        this.instructionBuffer.update();
     }
 
     drawUpdate(): void {

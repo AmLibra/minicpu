@@ -80,7 +80,7 @@ export class Queue<T> {
         return this.items[index];
     }
 
-    moveTo(to: Queue<T>, count: number): void {
+    moveTo(to: Queue<T>, count: number = this.size()): void {
         for (let i = 0; i < count; ++i) {
             if (this.isEmpty() || to.size() >= to.maxSize) break;
             to.enqueue(this.dequeue());

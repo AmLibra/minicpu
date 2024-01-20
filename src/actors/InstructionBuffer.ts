@@ -62,25 +62,40 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.readTimeout = cpu.getClockFrequency() / this.parent.getClockFrequency();
     }
 
-    public read(n: number): Queue<Instruction> {
+    public read(readCount: number): Queue<Instruction> {
         if (!this.noDelay && !this.readyToBeRead)
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
-        const instructionsToRead = new Queue<Instruction>(n)
-        this.instructionMemory.moveTo(instructionsToRead, n)
-
-
+        const instructionsToRead = new Queue<Instruction>(readCount)
+        this.instructionMemory.moveTo(instructionsToRead, readCount)
+        this.shiftDown(readCount);
         this.readyToBeRead = false;
         return instructionsToRead;
     }
 
+    public write(instructions: Queue<Instruction>): void {
+        if (instructions.size() > this.size)
+            throw new Error("Cannot write more instructions than the size of the buffer");
+        instructions.moveTo(this.instructionMemory);
+        for (let i = 0; i < this.instructionMemory.size(); ++i) {
+            this.scene.remove(this.meshes[i]);
+            this.meshes[i] = this.buildBufferTextMesh(i);
+            this.scene.add(this.meshes[i]);
+        }
+    }
+
     update(): void {
-        // Does not need to be updated every frame
+        if (this.readTimeout > 0) {
+            this.readTimeout--;
+            this.readyToBeRead = this.readTimeout <= 0;
+        }
     }
 
     initializeGraphics(): void {
         this.scene.add(this.buildBufferMeshes());
-        for (let i = 0; i < this.size; ++i)
-            this.scene.add(this.buildBufferTextMesh(i));
+        for (let i = 0; i < this.size; ++i) {
+            this.meshes[i] = this.buildBufferTextMesh(i);
+            this.scene.add(this.meshes[i]);
+        }
     }
 
     private buildBufferMeshes(): Mesh {
@@ -115,9 +130,26 @@ export class InstructionBuffer extends ComputerChipMacro {
                 ComputerChipMacro.MEMORY_COLOR : ComputerChipMacro.ALU_COLOR;
             return DrawUtils.buildTextMesh(this.instructionMemory.get(index).toString(), this.position.x, this.bufferMeshVerticalOffsets[index],
                 ComputerChipMacro.TEXT_SIZE, color);
-        }
-        else { // using instancing to save memory
+        } else { // using instancing to save memory
             return this.NO_OP_MESH.clone().translateX(this.position.x).translateY(this.bufferMeshVerticalOffsets[index]);
+        }
+    }
+
+    private shiftDown(nPositions: number): void {
+        if (nPositions <= 0)
+            throw new Error("Cannot shift down by a negative number of positions");
+        if (nPositions > this.size)
+            throw new Error("Cannot shift down by more than the size of the buffer");
+
+        this.meshes.splice(0, nPositions).forEach(mesh => this.scene.remove(mesh));
+        this.meshes.forEach((mesh, index) =>
+            mesh.translateY(-this.bufferMeshVerticalOffsets[index + nPositions] + this.bufferMeshVerticalOffsets[index])
+        );
+        // fill the empty spaces with NO_OP_MESH
+        for (let i = this.size; i > this.size - nPositions; --i) {
+            this.meshes[i - 1] = this.NO_OP_MESH.clone().translateX(this.position.x)
+                .translateY(this.bufferMeshVerticalOffsets[i - 1]);
+            this.scene.add(this.meshes[i - 1]);
         }
     }
 }
