@@ -17,7 +17,7 @@ export class InstructionMemory extends ComputerChip {
     private readyToBeRead: boolean = false;
     private readTimeout: number = 0;
 
-    private instructionBuffer = new InstructionBuffer(this,16, 0, 0, true, true, true);
+    private instructionBuffer = new InstructionBuffer(this,16, 0, 0, true, false, true);
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
         super(position, scene, clockFrequency);
