@@ -7,9 +7,10 @@ export abstract class ComputerChipMacro {
     protected readonly parent: ComputerChip;
     protected readonly position: { x: number; y: number };
 
-    protected height: number;
-    protected width: number;
+    height: number;
+    width: number;
     protected meshes: Mesh[] = [];
+    protected highlightMeshes: Mesh[] = [];
 
     protected static readonly BODY_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
