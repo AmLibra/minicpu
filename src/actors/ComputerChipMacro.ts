@@ -27,10 +27,10 @@ export abstract class ComputerChipMacro {
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
     protected static readonly TEXT_SIZE: number = 0.05;
 
-    protected constructor(parent: ComputerChip, scene: Scene, position: { x: number; y: number }) {
+    protected constructor(parent: ComputerChip, xOffset: number, yOffset: number) {
         this.parent = parent;
-        this.scene = scene;
-        this.position = position;
+        this.scene = parent.scene;
+        this.position = {x: parent.position.x + xOffset, y: parent.position.y + yOffset};
     }
 
     public abstract update(): void;

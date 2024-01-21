@@ -17,10 +17,7 @@ export class InstructionMemory extends ComputerChip {
     private readyToBeRead: boolean = false;
     private readTimeout: number = 0;
 
-    private instructionBuffer = new InstructionBuffer(this, this.scene, {
-            x: this.position.x + 1,
-            y: this.position.y
-        }, 8, true, false);
+    private instructionBuffer = new InstructionBuffer(this,16, 0, 0, true, true, true);
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
         super(position, scene, clockFrequency);
@@ -69,7 +66,8 @@ export class InstructionMemory extends ComputerChip {
     computeMeshProperties(): void {
         this.bodyMesh = "INSTRUCTION_MEMORY";
 
-        const bodyHeight = InstructionMemory.BUFFER_HEIGHT * InstructionMemory.size;
+        const bodyHeight = InstructionMemory.BUFFER_HEIGHT * InstructionMemory.size +
+            InstructionMemory.INNER_SPACING * (InstructionMemory.size - 1) + InstructionMemory.CONTENTS_MARGIN * 2;
         const bodyWidth = 0.6;
 
         this.meshProperties.set(this.bodyMesh,
@@ -91,8 +89,8 @@ export class InstructionMemory extends ComputerChip {
                 const typicalWorkload = this.typicalInstructionSequence(8);
                 for (let j = 0; j < 8; ++j)
                     this.instructionMemory.enqueue(typicalWorkload.dequeue());
+                this.instructionBuffer.write(this.typicalInstructionSequence(8))
             }
-            this.instructionBuffer.write(this.typicalInstructionSequence(8))
         }
 
         if (this.readTimeout > 0) {

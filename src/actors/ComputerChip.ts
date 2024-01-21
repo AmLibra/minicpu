@@ -59,8 +59,8 @@ export abstract class ComputerChip {
     protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
 
-    protected readonly scene: Scene;
-    protected readonly position: { x: number; y: number };
+    public readonly scene: Scene;
+    readonly position: { x: number; y: number };
     protected clockFrequency: number = 1;
     protected paused: boolean = false;
 

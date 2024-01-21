@@ -96,7 +96,8 @@ export class DrawUtils {
      *
      * @returns a text mesh
      */
-    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material, centered: boolean = true): Mesh {
+    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material,
+                                centered: boolean = true, zRotation: number = 0): Mesh {
         if (!this.font)
             throw new Error("Font not loaded");
 
@@ -107,16 +108,22 @@ export class DrawUtils {
         });
 
         const textMesh = new Mesh(textGeometry, color);
-        if (centered) {
-            textGeometry.computeBoundingBox();
+        textGeometry.computeBoundingBox();
             const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
             const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
+        if (centered) {
+
             textMesh.position.set(
                 xOffset - textWidth / 2, // Center the text
                 yOffset - textHeight / 2, // use top of text as the origin
                 0
             );
         }
+        if (zRotation != 0){
+            textMesh.geometry.center().rotateZ(zRotation);
+            textMesh.position.set(xOffset,yOffset,0);
+        }
+
         return textMesh;
     }
 
