@@ -1,28 +1,26 @@
-import {Scene} from "three";
+import {Mesh, PlaneGeometry, Scene} from "three";
 import {Instruction} from "../components/Instruction";
 import {CPU} from "./CPU";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
-import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
 import {InstructionBuffer} from "./InstructionBuffer";
 
 export class InstructionMemory extends ComputerChip {
-    public static size: number = 16;
-
-    private readonly workingMemory: WorkingMemory;
-    private readonly instructionBuffer = new InstructionBuffer(this, 16, 0, 0, false);
-
+    public readonly size: number;
+    private readonly instructionBuffer: InstructionBuffer;
     private readonly instructionStream: Queue<Instruction>;
 
-    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number) {
+    private readonly workingMemory: WorkingMemory;
+
+    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
         super(position, scene, clockFrequency);
         this.workingMemory = workingMemory;
-        this.initGraphics();
-        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
-        this.instructionStream = new Queue<Instruction>(InstructionMemory.size * 2);
-        this.instructionBuffer.initializeGraphics();
+        this.size = size;
+        this.instructionStream = new Queue<Instruction>(size * 2);
+        this.instructionBuffer  = new InstructionBuffer(this, size, 0, 0, false)
+        this.initializeGraphics();
     }
 
     public isReadyToBeRead(): boolean {
@@ -30,7 +28,7 @@ export class InstructionMemory extends ComputerChip {
     }
 
     public askForInstructions(cpu: CPU, n: number): void {
-        this.instructionBuffer.askForInstructions(cpu);
+        this.instructionBuffer.askForInstructions(cpu, n);
     }
 
     public read(n: number): Queue<Instruction> {
@@ -41,37 +39,38 @@ export class InstructionMemory extends ComputerChip {
         return "RAM";
     }
 
-    computeMeshProperties(): void {
-        this.bodyMesh = "INSTRUCTION_MEMORY";
+    update() {
+        this.instructionBuffer.update();
+        if (this.instructionStream.isEmpty())
+            while (this.instructionStream.size() < this.instructionStream.maxSize)
+                this.typicalInstructionSequence(8).moveTo(this.instructionStream);
 
+        if (Math.random() < 0.6)
+            this.instructionBuffer.write(this.instructionStream, 1);
+    }
+
+    computeMeshProperties(): void {
+    }
+
+    drawUpdate(): void {
+    }
+
+    private initializeGraphics(): void {
         const bodyHeight = this.instructionBuffer.height + InstructionMemory.CONTENTS_MARGIN * 2;
         const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2;
-
-        this.meshProperties.set(this.bodyMesh,
-            new MeshProperties(bodyWidth, bodyHeight, 0, 0, InstructionMemory.BODY_COLOR));
-        this.drawBuffer(this.bodyMesh, this.meshProperties.get(this.bodyMesh), InstructionMemory.size,
-            InstructionMemory.CONTENTS_MARGIN, InstructionMemory.INNER_SPACING, InstructionMemory.COMPONENT_COLOR);
-
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'left', InstructionMemory.size)
-            .forEach((mesh, _name) => this.scene.add(mesh));
+        this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), InstructionMemory.BODY_COLOR);
+        this.bodyMesh.position.set(this.position.x, this.position.y, 0);
 
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
             this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
             ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
-    }
+        this.clockMesh.visible = false;
 
-    update() {
-        this.instructionBuffer.update();
-        if (this.instructionStream.isEmpty())
-            while (this.instructionStream.size() < InstructionMemory.size * 2 - 1) {
-                console.log("Generating instructions");
-                this.typicalInstructionSequence(8).moveTo(this.instructionStream);
-            }
-        if (Math.random() < 0.2)
-            this.instructionBuffer.write(this.instructionStream, 2);
-    }
+        this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));
 
-    drawUpdate(): void {
+        this.scene.add(this.bodyMesh, this.clockMesh);
+        this.buildSelectedMesh();
+        this.instructionBuffer.initializeGraphics();
     }
 
     private typicalInstructionSequence(n: number): Queue<Instruction> {

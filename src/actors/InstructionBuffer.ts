@@ -56,11 +56,16 @@ export class InstructionBuffer extends ComputerChipMacro {
         return this.readyToBeRead;
     }
 
-    public askForInstructions(cpu: CPU): void {
+    public askForInstructions(cpu: CPU, n: number): void {
         if (this.noDelay)
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (this.readTimeout > 0)
             return;
+        // highlight the first n instructions
+        for (let i = 0; i < n; ++i)
+            if (this.storedInstructions.get(i))
+                this.highlightBuffer(i);
+
         this.readTimeout = cpu.getClockFrequency() / this.parent.getClockFrequency();
     }
 
@@ -75,8 +80,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         const instructionsToRead = new Queue<Instruction>(readCount)
         this.storedInstructions.moveTo(instructionsToRead, readCount)
         this.shiftMeshesDown(readCount);
-        if (this.storedInstructions.size() - readCount >= 1)
-            this.highlightBuffer(readCount - 1);
+        this.clearHighlights();
         this.readyToBeRead = false;
         return instructionsToRead;
     }

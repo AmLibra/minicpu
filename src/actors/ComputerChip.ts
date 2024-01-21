@@ -1,4 +1,4 @@
-import {Group, Material, Mesh, MeshBasicMaterial, Scene, Vector2} from "three";
+import {Group, Material, Mesh, MeshBasicMaterial, PlaneGeometry, Scene, Vector2} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
@@ -54,7 +54,8 @@ export abstract class ComputerChip {
     }>();
     private readonly pausedBlinks: Map<string, MeshBasicMaterial>;
     private queuedBlinks: Array<() => void> = [];
-    protected bodyMesh: string;
+    protected bodyMeshName: string;
+    protected bodyMesh: Mesh;
     protected pinPositions: Map<string, Vector2>;
     protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
@@ -121,7 +122,7 @@ export abstract class ComputerChip {
     }
 
     public getHitboxMesh(): Mesh {
-        return this.meshes.get(this.bodyMesh);
+        return this.bodyMesh;
     }
 
     public select(): ComputerChip {
@@ -282,27 +283,30 @@ export abstract class ComputerChip {
     }
 
 
-    protected drawPins(parent: MeshProperties, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number): Map<string, Mesh> {
+    protected drawPins(parent: Mesh, side: 'left' | 'right' | 'top' | 'bottom', pinCount: number): Map<string, Mesh> {
         const pins = new Map<string, Mesh>();
         let startX: number;
         let startY: number;
         let pinSpacing: number;
-        const spaceToFillHorizontal = parent.width - 2 * ComputerChip.PIN_MARGIN;
-        const spaceToFillVertical = parent.height - 2 * ComputerChip.PIN_MARGIN;
+        const width = parent.geometry instanceof PlaneGeometry ? parent.geometry.parameters.width : 0;
+        const height = parent.geometry instanceof PlaneGeometry ? parent.geometry.parameters.height : 0;
+
+        const spaceToFillHorizontal = width - 2 * ComputerChip.PIN_MARGIN;
+        const spaceToFillVertical = height - 2 * ComputerChip.PIN_MARGIN;
 
         switch (side) {
             case 'left':
             case 'right':
-                startX = side === 'left' ? this.position.x + parent.xOffset - parent.width / 2 - ComputerChip.PIN_RADIUS - 0.01 :
-                    this.position.x + parent.xOffset + parent.width / 2 + ComputerChip.PIN_RADIUS + 0.01;
-                startY = this.position.y + parent.yOffset + parent.height / 2 - ComputerChip.PIN_MARGIN - ComputerChip.PIN_RADIUS;
+                startX = side === 'left' ? this.position.x  - width / 2 - ComputerChip.PIN_RADIUS - 0.01 :
+                    this.position.x + width / 2 + ComputerChip.PIN_RADIUS + 0.01;
+                startY = this.position.y + height / 2 - ComputerChip.PIN_MARGIN - ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillVertical - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
             case 'top':
             case 'bottom':
-                startY = side === 'top' ? this.position.y + parent.yOffset + parent.height / 2 + ComputerChip.PIN_RADIUS + 0.01 :
-                    this.position.y + parent.yOffset - parent.height / 2 - ComputerChip.PIN_RADIUS - 0.01;
-                startX = this.position.x + parent.xOffset - parent.width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_RADIUS;
+                startY = side === 'top' ? this.position.y + height / 2 + ComputerChip.PIN_RADIUS + 0.01 :
+                    this.position.y - height / 2 - ComputerChip.PIN_RADIUS - 0.01;
+                startX = this.position.x - width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_RADIUS;
                 pinSpacing = (spaceToFillHorizontal - pinCount * (2 * ComputerChip.PIN_RADIUS)) / (pinCount - 1);
                 break;
         }
@@ -332,8 +336,8 @@ export abstract class ComputerChip {
         // Calculate extended start and end points
         const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
         const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, 0.02);
-
         const intermediatePoint = new Vector2(extendedStart.x, extendedEnd.y);
+
         if (side1 === 'top' || side1 === 'bottom') {
             intermediatePoint.x = extendedEnd.x;
             intermediatePoint.y = extendedStart.y;
@@ -552,6 +556,13 @@ export abstract class ComputerChip {
         this.meshes.set(name, mesh);
     }
 
+    protected buildSelectedMesh(): void {
+        const bodyHeight = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.height : 0;
+        const bodyWidth = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.width : 0;
+        this.selectedMesh = new Mesh(new PlaneGeometry(bodyWidth + 0.01, bodyHeight + 0.01), ComputerChip.HUD_TEXT_COLOR);
+        this.selectedMesh.position.set(this.position.x, this.position.y, -0.01);
+    }
+
     /**
      * Initializes the graphics of the chip
      * Is called in the constructor of all computer chips
@@ -561,14 +572,6 @@ export abstract class ComputerChip {
     private addMeshesToScene(): void {
         this.meshProperties.forEach((_dims, name) => this.scene.add(this.addSimpleMesh(name)));
         this.textMeshNames.forEach(name => this.scene.add(this.meshes.get(name)));
-        this.clockMesh.visible = false;
-        this.selectedMesh = DrawUtils.buildQuadrilateralMesh(
-            this.meshProperties.get(this.bodyMesh).width + 0.01,
-            this.meshProperties.get(this.bodyMesh).height + 0.01,
-            ComputerChip.HUD_TEXT_COLOR, {x: this.position.x, y: this.position.y});
-        this.selectedMesh.position.set(this.position.x, this.position.y, 0);
-        this.selectedMesh.renderOrder = -1;
-
-        this.scene.add(this.clockMesh);
+        this.buildSelectedMesh();
     }
 }

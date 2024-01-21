@@ -1,5 +1,5 @@
 import {ComputerChip} from "./ComputerChip";
-import {Scene} from "three";
+import {Mesh, PlaneGeometry, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
 
@@ -22,6 +22,7 @@ export class WorkingMemory extends ComputerChip {
         this.initGraphics();
         this.initialize();
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+        this.drawPins(this.meshes.get(this.bodyMeshName), 'top', this.numberOfWords * 2).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     public getNumberOfWords(): number {
@@ -68,7 +69,7 @@ export class WorkingMemory extends ComputerChip {
 
     computeMeshProperties(): void {
         // define mesh names
-        this.bodyMesh = "BODY";
+        this.bodyMeshName = "BODY";
         this.registerFileMesh = "REGISTER_FILE";
 
         // compute variable mesh properties
@@ -78,13 +79,15 @@ export class WorkingMemory extends ComputerChip {
         const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * this.numberOfWords + WorkingMemory.CONTENTS_MARGIN * 2
             + (this.numberOfWords - 1) * WorkingMemory.INNER_SPACING;
 
+        this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), WorkingMemory.BODY_COLOR);
+        this.bodyMesh.position.set(this.position.x, this.position.y, 0);
+        this.scene.add(this.bodyMesh);
+
         this.computeBodyMeshProperties(bodyWidth, bodyHeight);
         this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
 
-        this.drawPins(this.meshProperties.get(this.bodyMesh), 'top', this.numberOfWords * 2).forEach((mesh, _name) => this.scene.add(mesh));
         this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
-            this.position.x,
-            this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
+            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
             ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
     }
 
@@ -130,7 +133,7 @@ export class WorkingMemory extends ComputerChip {
             yOffset: 0,
             color: WorkingMemory.BODY_COLOR,
         };
-        this.meshProperties.set(this.bodyMesh, body);
+        this.meshProperties.set(this.bodyMeshName, body);
     }
 
     private computeRegisterMeshProperties(bodyWidth: number, bodyHeight: number): void {
