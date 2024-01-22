@@ -2,9 +2,10 @@ import {ComputerChip} from "./ComputerChip";
 import {Mesh, PlaneGeometry, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
+import {DataCellArray} from "./DataCellArray";
 
 export class WorkingMemory extends ComputerChip {
-    private numberOfWords: number;
+    private readonly numberOfWords: number;
     private size: number;
     private readonly memoryArray: number[];
 
@@ -15,12 +16,17 @@ export class WorkingMemory extends ComputerChip {
     // Mesh names
     private registerFileMesh: string;
 
+    private dataCellArray: DataCellArray;
+
     constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfWords: number = 8) {
         super(position, scene, clockFrequency);
         this.memoryArray = new Array(this.size);
         this.numberOfWords = numberOfWords;
         this.initGraphics();
         this.initialize();
+        this.dataCellArray = new DataCellArray(this, 0, 2);
+        this.dataCellArray.initializeGraphics();
+
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
         this.drawPins(this.meshes.get(this.bodyMeshName), 'top', this.numberOfWords * 2).forEach((mesh, _name) => this.scene.add(mesh));
     }
@@ -34,10 +40,11 @@ export class WorkingMemory extends ComputerChip {
     }
 
     public isReady(): boolean {
-        return this.ready;
+        return this.dataCellArray.isReady();
     }
 
-    public askForMemoryOperation(cpu: CPU): void {
+    public askForMemoryOperation(cpu: CPU, address: number): void {
+        this.dataCellArray.askForMemoryOperation(cpu, address % this.dataCellArray.getSize());
         if (this.memoryOperationTimeout > 0)
             return;
         this.ready = false;
@@ -45,6 +52,7 @@ export class WorkingMemory extends ComputerChip {
     }
 
     public read(address: number): number {
+        this.dataCellArray.read(address % this.dataCellArray.getSize());
         if (!this.ready)
             throw new Error("MainMemory is not ready to be read");
 
@@ -54,6 +62,7 @@ export class WorkingMemory extends ComputerChip {
     }
 
     public write(address: number, value: number): void {
+        this.dataCellArray.write(address % this.dataCellArray.getSize(), value);
         if (!this.ready)
             throw new Error("MainMemory is not ready to be written to");
 
@@ -68,6 +77,7 @@ export class WorkingMemory extends ComputerChip {
     }
 
     computeMeshProperties(): void {
+        // define mesh names
         // define mesh names
         this.bodyMeshName = "BODY";
         this.registerFileMesh = "REGISTER_FILE";
@@ -92,6 +102,7 @@ export class WorkingMemory extends ComputerChip {
     }
 
     update(): void {
+        this.dataCellArray.update();
         if (this.memoryOperationTimeout > 0) {
             this.memoryOperationTimeout--;
             this.ready = this.memoryOperationTimeout <= 0;

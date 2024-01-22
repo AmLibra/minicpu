@@ -6,7 +6,6 @@ import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
-import {InstructionBuffer} from "./InstructionBuffer";
 
 export class CPU extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
@@ -71,45 +70,43 @@ export class CPU extends ComputerChip {
         this.drawBottomTraces(0.05, 0.02);
     }
 
-    private drawBottomTraces(baseOffset:number, distanceBetweenPins: number): void {
+    private drawBottomTraces(baseOffset: number, distanceBetweenPins: number): void {
         const halfwayWorkingMem = this.findMatchingWidth(this.workingMemory.getNumberOfWords() * 2 / 2, 'bottom')
         for (let i = 0; i < halfwayWorkingMem; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
-                baseOffset + (distanceBetweenPins * i) ));
+                baseOffset + (distanceBetweenPins * i)));
         }
         for (let i = halfwayWorkingMem; i < this.workingMemory.getNumberOfWords() * 2; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
-                baseOffset + (distanceBetweenPins * (halfwayWorkingMem + 1)) - (distanceBetweenPins * (i - halfwayWorkingMem )) ));
+                baseOffset + (distanceBetweenPins * (halfwayWorkingMem + 1)) - (distanceBetweenPins * (i - halfwayWorkingMem))));
         }
     }
 
-    private drawRightTraces(baseOffset:number, distanceBetweenPins: number): void {
+    private drawRightTraces(baseOffset: number, distanceBetweenPins: number): void {
         const halfwayInstructionMem = this.findMatchingHeight(this.instructionMemory.size / 2, 'right')
         for (let i = 0; i < halfwayInstructionMem; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
                 'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                baseOffset + (distanceBetweenPins * i) ));
+                baseOffset + (distanceBetweenPins * i)));
         }
         for (let i = halfwayInstructionMem; i < this.instructionMemory.size; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
                 'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                baseOffset + (distanceBetweenPins * halfwayInstructionMem) - (distanceBetweenPins * (i - halfwayInstructionMem )) ));
+                baseOffset + (distanceBetweenPins * halfwayInstructionMem) - (distanceBetweenPins * (i - halfwayInstructionMem))));
         }
     }
 
 
     private findMatchingHeight(pin: number, side: "left" | "right" | "top" | "bottom"): number {
         const pinPositionY = this.pinPositions.get(this.pinName(pin, side)).y;
-        console.log(this.pinName(pin, side))
         let closest = 0;
         for (let i = 0; i < this.instructionMemory.size; ++i) {
             const instructionPositionY = this.instructionMemory.getPinPosition(i, 'left').y;
             if (Math.abs(instructionPositionY - pinPositionY) < Math.abs(
                 this.instructionMemory.getPinPosition(closest, 'left').y - pinPositionY)) {
                 closest = i;
-                console.log(i)
             }
         }
         return closest;
@@ -236,7 +233,7 @@ export class CPU extends ComputerChip {
             const executePipelineEmpty = this.ALUs.isEmpty() && this.memoryController.isEmpty();
 
             if (instruction && executePipelineEmpty) {
-                if (instruction.isArithmetic() )
+                if (instruction.isArithmetic())
                     this.ALUs.enqueue(this.decodeBuffer.dequeue());
                 else if (instruction.isMemoryOperation())
                     this.memoryController.enqueue(this.decodeBuffer.dequeue());
@@ -324,7 +321,7 @@ export class CPU extends ComputerChip {
             this.memoryController.clear();
             this.retiredInstructionCount++;
         } else {
-            this.workingMemory.askForMemoryOperation(this);
+            this.workingMemory.askForMemoryOperation(this, instruction.getAddress());
             if (!this.isPipelined)
                 this.playMemoryAnimation(instruction).catch(reason => console.error(reason));
             else

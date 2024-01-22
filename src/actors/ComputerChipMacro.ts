@@ -37,4 +37,12 @@ export abstract class ComputerChipMacro {
     public abstract update(): void;
 
     public abstract initializeGraphics(): void;
+
+    protected clearHighlights(): void {
+        this.highlightMeshes.forEach(mesh => {
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+        });
+        this.highlightMeshes = [];
+    }
 }

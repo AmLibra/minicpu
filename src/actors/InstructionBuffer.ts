@@ -3,13 +3,12 @@ import {Mesh, PlaneGeometry} from "three";
 import {Queue} from "../components/Queue";
 import {Instruction} from "../components/Instruction";
 import {ComputerChip} from "./ComputerChip";
-import {CPU} from "./CPU";
 import {DrawUtils} from "../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export class InstructionBuffer extends ComputerChipMacro {
-    private static readonly BUFFER_HEIGHT: number = 0.15;
-    private static readonly BUFFER_BASE_WIDTH: number = 0.7;
+    private static readonly BUFFER_HEIGHT: number = 0.11;
+    private static readonly BUFFER_BASE_WIDTH: number = 0.6;
     private static readonly INNER_SPACING = 0.01;
     private readonly noOpMesh: Mesh;
     private readonly bufferHighlightGeometry: PlaneGeometry;
@@ -56,7 +55,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         return this.readyToBeRead;
     }
 
-    public askForInstructions(cpu: CPU, n: number): void {
+    public askForInstructions(chip: ComputerChip, n: number): void {
         if (this.noDelay)
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (this.readTimeout > 0)
@@ -66,7 +65,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             if (this.storedInstructions.get(i))
                 this.highlightBuffer(i);
 
-        this.readTimeout = cpu.getClockFrequency() / this.parent.getClockFrequency();
+        this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
     }
 
     public read(readCount: number): Queue<Instruction> {
@@ -101,8 +100,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     update(): void {
         if (this.readTimeout > 0 && this.storedInstructions.size() > 0) {
             --this.readTimeout;
-            if (this.readTimeout <= 0)
-                this.readyToBeRead = true;
+            this.readyToBeRead = this.readTimeout <= 0;
         }
     }
 
@@ -179,14 +177,6 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.meshes[index].material = ComputerChipMacro.COMPONENT_COLOR;
     }
 
-    private clearHighlights(): void {
-        this.highlightMeshes.forEach(mesh => {
-            this.scene.remove(mesh);
-            mesh.geometry.dispose();
-        });
-        this.highlightMeshes = [];
-    }
-
     private buildBufferMeshes(): Mesh {
         const startOffset = this.horizontal
             ? this.position.x + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.width / 2)
@@ -195,8 +185,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         let geometries = [];
         for (let i = 0; i < this.size; ++i) {
             const offset = startOffset + (this.reversed ? -1 : 1) * i * (this.rectangleSize + this.spacing);
-            const geometry = new PlaneGeometry(this.horizontal ? this.rectangleSize :
-                this.width, this.horizontal ? this.height : this.rectangleSize);
+            const geometry = this.bufferHighlightGeometry.clone();
 
             this.horizontal ? geometry.translate(offset, this.position.y, 0) :
                 geometry.translate(this.position.x, offset, 0);

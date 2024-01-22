@@ -12,6 +12,7 @@ import {
 } from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
+import {RoundedBoxGeometry} from "three/examples/jsm/geometries/RoundedBoxGeometry";
 
 /**
  * This class contains utility functions for drawing 3D objects.
@@ -112,12 +113,13 @@ export class DrawUtils {
             const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
             const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
         if (centered) {
-
             textMesh.position.set(
                 xOffset - textWidth / 2, // Center the text
                 yOffset - textHeight / 2, // use top of text as the origin
                 0
             );
+        }  else {
+            textMesh.position.set(xOffset, yOffset, 0);
         }
         if (zRotation != 0){
             textMesh.geometry.center().rotateZ(zRotation);
