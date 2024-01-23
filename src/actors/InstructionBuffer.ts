@@ -7,7 +7,7 @@ import {DrawUtils} from "../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export class InstructionBuffer extends ComputerChipMacro {
-    private static readonly BUFFER_HEIGHT: number = 0.11;
+    public static readonly BUFFER_HEIGHT: number = 0.11;
     private static readonly BUFFER_BASE_WIDTH: number = 0.6;
     private static readonly INNER_SPACING = 0.01;
     private readonly noOpMesh: Mesh;
@@ -15,12 +15,12 @@ export class InstructionBuffer extends ComputerChipMacro {
 
     private readonly spacing: number;
     private readonly rectangleSize: number;
-    private bufferMeshOffsets: number[] = [];
+    protected bufferMeshOffsets: number[] = [];
 
     public readonly size: number;
 
     private readonly storedInstructions: Queue<Instruction>;
-    private readonly reversed: boolean;
+    protected readonly reversed: boolean;
     private readonly horizontal: boolean;
 
     private readyToBeRead: boolean = false;
@@ -118,7 +118,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.noOpMesh.geometry.dispose();
     }
 
-    private buildBufferTextMesh(index: number): Mesh {
+    protected buildBufferTextMesh(index: number): Mesh {
         if (index < 0 || index >= this.size)
             throw new Error("Index out of bounds");
 
@@ -136,7 +136,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         }
     }
 
-    private shiftMeshesDown(nPositions: number): void {
+    protected shiftMeshesDown(nPositions: number): void {
         if (nPositions <= 0)
             throw new Error("Cannot shift down by a negative number of positions");
         if (nPositions > this.size)
@@ -167,7 +167,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         }
     }
 
-    private highlightBuffer(index: number): void {
+    protected highlightBuffer(index: number): void {
         if (index < 0 || index >= this.size)
             throw new Error("Index out of bounds");
 
@@ -183,7 +183,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_COLOR;
     }
 
-    private buildBuffersMesh(): Mesh {
+    protected buildBuffersMesh(): Mesh {
         const startOffset = this.horizontal
             ? this.position.x + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.width / 2)
             : this.position.y + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.height / 2);

@@ -14,15 +14,18 @@ export class DataCellArray extends ComputerChipMacro {
     private readonly numberOfWords: number;
     private readonly wordSize: number;
     private readonly memoryArray: number[];
+    private readonly bankName?: string;
 
     private ready: boolean = false;
     private highlightedMemoryCell: number = 0;
     private memoryOperationTimeout: number = 0;
 
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4,
+                bankName?: string) {
         super(parent, xOffset, yOffset);
         this.numberOfWords = numberOfWords;
         this.wordSize = wordSize;
+        this.bankName = bankName;
         this.memoryArray = new Array(this.numberOfWords * this.wordSize);
         for (let i = 0; i < this.memoryArray.length; i++)
             this.memoryArray[i] = 0;
@@ -31,6 +34,7 @@ export class DataCellArray extends ComputerChipMacro {
         this.height = DataCellArray.REGISTER_SIDE_LENGTH * this.wordSize
             + DataCellArray.INNER_SPACING * (this.wordSize - 1);
         this.cellHighlightGeometry = new PlaneGeometry(DataCellArray.REGISTER_SIDE_LENGTH, DataCellArray.REGISTER_SIDE_LENGTH);
+
     }
 
     public getSize(): number {
@@ -77,6 +81,12 @@ export class DataCellArray extends ComputerChipMacro {
         const [registerMesh, registerNamesMesh] = this.buildDataCellMeshes();
         this.addStaticMesh(registerMesh);
         this.addStaticMesh(registerNamesMesh);
+        if (this.bankName) {
+            const bankNameMesh = DrawUtils.buildTextMesh(this.bankName, this.position.x,
+                this.position.y + this.height / 2 + DrawUtils.baseTextHeight / 2, DataCellArray.TEXT_SIZE , ComputerChipMacro.TEXT_COLOR, true);
+            this.addStaticMesh(bankNameMesh);
+        }
+
         for (let i = 0; i < this.memoryArray.length; i++) {
             const contentMesh = this.buildDataCellContentsMesh(i);
             this.liveMeshes.push(contentMesh);

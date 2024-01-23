@@ -6,6 +6,7 @@ import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {InstructionBuffer} from "./InstructionBuffer";
+import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 
 export class RAM extends ComputerChip {
     public readonly size: number;
@@ -13,13 +14,14 @@ export class RAM extends ComputerChip {
     private readonly instructionStream: Queue<Instruction>;
 
     private readonly workingMemory: WorkingMemory;
+    public static readonly ADDRESS_MARGIN: number = 0.2;
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
         super(position, scene, clockFrequency);
         this.workingMemory = workingMemory;
         this.size = size;
         this.instructionStream = new Queue<Instruction>(size * 2);
-        this.instructionBuffer  = new InstructionBuffer(this, size, 0, 0, false)
+        this.instructionBuffer  = new AddressedInstructionBuffer(this, size, RAM.ADDRESS_MARGIN * 0.6 + RAM.INNER_SPACING - RAM.CONTENTS_MARGIN, 0, false)
         this.initializeGraphics();
     }
 
@@ -45,7 +47,7 @@ export class RAM extends ComputerChip {
             while (this.instructionStream.size() < this.instructionStream.maxSize)
                 this.typicalInstructionSequence(8).moveTo(this.instructionStream);
 
-        if (Math.random() < 0.6)
+        if (Math.random() < 0.5)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
@@ -57,7 +59,7 @@ export class RAM extends ComputerChip {
 
     private initializeGraphics(): void {
         const bodyHeight = this.instructionBuffer.height + RAM.CONTENTS_MARGIN * 2;
-        const bodyWidth = this.instructionBuffer.width + RAM.CONTENTS_MARGIN * 2;
+        const bodyWidth = this.instructionBuffer.width + RAM.CONTENTS_MARGIN * 2 + RAM.ADDRESS_MARGIN;
         this.buildBodyMesh(bodyWidth, bodyHeight);
 
         this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));

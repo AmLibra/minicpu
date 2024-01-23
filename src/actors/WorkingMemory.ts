@@ -11,7 +11,7 @@ export class WorkingMemory extends ComputerChip {
     private readonly wordSize: number;
 
     private dataBanks: DataCellArray[] = [];
-    private static BANK_SPACING: number = 0.02;
+    private static BANK_SPACING: number = 0.04;
 
     constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfBanks: number = 2, numberOfWords: number = 4, wordSize: number = 4) {
         super(position, scene, clockFrequency);
@@ -54,14 +54,15 @@ export class WorkingMemory extends ComputerChip {
 
     private initializeGraphics(): void {
         const tmpDataBank = new DataCellArray(this, 0, 0, this.numberOfWords, this.wordSize);
-        const bodyHeight = tmpDataBank.height + WorkingMemory.CONTENTS_MARGIN * 2;
+        const bodyHeight = tmpDataBank.height + WorkingMemory.CONTENTS_MARGIN * 2 + WorkingMemory.INNER_SPACING +
+            WorkingMemory.TEXT_SIZE;
         let bodyWidth = tmpDataBank.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
             + (this.numberOfBanks - 1) * WorkingMemory.BANK_SPACING;
 
         const startOffset = -bodyWidth / 2 + tmpDataBank.width / 2 + WorkingMemory.CONTENTS_MARGIN;
         for (let i = 0; i < this.numberOfBanks; i++) {
             const dataBank = new DataCellArray(this, startOffset + i * (tmpDataBank.width + WorkingMemory.BANK_SPACING),
-                0, this.numberOfWords);
+                (- WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2 , this.numberOfWords, this.wordSize, `Bank ${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }

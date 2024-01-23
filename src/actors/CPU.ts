@@ -6,6 +6,7 @@ import {RAM} from "./RAM";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
+import {Counter} from "./Counter";
 
 export class CPU extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
@@ -18,6 +19,7 @@ export class CPU extends ComputerChip {
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
 
     private static superScalarFactor: number = 1;
+    private counter: Counter;
     private static fetcherCount: number = CPU.superScalarFactor;
     private readonly fetchBuffer: Queue<Instruction>;
     private static decoderCount: number = CPU.superScalarFactor;
@@ -61,6 +63,9 @@ export class CPU extends ComputerChip {
 
         this.initGraphics();
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
+
+        this.counter = new Counter(this, -0.25, -0.2);
+        this.counter.initializeGraphics();
 
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
@@ -221,8 +226,10 @@ export class CPU extends ComputerChip {
     private requestInstructionBufferRefillIfEmpty(): void {
         if (this.fetchBuffer.isFull())
             return;
-        if (this.instructionMemory.isReadyToBeRead())
+        if (this.instructionMemory.isReadyToBeRead()){
             this.moveInstructions(this.instructionMemory.read(CPU.fetcherCount), this.fetchBuffer, CPU.fetcherCount);
+            this.counter.update();
+        }
         else
             this.instructionMemory.askForInstructions(this, CPU.fetcherCount);
     }
