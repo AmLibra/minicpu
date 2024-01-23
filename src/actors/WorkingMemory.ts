@@ -5,171 +5,74 @@ import {CPU} from "./CPU";
 import {DataCellArray} from "./DataCellArray";
 
 export class WorkingMemory extends ComputerChip {
+    public readonly size: number;
+    public readonly numberOfBanks: number;
     private readonly numberOfWords: number;
-    private size: number;
-    private readonly memoryArray: number[];
+    private readonly wordSize: number;
 
-    private memoryAddressToUpdate: number = -1;
-    private ready: boolean = false;
-    private memoryOperationTimeout: number = 0;
+    private dataBanks: DataCellArray[] = [];
+    private static BANK_SPACING: number = 0.02;
 
-    // Mesh names
-    private registerFileMesh: string;
-
-    private dataCellArray: DataCellArray;
-
-    constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfWords: number = 8) {
+    constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfBanks: number = 2, numberOfWords: number = 4, wordSize: number = 4) {
         super(position, scene, clockFrequency);
-        this.memoryArray = new Array(this.size);
         this.numberOfWords = numberOfWords;
-        this.initGraphics();
-        this.initialize();
-        this.dataCellArray = new DataCellArray(this, 0, 2);
-        this.dataCellArray.initializeGraphics();
-
-        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
-        this.drawPins(this.meshes.get(this.bodyMeshName), 'top', this.numberOfWords * 2).forEach((mesh, _name) => this.scene.add(mesh));
+        this.numberOfBanks = numberOfBanks;
+        this.wordSize = wordSize;
+        this.size = numberOfBanks * numberOfWords * wordSize;
+        this.initializeGraphics();
     }
 
-    public getNumberOfWords(): number {
-        return this.numberOfWords;
-    }
-
-    public getSize(): number {
-        return this.size;
-    }
-
-    public isReady(): boolean {
-        return this.dataCellArray.isReady();
+    public isReady(address: number): boolean {
+        return this.bankOf(address).isReady();
     }
 
     public askForMemoryOperation(cpu: CPU, address: number): void {
-        this.dataCellArray.askForMemoryOperation(cpu, address % this.dataCellArray.getSize());
-        if (this.memoryOperationTimeout > 0)
-            return;
-        this.ready = false;
-        this.memoryOperationTimeout = cpu.getClockFrequency() / this.clockFrequency;
+        this.bankOf(address).askForMemoryOperation(cpu, address % this.bankOf(address).getSize());
     }
 
     public read(address: number): number {
-        this.dataCellArray.read(address % this.dataCellArray.getSize());
-        if (!this.ready)
-            throw new Error("MainMemory is not ready to be read");
-
-        this.highlight(this.registerName(address), WorkingMemory.MEMORY_COLOR);
-        this.ready = false;
-        return this.memoryArray[address];
+        return this.bankOf(address).read(address % this.bankOf(address).getSize());
     }
 
     public write(address: number, value: number): void {
-        this.dataCellArray.write(address % this.dataCellArray.getSize(), value);
-        if (!this.ready)
-            throw new Error("MainMemory is not ready to be written to");
-
-        this.highlight(this.registerName(address), WorkingMemory.MEMORY_COLOR);
-        this.memoryArray[address] = value;
-        this.memoryAddressToUpdate = address;
-        this.ready = false;
+        this.bankOf(address).write(address % this.bankOf(address).getSize(), value);
     }
 
     displayName(): string {
         return "Main Memory";
     }
 
-    computeMeshProperties(): void {
-        // define mesh names
-        // define mesh names
-        this.bodyMeshName = "BODY";
-        this.registerFileMesh = "REGISTER_FILE";
-
-        // compute variable mesh properties
-        this.size = this.numberOfWords * WorkingMemory.WORD_SIZE;
-        const bodyHeight = WorkingMemory.REGISTER_SIDE_LENGTH * WorkingMemory.WORD_SIZE + WorkingMemory.CONTENTS_MARGIN * 2
-            + (WorkingMemory.WORD_SIZE - 1) * WorkingMemory.INNER_SPACING;
-        const bodyWidth = WorkingMemory.REGISTER_SIDE_LENGTH * this.numberOfWords + WorkingMemory.CONTENTS_MARGIN * 2
-            + (this.numberOfWords - 1) * WorkingMemory.INNER_SPACING;
-
-        this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), WorkingMemory.BODY_COLOR);
-        this.bodyMesh.position.set(this.position.x, this.position.y, 0);
-        this.scene.add(this.bodyMesh);
-
-        this.computeBodyMeshProperties(bodyWidth, bodyHeight);
-        this.computeRegisterMeshProperties(bodyWidth, bodyHeight);
-
-        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
-            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
-            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
+    update(): void {
+        this.dataBanks.forEach(dataBank => dataBank.update());
     }
 
-    update(): void {
-        this.dataCellArray.update();
-        if (this.memoryOperationTimeout > 0) {
-            this.memoryOperationTimeout--;
-            this.ready = this.memoryOperationTimeout <= 0;
-        }
+    computeMeshProperties(): void {
     }
 
     drawUpdate(): void {
-        if (this.memoryAddressToUpdate < 0)
-            return;
-        DrawUtils.updateText(this.meshes.get(this.registerTextMeshName(this.registerName(this.memoryAddressToUpdate))),
-            this.memoryArray[this.memoryAddressToUpdate].toString());
-        this.memoryAddressToUpdate = -1;
     }
 
-    private initialize(): void {
-        for (let i = 0; i < this.size; i++) {
-            this.memoryArray[i] = Math.floor(Math.random() * WorkingMemory.MAX_BYTE_VALUE);
-            this.buildRegisterTextMesh(i);
+    private initializeGraphics(): void {
+        const tmpDataBank = new DataCellArray(this, 0, 0, this.numberOfWords, this.wordSize);
+        const bodyHeight = tmpDataBank.height + WorkingMemory.CONTENTS_MARGIN * 2;
+        let bodyWidth = tmpDataBank.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
+            + (this.numberOfBanks - 1) * WorkingMemory.BANK_SPACING;
+
+        const startOffset = -bodyWidth / 2 + tmpDataBank.width / 2 + WorkingMemory.CONTENTS_MARGIN;
+        for (let i = 0; i < this.numberOfBanks; i++) {
+            const dataBank = new DataCellArray(this, startOffset + i * (tmpDataBank.width + WorkingMemory.BANK_SPACING),
+                0, this.numberOfWords);
+            dataBank.initializeGraphics();
+            this.dataBanks[i] = dataBank;
         }
-        // this.drawMemoryWordAddressTags();
-        this.textMeshNames.forEach(mesh => this.scene.add(this.meshes.get(mesh)));
+        tmpDataBank.dispose();
+
+        this.buildBodyMesh(bodyWidth, bodyHeight);
+        this.drawPins(this.bodyMesh, 'top', this.size).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
-    private buildRegisterTextMesh(address: number): void {
-        const memoryAddressRegister = this.meshProperties.get(this.registerName(address));
-        const mesh = DrawUtils.buildTextMesh(this.memoryArray[address].toString(),
-            this.position.x + memoryAddressRegister.xOffset,
-            this.position.y + memoryAddressRegister.yOffset - DrawUtils.baseTextHeight / 4,
-            WorkingMemory.TEXT_SIZE, WorkingMemory.TEXT_COLOR
-        );
-        this.addTextMesh(this.registerTextMeshName(this.registerName(address)), mesh);
-    }
-
-    private computeBodyMeshProperties(bodyWidth: number, bodyHeight: number): void {
-        const body = {
-            width: bodyWidth,
-            height: bodyHeight,
-            xOffset: 0,
-            yOffset: 0,
-            color: WorkingMemory.BODY_COLOR,
-        };
-        this.meshProperties.set(this.bodyMeshName, body);
-    }
-
-    private computeRegisterMeshProperties(bodyWidth: number, bodyHeight: number): void {
-        const registerFile = {
-            width: bodyWidth - (2 * WorkingMemory.CONTENTS_MARGIN),
-            height: bodyHeight - (2 * WorkingMemory.CONTENTS_MARGIN),
-            xOffset: 0,
-            yOffset: 0,
-            color: WorkingMemory.BODY_COLOR,
-        };
-        this.meshProperties.set(this.registerFileMesh, registerFile);
-
-        const registerNames = [];
-        for (let i = 0; i < this.size; i++)
-            registerNames.push(this.registerName(i));
-
-        this.drawRegisterGridArray(registerFile, WorkingMemory.WORD_SIZE, this.numberOfWords,
-            WorkingMemory.INNER_SPACING, registerNames, true);
-    }
-
-    registerName(address: number): string {
-        return DrawUtils.toHex(address);
-    }
-
-    private registerTextMeshName(name: string): string {
-        return `${name}_CONTENT`;
+    private bankOf(address: number): DataCellArray {
+        console.log(Math.floor(address / this.dataBanks[0].getSize()));
+        return this.dataBanks[Math.floor(address / this.dataBanks[0].getSize())];
     }
 }

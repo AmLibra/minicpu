@@ -61,7 +61,7 @@ export class DataCellArray extends ComputerChipMacro {
         this.ensureAddressIsInBounds(address);
         this.checkIfReady();
         this.memoryArray[address] = value;
-        DrawUtils.updateText(this.meshes[address], value.toString(), true);
+        DrawUtils.updateText(this.liveMeshes[address], value.toString(), true);
         this.clearHighlights();
         this.ready = false;
     }
@@ -75,20 +75,26 @@ export class DataCellArray extends ComputerChipMacro {
 
     initializeGraphics(): void {
         const [registerMesh, registerNamesMesh] = this.buildDataCellMeshes();
-        this.scene.add(registerMesh, registerNamesMesh);
+        this.addStaticMesh(registerMesh);
+        this.addStaticMesh(registerNamesMesh);
         for (let i = 0; i < this.memoryArray.length; i++) {
             const contentMesh = this.buildDataCellContentsMesh(i);
-            this.meshes.push(contentMesh);
+            this.liveMeshes.push(contentMesh);
             this.scene.add(contentMesh);
         }
         this.highlightCell(0)
         this.clearHighlights();
     }
 
+    dispose() {
+        super.dispose();
+        this.cellHighlightGeometry.dispose();
+    }
+
     clearHighlights() {
         super.clearHighlights();
         if (this.highlightedMemoryCell >= 0) {
-            this.meshes[this.highlightedMemoryCell].material = ComputerChipMacro.TEXT_COLOR;
+            this.liveMeshes[this.highlightedMemoryCell].material = ComputerChipMacro.TEXT_COLOR;
             this.highlightedMemoryCell = -1;
         }
     }
@@ -118,7 +124,7 @@ export class DataCellArray extends ComputerChipMacro {
         const position = this.cellPositions[index];
         highlightMesh.position.set(position[0], position[1], 0);
         this.highlightedMemoryCell = index;
-        this.meshes[index].material = ComputerChipMacro.BODY_COLOR;
+        this.liveMeshes[index].material = ComputerChipMacro.BODY_COLOR;
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
     }

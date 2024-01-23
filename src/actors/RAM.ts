@@ -7,7 +7,7 @@ import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {InstructionBuffer} from "./InstructionBuffer";
 
-export class InstructionMemory extends ComputerChip {
+export class RAM extends ComputerChip {
     public readonly size: number;
     private readonly instructionBuffer: InstructionBuffer;
     private readonly instructionStream: Queue<Instruction>;
@@ -56,20 +56,11 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private initializeGraphics(): void {
-        const bodyHeight = this.instructionBuffer.height + InstructionMemory.CONTENTS_MARGIN * 2;
-        const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2;
-        this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), InstructionMemory.BODY_COLOR);
-        this.bodyMesh.position.set(this.position.x, this.position.y, 0);
-
-        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
-            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
-            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
-        this.clockMesh.visible = false;
+        const bodyHeight = this.instructionBuffer.height + RAM.CONTENTS_MARGIN * 2;
+        const bodyWidth = this.instructionBuffer.width + RAM.CONTENTS_MARGIN * 2;
+        this.buildBodyMesh(bodyWidth, bodyHeight);
 
         this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));
-
-        this.scene.add(this.bodyMesh, this.clockMesh);
-        this.buildSelectedMesh();
         this.instructionBuffer.initializeGraphics();
     }
 
@@ -107,7 +98,7 @@ export class InstructionMemory extends ComputerChip {
         instructionsLeft -= numberOfALUOperations;
 
         for (let i = 0; i < instructionsLeft; ++i) {
-            const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize()) % this.workingMemory.getSize();
+            const randomAddress = Math.floor(Math.random() * this.workingMemory.size);
             const randomResultRegister = this.randomArrayElement(resultRegisters);
             typicalWorkload.enqueue(new Instruction("STORE", this.registerName(randomResultRegister),
                 undefined, undefined, randomAddress));
@@ -135,10 +126,10 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private randomConsecutiveAddresses(n: number): number[] {
-        const randomAddress = Math.floor(Math.random() * this.workingMemory.getSize());
+        const randomAddress = Math.floor(Math.random() * this.workingMemory.size);
         const randomAddresses: number[] = [];
         for (let i = 0; i < n; ++i)
-            randomAddresses.push((randomAddress + i) % this.workingMemory.getSize());
+            randomAddresses.push((randomAddress + i) % this.workingMemory.size);
         return randomAddresses;
     }
 }

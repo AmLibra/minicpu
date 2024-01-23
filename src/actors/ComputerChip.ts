@@ -556,6 +556,20 @@ export abstract class ComputerChip {
         this.meshes.set(name, mesh);
     }
 
+    protected buildBodyMesh(bodyWidth:number, bodyHeight:number): void {
+        this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), ComputerChip.BODY_COLOR);
+        this.bodyMesh.position.set(this.position.x, this.position.y, 0);
+
+        this.clockMesh = DrawUtils.buildTextMesh(DrawUtils.formatFrequency(this.clockFrequency),
+            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
+            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_COLOR);
+        this.clockMesh.visible = false;
+
+        this.scene.add(this.bodyMesh, this.clockMesh);
+        this.buildSelectedMesh();
+    }
+
+
     protected buildSelectedMesh(): void {
         const bodyHeight = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.height : 0;
         const bodyWidth = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.width : 0;

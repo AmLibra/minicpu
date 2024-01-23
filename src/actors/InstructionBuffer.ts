@@ -91,9 +91,9 @@ export class InstructionBuffer extends ComputerChipMacro {
         const oldSize = this.storedInstructions.size();
         instructions.moveTo(this.storedInstructions, writeCount);
         for (let i = oldSize; i < this.storedInstructions.size(); ++i) {
-            this.scene.remove(this.meshes[i]);
-            this.meshes[i] = this.buildBufferTextMesh(i);
-            this.scene.add(this.meshes[i]);
+            this.scene.remove(this.liveMeshes[i]);
+            this.liveMeshes[i] = this.buildBufferTextMesh(i);
+            this.scene.add(this.liveMeshes[i]);
         }
     }
 
@@ -105,11 +105,17 @@ export class InstructionBuffer extends ComputerChipMacro {
     }
 
     initializeGraphics(): void {
-        this.scene.add(this.buildBufferMeshes());
+        this.addStaticMesh(this.buildBuffersMesh());
         for (let i = 0; i < this.size; ++i) {
-            this.meshes[i] = this.buildBufferTextMesh(i);
-            this.scene.add(this.meshes[i]);
+            this.liveMeshes[i] = this.buildBufferTextMesh(i);
+            this.scene.add(this.liveMeshes[i]);
         }
+    }
+
+    dispose(): void {
+        super.dispose();
+        this.bufferHighlightGeometry.dispose();
+        this.noOpMesh.geometry.dispose();
     }
 
     private buildBufferTextMesh(index: number): Mesh {
@@ -136,17 +142,17 @@ export class InstructionBuffer extends ComputerChipMacro {
         if (nPositions > this.size)
             throw new Error("Cannot shift down by more than the size of the buffer");
 
-        this.meshes.splice(0, nPositions).forEach(mesh => {
+        this.liveMeshes.splice(0, nPositions).forEach(mesh => {
             this.scene.remove(mesh);
             mesh.geometry.dispose();
         });
 
         if (this.horizontal) {
-            this.meshes.forEach((mesh, index) =>
+            this.liveMeshes.forEach((mesh, index) =>
                 mesh.translateX(-this.bufferMeshOffsets[index + nPositions] + this.bufferMeshOffsets[index])
             );
         } else {
-            this.meshes.forEach((mesh, index) =>
+            this.liveMeshes.forEach((mesh, index) =>
                 mesh.translateY(-this.bufferMeshOffsets[index + nPositions] + this.bufferMeshOffsets[index])
             );
         }
@@ -154,10 +160,10 @@ export class InstructionBuffer extends ComputerChipMacro {
         // Fill the empty spaces with noOpMesh
         for (let i = this.size; i > this.size - nPositions; --i) {
             const offsetIndex = i - 1;
-            this.meshes[offsetIndex] = this.noOpMesh.clone()
+            this.liveMeshes[offsetIndex] = this.noOpMesh.clone()
                 .translateX(this.horizontal ? this.bufferMeshOffsets[offsetIndex] : this.position.x)
                 .translateY(this.horizontal ? this.position.y : this.bufferMeshOffsets[offsetIndex]);
-            this.scene.add(this.meshes[offsetIndex]);
+            this.scene.add(this.liveMeshes[offsetIndex]);
         }
     }
 
@@ -174,10 +180,10 @@ export class InstructionBuffer extends ComputerChipMacro {
             this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
-        this.meshes[index].material = ComputerChipMacro.COMPONENT_COLOR;
+        this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_COLOR;
     }
 
-    private buildBufferMeshes(): Mesh {
+    private buildBuffersMesh(): Mesh {
         const startOffset = this.horizontal
             ? this.position.x + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.width / 2)
             : this.position.y + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.height / 2);

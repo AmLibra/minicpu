@@ -2,7 +2,7 @@ import {Mesh, PlaneGeometry, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {Instruction} from "../components/Instruction";
-import {InstructionMemory} from "./InstructionMemory";
+import {RAM} from "./RAM";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
@@ -28,7 +28,7 @@ export class CPU extends ComputerChip {
     private readonly memoryController: Queue<Instruction>
     private readonly registerValues: Map<string, number>;
 
-    private readonly instructionMemory: InstructionMemory;
+    private readonly instructionMemory: RAM;
     private readonly workingMemory: WorkingMemory;
 
     private isPipelined: boolean;
@@ -45,7 +45,7 @@ export class CPU extends ComputerChip {
     private decodeBufferMesh: string;
     private memoryControllerMesh: string;
 
-    constructor(position: [number, number], scene: Scene, rom: InstructionMemory, workingMemory: WorkingMemory, clockFrequency: number) {
+    constructor(position: [number, number], scene: Scene, rom: RAM, workingMemory: WorkingMemory, clockFrequency: number) {
         super(position, scene, clockFrequency)
         this.instructionMemory = rom
 
@@ -66,18 +66,18 @@ export class CPU extends ComputerChip {
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
         this.drawCPUPins();
 
-        this.drawRightTraces(0.05, 0.02);
+        this.drawRightTraces(0.2, 0.02);
         this.drawBottomTraces(0.05, 0.02);
     }
 
     private drawBottomTraces(baseOffset: number, distanceBetweenPins: number): void {
-        const halfwayWorkingMem = this.findMatchingWidth(this.workingMemory.getNumberOfWords() * 2 / 2, 'bottom')
+        const halfwayWorkingMem = this.findMatchingWidth(this.workingMemory.size / 2, 'bottom')
         for (let i = 0; i < halfwayWorkingMem; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
                 baseOffset + (distanceBetweenPins * i)));
         }
-        for (let i = halfwayWorkingMem; i < this.workingMemory.getNumberOfWords() * 2; ++i) {
+        for (let i = halfwayWorkingMem; i < this.workingMemory.size; ++i) {
             this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
                 'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
                 baseOffset + (distanceBetweenPins * (halfwayWorkingMem + 1)) - (distanceBetweenPins * (i - halfwayWorkingMem))));
@@ -116,7 +116,7 @@ export class CPU extends ComputerChip {
     private findMatchingWidth(pin: number, side: "left" | "right" | "top" | "bottom"): number {
         const pinPositionX = this.pinPositions.get(this.pinName(pin, side)).x;
         let closest = 0;
-        for (let i = 0; i < this.workingMemory.getNumberOfWords(); ++i) {
+        for (let i = 0; i < this.workingMemory.size; ++i) {
             const instructionPositionX = this.workingMemory.getPinPosition(i, 'top').x;
             if (Math.abs(instructionPositionX - pinPositionX) < Math.abs(
                 this.workingMemory.getPinPosition(closest, 'top').x - pinPositionX)) {
@@ -308,7 +308,7 @@ export class CPU extends ComputerChip {
         const instruction = this.memoryController.get(0);
         if (!instruction)
             return; // if there is no instruction to process, exit
-        if (this.workingMemory.isReady()) {
+        if (this.workingMemory.isReady(instruction.getAddress())) {
             if (instruction.getOpcode() == "LOAD") {
                 this.registerValues.set(instruction.getResultReg(), this.workingMemory.read(instruction.getAddress()));
                 this.highlight(instruction.getResultReg(), CPU.MEMORY_COLOR);
@@ -498,7 +498,7 @@ export class CPU extends ComputerChip {
 
     private drawCPUPins(): void {
         this.drawPins(this.meshes.get(this.bodyMeshName), 'right', this.instructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.meshes.get(this.bodyMeshName), 'bottom', this.workingMemory.getNumberOfWords() * 2).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.meshes.get(this.bodyMeshName), 'bottom', this.workingMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
     }
 
     private aluMeshName(index: number = 0): string {

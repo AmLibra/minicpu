@@ -2,7 +2,7 @@ import {OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
 import {CPU} from "./actors/CPU";
 import {ComputerChip} from "./actors/ComputerChip";
-import {InstructionMemory} from "./actors/InstructionMemory";
+import {RAM} from "./actors/RAM";
 import {WorkingMemory} from "./actors/WorkingMemory";
 import {HUD} from "./HUD";
 
@@ -79,8 +79,8 @@ export class App {
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 2, 20)
-        const instructionMemory = new InstructionMemory([1.4, 1.01], this.scene, workingMemory, 2)
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 0.5, 3, 4)
+        const instructionMemory = new RAM([1.4, 0], this.scene, workingMemory, 2)
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 1)
         this.cpu = cpu;
         this.cpu.setPipelined();

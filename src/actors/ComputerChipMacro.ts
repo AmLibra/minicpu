@@ -9,7 +9,9 @@ export abstract class ComputerChipMacro {
 
     height: number;
     width: number;
-    protected meshes: Mesh[] = [];
+
+    protected staticMeshes: Mesh[] = [];
+    protected liveMeshes: Mesh[] = [];
     protected highlightMeshes: Mesh[] = [];
 
     protected static readonly BODY_COLOR: MeshBasicMaterial =
@@ -37,6 +39,18 @@ export abstract class ComputerChipMacro {
     public abstract update(): void;
 
     public abstract initializeGraphics(): void;
+
+    public dispose(): void{
+        this.scene.remove(...this.staticMeshes, ...this.liveMeshes, ...this.highlightMeshes);
+        this.staticMeshes.forEach(mesh => mesh.geometry.dispose());
+        this.liveMeshes.forEach(mesh => mesh.geometry.dispose());
+        this.highlightMeshes.forEach(mesh => mesh.geometry.dispose());
+    }
+
+    protected addStaticMesh(mesh: Mesh): void {
+        this.staticMeshes.push(mesh);
+        this.scene.add(mesh);
+    }
 
     protected clearHighlights(): void {
         this.highlightMeshes.forEach(mesh => {
