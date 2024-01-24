@@ -1,8 +1,8 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
-import {ComputerChip} from "./ComputerChip";
+import {ComputerChip} from "../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
 import {InstructionBuffer} from "./InstructionBuffer";
-import {DrawUtils} from "../DrawUtils";
+import {DrawUtils} from "../../DrawUtils";
 
 export class Counter extends ComputerChipMacro {
     private count = 0;

@@ -6,7 +6,7 @@ import {RAM} from "./RAM";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
-import {Counter} from "./Counter";
+import {Counter} from "./macros/Counter";
 
 export class CPU extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
@@ -19,7 +19,7 @@ export class CPU extends ComputerChip {
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
 
     private static superScalarFactor: number = 1;
-    private counter: Counter;
+    public counter: Counter;
     private static fetcherCount: number = CPU.superScalarFactor;
     private readonly fetchBuffer: Queue<Instruction>;
     private static decoderCount: number = CPU.superScalarFactor;

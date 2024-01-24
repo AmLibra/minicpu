@@ -1,6 +1,6 @@
 import {Mesh, MeshBasicMaterial, Scene} from "three";
-import {ComputerChip} from "./ComputerChip";
-import {DrawUtils} from "../DrawUtils";
+import {ComputerChip} from "../ComputerChip";
+import {DrawUtils} from "../../DrawUtils";
 
 export abstract class ComputerChipMacro {
     protected readonly scene: Scene;

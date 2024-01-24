@@ -1,7 +1,7 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
-import {ComputerChip} from "./ComputerChip";
+import {ComputerChip} from "../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
-import {DrawUtils} from "../DrawUtils";
+import {DrawUtils} from "../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 
 export class DataCellArray extends ComputerChipMacro {

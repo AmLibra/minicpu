@@ -2,7 +2,7 @@ import {ComputerChip} from "./ComputerChip";
 import {Mesh, PlaneGeometry, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {CPU} from "./CPU";
-import {DataCellArray} from "./DataCellArray";
+import {DataCellArray} from "./macros/DataCellArray";
 
 export class WorkingMemory extends ComputerChip {
     public readonly size: number;
@@ -73,7 +73,6 @@ export class WorkingMemory extends ComputerChip {
     }
 
     private bankOf(address: number): DataCellArray {
-        console.log(Math.floor(address / this.dataBanks[0].getSize()));
         return this.dataBanks[Math.floor(address / this.dataBanks[0].getSize())];
     }
 }

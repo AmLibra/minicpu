@@ -43,6 +43,8 @@ export class App {
         this.renderer = new WebGLRenderer({antialias: true, alpha: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight); // set the size of the renderer to the window size
         this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1); // set the background color of the scene
+        this.renderer.setPixelRatio(window.devicePixelRatio); // set the pixel ratio to the device pixel ratio
+        this.renderer.autoClear = false; // Allows HUD to be on top of the scene
         document.body.appendChild(this.renderer.domElement);
         return this.renderer;
     }
@@ -57,7 +59,11 @@ export class App {
 
     private animate(): void {
         requestAnimationFrame(() => this.animate());
+
+        this.renderer.clear();
         this.renderer.render(this.scene, this.camera);
+        this.renderer.clearDepth();
+        this.renderer.render(this.hud.getHUDScene(), this.hud.getHUDCamera());
     }
 
     private startGameLoop(): void {
@@ -79,9 +85,9 @@ export class App {
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 0.5, 4, 3)
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 2, 4, 3)
         const instructionMemory = new RAM([1.7, 0], this.scene, workingMemory, 2, 32)
-        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 1)
+        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 5)
         this.cpu = cpu;
         this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);

@@ -1,9 +1,9 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {Mesh, PlaneGeometry} from "three";
-import {Queue} from "../components/Queue";
-import {Instruction} from "../components/Instruction";
-import {ComputerChip} from "./ComputerChip";
-import {DrawUtils} from "../DrawUtils";
+import {Queue} from "../../components/Queue";
+import {Instruction} from "../../components/Instruction";
+import {ComputerChip} from "../ComputerChip";
+import {DrawUtils} from "../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 export class InstructionBuffer extends ComputerChipMacro {
@@ -19,13 +19,13 @@ export class InstructionBuffer extends ComputerChipMacro {
 
     public readonly size: number;
 
-    private readonly storedInstructions: Queue<Instruction>;
+    protected readonly storedInstructions: Queue<Instruction>;
     protected readonly reversed: boolean;
     private readonly horizontal: boolean;
 
-    private readyToBeRead: boolean = false;
+    protected readyToBeRead: boolean = false;
     private readTimeout: number = 0;
-    private readonly noDelay: boolean;
+    protected readonly noDelay: boolean;
 
     constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, noDelay: boolean = true, reversed: boolean = false,
                 horizontal: boolean = false, bufferWidth: number = InstructionBuffer.BUFFER_BASE_WIDTH, spacing: number = InstructionBuffer.INNER_SPACING) {

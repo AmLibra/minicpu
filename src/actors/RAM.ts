@@ -5,12 +5,12 @@ import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
-import {InstructionBuffer} from "./InstructionBuffer";
-import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
+import {InstructionBuffer} from "./macros/InstructionBuffer";
+import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
 
 export class RAM extends ComputerChip {
     public readonly size: number;
-    private readonly instructionBuffer: InstructionBuffer;
+    private readonly instructionBuffer: AddressedInstructionBuffer;
     private readonly instructionStream: Queue<Instruction>;
 
     private readonly workingMemory: WorkingMemory;
@@ -47,7 +47,7 @@ export class RAM extends ComputerChip {
             while (this.instructionStream.size() < this.instructionStream.maxSize)
                 this.typicalInstructionSequence(8).moveTo(this.instructionStream);
 
-        if (Math.random() < 0.5)
+        if (Math.random() < 0.2)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 

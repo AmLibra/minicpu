@@ -1,8 +1,9 @@
-import {Group, Material, Mesh, MeshBasicMaterial, PlaneGeometry, Scene, Vector2} from "three";
+import {Color, Group, Material, Mesh, MeshBasicMaterial, PlaneGeometry, Scene, Vector2} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
+import {LineMaterial} from "three/examples/jsm/lines/LineMaterial";
 
 /**
  * Abstract class for computer chips
@@ -41,6 +42,7 @@ export abstract class ComputerChip {
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")});
     protected static readonly ALU_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")});
+
     protected static readonly PIN_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
 
@@ -342,10 +344,10 @@ export abstract class ComputerChip {
             intermediatePoint.x = extendedEnd.x;
             intermediatePoint.y = extendedStart.y;
         }
-        const startSegment = DrawUtils.buildLineMesh(pinPosition1, extendedStart, ComputerChip.PIN_COLOR);
-        const horizontalSegment = DrawUtils.buildLineMesh(extendedStart, intermediatePoint, ComputerChip.PIN_COLOR);
-        const verticalSegment = DrawUtils.buildLineMesh(intermediatePoint, extendedEnd, ComputerChip.PIN_COLOR);
-        const endSegment = DrawUtils.buildLineMesh(extendedEnd, pinPosition2, ComputerChip.PIN_COLOR);
+        const startSegment = DrawUtils.buildLineMesh(pinPosition1, extendedStart, ComputerChip.PIN_COLOR.color);
+        const horizontalSegment = DrawUtils.buildLineMesh(extendedStart, intermediatePoint, ComputerChip.PIN_COLOR.color);
+        const verticalSegment = DrawUtils.buildLineMesh(intermediatePoint, extendedEnd, ComputerChip.PIN_COLOR.color);
+        const endSegment = DrawUtils.buildLineMesh(extendedEnd, pinPosition2, ComputerChip.PIN_COLOR.color);
 
         // Group the segments
         const trace = new Group();

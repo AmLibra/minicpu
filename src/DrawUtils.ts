@@ -2,17 +2,19 @@ import {
     BufferAttribute,
     BufferGeometry,
     Color,
-    GridHelper, Line, LineBasicMaterial,
+    GridHelper,
+    Line,
+    LineBasicMaterial,
     Material,
     Mesh,
     MeshBasicMaterial,
     PlaneGeometry,
     Scene,
-    TextureLoader, Vector2
+    TextureLoader,
+    Vector2
 } from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
-import {RoundedBoxGeometry} from "three/examples/jsm/geometries/RoundedBoxGeometry";
 
 /**
  * This class contains utility functions for drawing 3D objects.
@@ -81,7 +83,10 @@ export class DrawUtils {
      *
      * @returns a quadrilateral mesh
      */
-    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material, position: {x:number, y:number}): Mesh {
+    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material, position: {
+        x: number,
+        y: number
+    }): Mesh {
         const mesh = new Mesh(new PlaneGeometry(width, height), color)
         mesh.position.set(position.x, position.y, 0);
         return mesh;
@@ -110,20 +115,20 @@ export class DrawUtils {
 
         const textMesh = new Mesh(textGeometry, color);
         textGeometry.computeBoundingBox();
-            const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-            const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
+        const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
+        const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
         if (centered) {
             textMesh.position.set(
                 xOffset - textWidth / 2, // Center the text
                 yOffset - textHeight / 2, // use top of text as the origin
                 0
             );
-        }  else {
+        } else {
             textMesh.position.set(xOffset, yOffset, 0);
         }
-        if (zRotation != 0){
+        if (zRotation != 0) {
             textMesh.geometry.center().rotateZ(zRotation);
-            textMesh.position.set(xOffset,yOffset,0);
+            textMesh.position.set(xOffset, yOffset, 0);
         }
 
         return textMesh;
@@ -168,29 +173,26 @@ export class DrawUtils {
         return new Mesh(geometry, material);
     }
 
-    public static buildImageMesh(image: string, width: number, height: number): Mesh {
-        let material: Material;
+    public static buildImageMesh(image: string, width: number, height: number, callback: (mesh: Mesh) => void): void {
         const geometry = new PlaneGeometry(width, height);
         DrawUtils.textureLoader.load(image, function (texture) {
-            material = new MeshBasicMaterial({map: texture});
+            const material = new MeshBasicMaterial({
+                map: texture,
+                transparent: true, // Enable transparency
+            });
+            const mesh = new Mesh(geometry, material);
+            callback(mesh);
         });
-
-        const mesh = new Mesh(geometry, material);
-        mesh.position.set(0, 0, 0); // Replace 0, 0, 0 with your desired position
-        return mesh;
     }
 
-    public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color | Material): Line {
+    public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color): Line {
         const geometry = new BufferGeometry();
         const vertices = new Float32Array([
             v1.x, v1.y, 0.0,  // Vertex 1 (X, Y, Z)
-            v2.x, v2.y, 0.0,   // Vertex 2 (X, Y, Z)
+            v2.x, v2.y, 0.0,  // Vertex 2 (X, Y, Z)
         ]);
         geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-
-        const material = color instanceof Material ? color : new LineBasicMaterial({color: color});
-
-        // Create a line with the specified geometry and material
+        let material = new LineBasicMaterial({color: color});
         return new Line(geometry, material);
     }
 
