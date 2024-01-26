@@ -18,8 +18,8 @@ export class HUD {
     private static readonly ZOOM_FACTOR: number = 0.0001;
     private static readonly MAX_ZOOM: number = 0.5;
     private static readonly MIN_ZOOM: number = 1;
-    private static readonly MAX_CAMERA_POSITION_X = 1;
-    private static readonly MAX_CAMERA_POSITION_Y = 1;
+    private static readonly MAX_CAMERA_POSITION_X = 2;
+    private static readonly MAX_CAMERA_POSITION_Y = 2;
     private static readonly HOVER_SCALE_FACTOR: number = 1.1;
     private static SCROLL_SPEED: number = 2;
 
@@ -147,6 +147,10 @@ export class HUD {
         mesh.visible = false;
         this.menuCloseMesh = mesh;
         this.hudScene.add(mesh);
+        this.hudMouseClickEvents.set(
+            () => this.raycaster.intersectObject(this.menuCloseMesh).length > 0,
+            () => this.hideMenu()
+        );
     }
 
     private drawPauseButton(): void {
@@ -168,10 +172,6 @@ export class HUD {
         this.hudMouseClickEvents.set(
             () => this.raycaster.intersectObject(this.pauseButtonMesh).concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
             () => this.togglePauseState()
-        );
-        this.hudMouseClickEvents.set(
-            () => this.raycaster.intersectObject(this.menuCloseMesh).length > 0,
-            () => this.hideMenu()
         );
 
         this.app.gameActors.forEach(actor => {

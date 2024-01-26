@@ -8,7 +8,8 @@ import {DrawUtils} from "../DrawUtils";
  */
 enum InstructionType {
     ALU,
-    MEMORY
+    MEMORY,
+    BRANCH
 }
 
 /**
@@ -36,9 +37,9 @@ export class Instruction {
         this.resultReg = result_reg;
         if (CPU.MEMORY_OPCODES.includes(opcode)) {
             if (address === undefined)
-                throw new Error("Missing memory address for memory operation")
+                throw new Error("Missing memory address for MEMORY operation")
             if (op1_reg !== undefined || op2_reg !== undefined)
-                throw new Error("Cannot have operand registers for memory operation")
+                throw new Error("Cannot have operand registers for MEMORY operation")
 
             this.type = InstructionType.MEMORY
             this.address = address;
@@ -51,6 +52,16 @@ export class Instruction {
             this.type = InstructionType.ALU
             this.op1Reg = op1_reg;
             this.op2Reg = op2_reg;
+        } else if (CPU.BRANCH_OPCODES.includes(opcode)) {
+            if (op1_reg === undefined || op2_reg === undefined)
+                throw new Error("Missing operand register for BRANCH operation")
+            if (address === undefined)
+                throw new Error("Missing address for BRANCH operation")
+
+            this.type = InstructionType.BRANCH
+            this.op1Reg = op1_reg;
+            this.op2Reg = op2_reg;
+            this.address = address;
         }
     }
 
@@ -69,13 +80,24 @@ export class Instruction {
     }
 
     /**
+     * Returns true if the instruction is a branch operation
+     */
+    public isBranch(): boolean {
+        return this.type == InstructionType.BRANCH
+    }
+
+    /**
      * Used to display the instruction in the UI
      */
     public toString(): string {
         if (this.type == InstructionType.MEMORY)
             return (this.opcode == "STORE" ? "ST" : "LD") + " " + this.resultReg + ",[" + DrawUtils.toHex(this.address) + "]";
-        else
+        else if (this.type == InstructionType.ALU)
             return this.opcode + " " + this.resultReg + "," + this.op1Reg + "," + this.op2Reg;
+        else if (this.type == InstructionType.BRANCH)
+            return this.opcode + " " + this.op1Reg + "," + this.op2Reg + "," + DrawUtils.toHex(this.address);
+        else
+            throw new Error("Invalid instruction type");
     }
 
     /**

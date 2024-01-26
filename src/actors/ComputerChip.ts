@@ -4,6 +4,7 @@ import {Instruction} from "../components/Instruction";
 import {MeshProperties} from "../components/MeshProperties";
 import {Queue} from "../components/Queue";
 import {LineMaterial} from "three/examples/jsm/lines/LineMaterial";
+import {ComputerChipMacro} from "./macros/ComputerChipMacro";
 
 /**
  * Abstract class for computer chips
@@ -42,6 +43,8 @@ export abstract class ComputerChip {
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")});
     protected static readonly ALU_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")});
+    protected static readonly BRANCH_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_BLUE")});
 
     protected static readonly PIN_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
@@ -218,6 +221,9 @@ export abstract class ComputerChip {
         for (let i = 0; i < buffer.size(); ++i) {
             const instruction = buffer.get(i);
             if (instruction) {
+                const color = instruction.isMemoryOperation() ?
+            ComputerChip.MEMORY_COLOR : (instruction.isArithmetic() ?
+                ComputerChip.ALU_COLOR : ComputerChip.BRANCH_COLOR);
                 const bufferReg = this.meshProperties.get(this.bufferMeshName(bufferName, i));
                 this.textMeshNames.push(this.bufferTextMeshName(bufferName, i));
                 this.meshes.set(this.bufferTextMeshName(bufferName, i),
@@ -225,7 +231,7 @@ export abstract class ComputerChip {
                         this.position.x + bufferReg.xOffset,
                         this.position.y + bufferReg.yOffset + DrawUtils.baseTextHeight / 8,
                         ComputerChip.TEXT_SIZE,
-                        instruction.isMemoryOperation() ? ComputerChip.MEMORY_COLOR : ComputerChip.ALU_COLOR)
+                        color)
                 );
             }
         }

@@ -35,6 +35,7 @@ export class DrawUtils {
         ["GOLDEN_YELLOW", "rgb(255,197,105)"],
         ["LIGHT_GREEN", "rgb(39,203,114)"],
         ["LIGHT_RED", "rgb(217,82,82)"],
+        ["LIGHT_BLUE", "rgb(60,178,252)"],
     ]);
 
     private static readonly textureLoader = new TextureLoader();

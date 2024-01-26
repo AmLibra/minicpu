@@ -103,7 +103,7 @@ export class DataCellArray extends ComputerChipMacro {
 
     clearHighlights() {
         super.clearHighlights();
-        if (this.highlightedMemoryCell >= 0) {
+        if (this.highlightedMemoryCell >= 0 && this.liveMeshes[this.highlightedMemoryCell]) {
             this.liveMeshes[this.highlightedMemoryCell].material = ComputerChipMacro.TEXT_COLOR;
             this.highlightedMemoryCell = -1;
         }

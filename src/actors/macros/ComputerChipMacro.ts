@@ -26,6 +26,9 @@ export abstract class ComputerChipMacro {
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_GREEN")});
     protected static readonly ALU_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_RED")});
+    protected static readonly BRANCH_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT_BLUE")});
+
     protected static readonly PIN_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
     protected static readonly TEXT_SIZE: number = 0.05;
@@ -41,6 +44,7 @@ export abstract class ComputerChipMacro {
     public abstract initializeGraphics(): void;
 
     public dispose(): void{
+        this.clearHighlights();
         this.scene.remove(...this.staticMeshes, ...this.liveMeshes, ...this.highlightMeshes);
         this.staticMeshes.forEach(mesh => mesh.geometry.dispose());
         this.liveMeshes.forEach(mesh => mesh.geometry.dispose());

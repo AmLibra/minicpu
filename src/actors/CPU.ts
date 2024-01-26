@@ -6,7 +6,7 @@ import {RAM} from "./RAM";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {MeshProperties} from "../components/MeshProperties";
-import {Counter} from "./macros/Counter";
+import {InstructionFetcher} from "./macros/InstructionFetcher";
 
 export class CPU extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
@@ -16,10 +16,11 @@ export class CPU extends ComputerChip {
     private static readonly WORDS = 1;
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
+    public static readonly BRANCH_OPCODES = ["BEQ", "BNE"];
     public static readonly REGISTER_SIZE: number = CPU.WORD_SIZE * CPU.WORDS;
 
     private static superScalarFactor: number = 1;
-    public counter: Counter;
+    public instructionFetcher: InstructionFetcher;
     private static fetcherCount: number = CPU.superScalarFactor;
     private readonly fetchBuffer: Queue<Instruction>;
     private static decoderCount: number = CPU.superScalarFactor;
@@ -64,9 +65,8 @@ export class CPU extends ComputerChip {
         this.initGraphics();
         this.registerValues.forEach((_value, registerName) => this.addRegisterValueMeshes(registerName));
 
-        this.counter = new Counter(this, -0.25, -0.2);
-        this.counter.initializeGraphics();
-
+        this.instructionFetcher = new InstructionFetcher(this, 0.1, -0.2, this.instructionMemory.getInstructionBuffer());
+        this.instructionFetcher.initializeGraphics();
 
         DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
         this.drawCPUPins();
@@ -197,12 +197,17 @@ export class CPU extends ComputerChip {
         if (this.isPipelined) {
             this.processMemoryInstruction();
             this.processALU();
-            this.decodeAll();
-            this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
-            this.requestInstructionBufferRefillIfEmpty();
+            if (this.decodeAll()) {
+                this.instructionFetcher.read()
+                return;
+            }
+            const fetched = this.instructionFetcher.read()
+            if (fetched)
+                fetched.moveTo(this.decodeBuffer);
+            this.instructionFetcher.fetchInstruction();
         } else {
             if (this.ALUs.isEmpty() && this.memoryController.isEmpty())
-                this.requestInstructionBufferRefillIfEmpty();
+                this.instructionFetcher.fetchInstruction();
             this.moveInstructions(this.fetchBuffer, this.decodeBuffer, CPU.decoderCount);
             this.decodeAll();
             this.processALU();
@@ -223,18 +228,8 @@ export class CPU extends ComputerChip {
         this.textMeshNames.forEach(comp => this.scene.add(this.meshes.get(comp)));
     }
 
-    private requestInstructionBufferRefillIfEmpty(): void {
-        if (this.fetchBuffer.isFull())
-            return;
-        if (this.instructionMemory.isReadyToBeRead()){
-            this.moveInstructions(this.instructionMemory.read(CPU.fetcherCount), this.fetchBuffer, CPU.fetcherCount);
-            this.counter.update();
-        }
-        else
-            this.instructionMemory.askForInstructions(this, CPU.fetcherCount);
-    }
-
-    private decodeAll(): void {
+    private decodeAll(): boolean {
+        let needFlush = false;
         for (let i = 0; i < CPU.decoderCount; ++i) {
             const instruction = this.decodeBuffer.get(i);
             const executePipelineEmpty = this.ALUs.isEmpty() && this.memoryController.isEmpty();
@@ -244,8 +239,18 @@ export class CPU extends ComputerChip {
                     this.ALUs.enqueue(this.decodeBuffer.dequeue());
                 else if (instruction.isMemoryOperation())
                     this.memoryController.enqueue(this.decodeBuffer.dequeue());
+                else if (instruction.isBranch()) {
+                    if (Math.random() > 0.9) {
+                        this.instructionFetcher.setProgramCounter(instruction.getAddress());
+                        needFlush = true;
+                    } else {
+                        this.instructionFetcher.notifyBranchSkipped();
+                    }
+                    this.decodeBuffer.dequeue();
+                }
             }
         }
+        return needFlush;
     }
 
     private processALU(): void {

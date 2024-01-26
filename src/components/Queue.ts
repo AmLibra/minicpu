@@ -80,6 +80,20 @@ export class Queue<T> {
         return this.items[index];
     }
 
+    remove(index: number): T | undefined {
+        if (index < 0 || index >= this.items.length)
+            return undefined; // Out of bounds
+        return this.items.splice(index, 1)[0];
+    }
+
+    truncate(from: number, to: number): T[] | undefined {
+        if (from < 0 || from >= this.items.length || to < 0 || to >= this.items.length)
+            return; // Out of bounds
+        if (from > to)
+            return; // Invalid range
+        return this.items.splice(from, to - from + 1);
+    }
+
     moveTo(to: Queue<T>, count: number = this.size()): void {
         for (let i = 0; i < Math.min(count, to.maxSize); ++i) {
             if (this.isEmpty() || to.size() >= to.maxSize) break;

@@ -6,18 +6,23 @@ import {DrawUtils} from "../../DrawUtils";
 
 export class Counter extends ComputerChipMacro {
     private count = 0;
-    width: number = 0.2
     height: number = InstructionBuffer.BUFFER_HEIGHT;
 
     private readonly highlightGeometry: PlaneGeometry;
 
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.3) {
         super(parent, xOffset, yOffset);
+        this.width = width;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
     }
 
     public get(): number {
         return this.count;
+    }
+
+    public set(n: number): void {
+        this.count = n;
+        DrawUtils.updateText(this.liveMeshes[0], DrawUtils.toHex(this.count), true);
     }
 
     public update(): void {
@@ -32,5 +37,10 @@ export class Counter extends ComputerChipMacro {
             ComputerChipMacro.TEXT_SIZE, ComputerChipMacro.TEXT_COLOR, false));
         this.liveMeshes[0].geometry.center();
         this.scene.add(this.liveMeshes[0]);
+    }
+
+    public dispose(): void {
+        super.dispose();
+        this.highlightGeometry.dispose();
     }
 }

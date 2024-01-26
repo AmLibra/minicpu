@@ -7,6 +7,7 @@ import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {InstructionBuffer} from "./macros/InstructionBuffer";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
+import {floor} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export class RAM extends ComputerChip {
     public readonly size: number;
@@ -25,16 +26,8 @@ export class RAM extends ComputerChip {
         this.initializeGraphics();
     }
 
-    public isReadyToBeRead(): boolean {
-        return this.instructionBuffer.isReadyToBeRead();
-    }
-
-    public askForInstructions(cpu: CPU, n: number): void {
-        this.instructionBuffer.askForInstructions(cpu, n);
-    }
-
-    public read(n: number): Queue<Instruction> {
-        return this.instructionBuffer.read(n);
+    public getInstructionBuffer(): AddressedInstructionBuffer {
+        return this.instructionBuffer;
     }
 
     displayName(): string {
@@ -43,11 +36,23 @@ export class RAM extends ComputerChip {
 
     update() {
         this.instructionBuffer.update();
-        if (this.instructionStream.isEmpty())
-            while (this.instructionStream.size() < this.instructionStream.maxSize)
-                this.typicalInstructionSequence(8).moveTo(this.instructionStream);
+        if (this.instructionStream.isEmpty()) {
+            let hasLoop = false;
+            let n = 0;
+            while (this.instructionStream.size() < this.instructionStream.maxSize) {
+                if (!hasLoop && Math.random() < 0.6) {
+                    this.typicalForLoop(n, 4).moveTo(this.instructionStream);
+                    hasLoop = true;
+                    n += 4;
+                }
+                else {
+                    this.typicalInstructionSequence(8).moveTo(this.instructionStream);
+                    n += 8;
+                }
+            }
+        }
 
-        if (Math.random() < 0.2)
+        if (Math.random() < 0.6)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
@@ -107,6 +112,31 @@ export class RAM extends ComputerChip {
             if (resultRegisters.length > 1)
                 resultRegisters.splice(resultRegisters.indexOf(randomResultRegister), 1);
         }
+
+        return typicalWorkload;
+    }
+
+
+    private typicalForLoop(nPreviouslyAddedInstructions:number, n: number): Queue<Instruction> {
+        const typicalWorkload = new Queue<Instruction>(n);
+
+        const it = this.randomRegisterNumber();
+        const comparedTo = this.randomRegisterNumber();
+
+        const numberOfALUOperations =  n - 1;
+        for (let i = 0; i < numberOfALUOperations; ++i) {
+            const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
+            const result_reg = this.registerName(it);
+            const op1_reg = this.registerName(it);
+            const op2_reg = this.registerName(comparedTo);
+            typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
+        }
+
+        const branchOp = CPU.BRANCH_OPCODES[Math.floor(Math.random() * CPU.BRANCH_OPCODES.length)];
+        const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions
+        typicalWorkload.enqueue(new Instruction(branchOp, undefined,
+            this.registerName(it), this.registerName(comparedTo), branchTarget));
+        this.instructionBuffer.setPotentialJumpAddress(branchTarget);
 
         return typicalWorkload;
     }

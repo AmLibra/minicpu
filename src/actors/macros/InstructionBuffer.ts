@@ -10,7 +10,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
     private static readonly BUFFER_BASE_WIDTH: number = 0.6;
     private static readonly INNER_SPACING = 0.01;
-    private readonly noOpMesh: Mesh;
+    protected readonly noOpMesh: Mesh;
     private readonly bufferHighlightGeometry: PlaneGeometry;
 
     private readonly spacing: number;
@@ -21,10 +21,10 @@ export class InstructionBuffer extends ComputerChipMacro {
 
     protected readonly storedInstructions: Queue<Instruction>;
     protected readonly reversed: boolean;
-    private readonly horizontal: boolean;
+    protected readonly horizontal: boolean;
 
     protected readyToBeRead: boolean = false;
-    private readTimeout: number = 0;
+    protected readTimeout: number = 0;
     protected readonly noDelay: boolean;
 
     constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, noDelay: boolean = true, reversed: boolean = false,
@@ -60,7 +60,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (this.readTimeout > 0)
             return;
-        // highlight the first n instructions
+
         for (let i = 0; i < n; ++i)
             if (this.storedInstructions.get(i))
                 this.highlightBuffer(i);
@@ -98,6 +98,8 @@ export class InstructionBuffer extends ComputerChipMacro {
     }
 
     update(): void {
+        if (this.noDelay)
+            throw new Error("No delay instruction buffers do not need to be updated");
         if (this.readTimeout > 0 && this.storedInstructions.size() > 0) {
             --this.readTimeout;
             this.readyToBeRead = this.readTimeout <= 0;
@@ -127,7 +129,8 @@ export class InstructionBuffer extends ComputerChipMacro {
 
         if (this.storedInstructions.get(index)) {
             const color = this.storedInstructions.get(index).isMemoryOperation() ?
-                ComputerChipMacro.MEMORY_COLOR : ComputerChipMacro.ALU_COLOR;
+                ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
+                    ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
             return DrawUtils.buildTextMesh(this.storedInstructions.get(index).toString(), xOffset, yOffset,
                 ComputerChipMacro.TEXT_SIZE, color, true, this.horizontal ? Math.PI / 2 : 0
             );
@@ -158,12 +161,11 @@ export class InstructionBuffer extends ComputerChipMacro {
         }
 
         // Fill the empty spaces with noOpMesh
-        for (let i = this.size; i > this.size - nPositions; --i) {
-            const offsetIndex = i - 1;
-            this.liveMeshes[offsetIndex] = this.noOpMesh.clone()
-                .translateX(this.horizontal ? this.bufferMeshOffsets[offsetIndex] : this.position.x)
-                .translateY(this.horizontal ? this.position.y : this.bufferMeshOffsets[offsetIndex]);
-            this.scene.add(this.liveMeshes[offsetIndex]);
+        for (let i = this.size - 1; i > this.size - nPositions - 1; --i) {
+            this.liveMeshes[i] = this.noOpMesh.clone()
+                .translateX(this.horizontal ? this.bufferMeshOffsets[i] : this.position.x)
+                .translateY(this.horizontal ? this.position.y : this.bufferMeshOffsets[i]);
+            this.scene.add(this.liveMeshes[i]);
         }
     }
 
@@ -173,7 +175,8 @@ export class InstructionBuffer extends ComputerChipMacro {
 
         this.clearHighlights();
         const color = this.storedInstructions.get(index).isMemoryOperation() ?
-            ComputerChipMacro.MEMORY_COLOR : ComputerChipMacro.ALU_COLOR;
+            ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
+                ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
 
         const highlightMesh = new Mesh(this.bufferHighlightGeometry, color);
         highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
