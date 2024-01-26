@@ -21,9 +21,10 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     public setPotentialJumpAddress(address: number): void {
+        console.log("setting potential jump address to " + address)
         this.potentialJumpAddress = address;
         const localAddress = this.toLocalAddress(address);
-        if (localAddress < this.addressMeshes.length)
+        if (localAddress < this.addressMeshes.length && localAddress >= 0)
             this.highlightJumpAddress(localAddress);
     }
 
@@ -50,10 +51,14 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (!this.noDelay && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
 
-        console.log("fetching instruction at " + address)
 
-        if (this.potentialJumpAddress === address)
+        console.log( this.potentialJumpAddress + " ==? " + address)
+
+        if (this.potentialJumpAddress == address) {
             this.iterateMode = true;
+            console.log("iterate mode: " + this.iterateMode)
+        }
+
 
         const localAddress = this.toLocalAddress(address);
         const instruction = this.storedInstructions.get(localAddress);
@@ -71,18 +76,13 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     public clearJumpInstruction(jumpInstructionAddress: number): void {
-        console.log("clearing jump instruction at " + jumpInstructionAddress)
         if (this.iterateMode) {
             this.iterateMode = false;
             const localJumpInstructionAddress = this.toLocalAddress(jumpInstructionAddress);
-            console.log(localJumpInstructionAddress)
             const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddress);
-            console.log(localPotentialJumpAddress)
             const n = localJumpInstructionAddress - localPotentialJumpAddress;
-            console.log(this.storedInstructions)
-            for (let i = localPotentialJumpAddress; i < localJumpInstructionAddress; ++i)
+            for (let i = 0; i < n + 1; ++i)
                 this.storedInstructions.dequeue();
-            console.log(this.storedInstructions)
             this.shiftMeshesDown(n + 1);
             this.highlightedAddressMeshes.forEach(index => {this.addressMeshes[index].material = ComputerChipMacro.TEXT_COLOR;});
             this.highlightedAddressMeshes = [];
@@ -126,17 +126,17 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.scene.add(addressMesh);
         }
 
-        console.log(this.potentialJumpAddress)
         if (this.potentialJumpAddress < 0)
             return;
         const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddress);
-        if (localPotentialJumpAddress < this.addressMeshes.length)
+        if (localPotentialJumpAddress < this.addressMeshes.length && localPotentialJumpAddress >= 0)
             this.highlightJumpAddress(localPotentialJumpAddress);
     }
 
     protected highlightBuffer(index: number) {
         super.highlightBuffer(index);
-        this.highlightedBufferMeshes.push(index);
+        if (this.storedInstructions.get(index))
+            this.highlightedBufferMeshes.push(index);
     }
 
     clearHighlights() {
@@ -148,6 +148,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
             this.liveMeshes[index].material = color;
         });
+        this.highlightedBufferMeshes = [];
     }
 
     dispose() {
@@ -161,7 +162,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     private highlightJumpAddress(address: number) {
-        console.log(address)
         this.addressMeshes[address].material = ComputerChipMacro.BRANCH_COLOR;
         this.highlightedAddressMeshes.push(address);
     }
