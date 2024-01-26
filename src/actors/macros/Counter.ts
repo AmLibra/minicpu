@@ -9,6 +9,7 @@ export class Counter extends ComputerChipMacro {
     height: number = InstructionBuffer.BUFFER_HEIGHT;
 
     private readonly highlightGeometry: PlaneGeometry;
+    private highlighted: boolean = false;
 
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.3) {
         super(parent, xOffset, yOffset);
@@ -23,10 +24,14 @@ export class Counter extends ComputerChipMacro {
     public set(n: number): void {
         this.count = n;
         DrawUtils.updateText(this.liveMeshes[0], DrawUtils.toHex(this.count), true);
+        this.highlighted = true;
+        this.highlight();
     }
 
     public update(): void {
         DrawUtils.updateText(this.liveMeshes[0], DrawUtils.toHex(this.count++), true);
+        if (this.highlighted)
+            this.clearHighlights()
     }
 
     public initializeGraphics(): void {
@@ -42,5 +47,21 @@ export class Counter extends ComputerChipMacro {
     public dispose(): void {
         super.dispose();
         this.highlightGeometry.dispose();
+    }
+
+    private highlight() {
+        const highlightMesh = new Mesh(this.highlightGeometry, ComputerChipMacro.BRANCH_COLOR);
+        highlightMesh.position.set(this.position.x, this.position.y, 0);
+        this.highlightMeshes.push(highlightMesh);
+        this.scene.add(highlightMesh);
+        this.liveMeshes[0].material = ComputerChipMacro.COMPONENT_COLOR;
+        this.highlighted = true;
+    }
+
+    clearHighlights() {
+        super.clearHighlights();
+        this.highlighted = false;
+        if (this.liveMeshes[0])
+            this.liveMeshes[0].material = ComputerChipMacro.TEXT_COLOR;
     }
 }

@@ -85,8 +85,8 @@ export class App {
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 10, 4, 3)
-        const instructionMemory = new RAM([1.7, 0], this.scene, workingMemory, 10, 16)
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 5, 4, 3)
+        const instructionMemory = new RAM([1.7, 0], this.scene, workingMemory, 2.5, 16) // RAM speed must be STRICTLY slower than cpu speed by a factor of 2
         const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 5)
         this.cpu = cpu;
         this.cpu.setPipelined();

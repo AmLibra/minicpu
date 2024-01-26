@@ -86,12 +86,8 @@ export class Queue<T> {
         return this.items.splice(index, 1)[0];
     }
 
-    truncate(from: number, to: number): T[] | undefined {
-        if (from < 0 || from >= this.items.length || to < 0 || to >= this.items.length)
-            return; // Out of bounds
-        if (from > to)
-            return; // Invalid range
-        return this.items.splice(from, to - from + 1);
+    peek(): T | undefined {
+        return this.get(0);
     }
 
     moveTo(to: Queue<T>, count: number = this.size()): void {

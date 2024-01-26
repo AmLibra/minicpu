@@ -8,7 +8,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 
 export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
-    private static readonly BUFFER_BASE_WIDTH: number = 0.6;
+    private static readonly BUFFER_BASE_WIDTH: number = 0.8;
     private static readonly INNER_SPACING = 0.01;
     protected readonly noOpMesh: Mesh;
     private readonly bufferHighlightGeometry: PlaneGeometry;

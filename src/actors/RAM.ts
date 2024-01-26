@@ -22,7 +22,8 @@ export class RAM extends ComputerChip {
         this.workingMemory = workingMemory;
         this.size = size;
         this.instructionStream = new Queue<Instruction>(size * 2);
-        this.instructionBuffer  = new AddressedInstructionBuffer(this, size, RAM.ADDRESS_MARGIN * 0.6 + RAM.INNER_SPACING - RAM.CONTENTS_MARGIN, 0, false)
+        this.instructionBuffer  = new AddressedInstructionBuffer(this, size,
+            RAM.ADDRESS_MARGIN * 0.6 + RAM.INNER_SPACING - RAM.CONTENTS_MARGIN, 0, false)
         this.initializeGraphics();
     }
 

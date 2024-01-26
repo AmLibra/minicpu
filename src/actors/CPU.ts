@@ -240,7 +240,7 @@ export class CPU extends ComputerChip {
                 else if (instruction.isMemoryOperation())
                     this.memoryController.enqueue(this.decodeBuffer.dequeue());
                 else if (instruction.isBranch()) {
-                    if (Math.random() > 0.9) {
+                    if (Math.random() < 0.4) {
                         this.instructionFetcher.setProgramCounter(instruction.getAddress());
                         needFlush = true;
                     } else {

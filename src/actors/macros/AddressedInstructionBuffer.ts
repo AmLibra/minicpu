@@ -13,7 +13,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private iterateMode: boolean = false;
     private highlightedAddressMeshes: number[] = [];
     private highlightedBufferMeshes: number[] = [];
-    private potentialJumpAddress: number = -1;
+
+    private potentialJumpAddressQueue: Queue<number> = new Queue<number>();
     private requestedInstructionAddress: number = -1;
 
     public highestInstructionAddress(): number {
@@ -21,8 +22,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     public setPotentialJumpAddress(address: number): void {
-        console.log("setting potential jump address to " + address)
-        this.potentialJumpAddress = address;
+        this.potentialJumpAddressQueue.enqueue(address);
         const localAddress = this.toLocalAddress(address);
         if (localAddress < this.addressMeshes.length && localAddress >= 0)
             this.highlightJumpAddress(localAddress);
@@ -51,27 +51,21 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (!this.noDelay && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
 
-
-        console.log( this.potentialJumpAddress + " ==? " + address)
-
-        if (this.potentialJumpAddress == address) {
+        if (this.potentialJumpAddressQueue.peek() == address)
             this.iterateMode = true;
-            console.log("iterate mode: " + this.iterateMode)
-        }
-
 
         const localAddress = this.toLocalAddress(address);
         const instruction = this.storedInstructions.get(localAddress);
         if (!instruction)
             return;
 
+        this.clearHighlights();
         if (!this.iterateMode) {
             this.storedInstructions.remove(localAddress);
             this.shiftMeshesDown(1)
         }
         this.readyToBeRead = false;
         this.requestedInstructionAddress = -1;
-        this.clearHighlights();
         return instruction;
     }
 
@@ -79,15 +73,15 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (this.iterateMode) {
             this.iterateMode = false;
             const localJumpInstructionAddress = this.toLocalAddress(jumpInstructionAddress);
-            const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddress);
+            const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddressQueue.peek());
             const n = localJumpInstructionAddress - localPotentialJumpAddress;
             for (let i = 0; i < n + 1; ++i)
                 this.storedInstructions.dequeue();
             this.shiftMeshesDown(n + 1);
             this.highlightedAddressMeshes.forEach(index => {this.addressMeshes[index].material = ComputerChipMacro.TEXT_COLOR;});
             this.highlightedAddressMeshes = [];
+            this.potentialJumpAddressQueue.dequeue();
         }
-        this.potentialJumpAddress = -1;
     }
 
     initializeGraphics() {
@@ -126,9 +120,9 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.scene.add(addressMesh);
         }
 
-        if (this.potentialJumpAddress < 0)
+        if (this.potentialJumpAddressQueue.peek() < 0)
             return;
-        const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddress);
+        const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddressQueue.peek());
         if (localPotentialJumpAddress < this.addressMeshes.length && localPotentialJumpAddress >= 0)
             this.highlightJumpAddress(localPotentialJumpAddress);
     }
@@ -142,6 +136,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     clearHighlights() {
         super.clearHighlights();
         this.highlightedBufferMeshes.forEach(index => {
+            if (!this.storedInstructions.get(index)) return;
+
              const color = this.storedInstructions.get(index).isMemoryOperation() ?
             ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
                 ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
