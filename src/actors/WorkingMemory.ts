@@ -1,7 +1,7 @@
 import {ComputerChip} from "./ComputerChip";
 import {Mesh, PlaneGeometry, Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
-import {CPU} from "./CPU";
+import {SISDCore} from "./SISDCore";
 import {DataCellArray} from "./macros/DataCellArray";
 
 export class WorkingMemory extends ComputerChip {
@@ -26,8 +26,8 @@ export class WorkingMemory extends ComputerChip {
         return this.bankOf(address).isReady();
     }
 
-    public askForMemoryOperation(cpu: CPU, address: number): void {
-        this.bankOf(address).askForMemoryOperation(cpu, address % this.bankOf(address).getSize());
+    public askForMemoryOperation(chip: ComputerChip, address: number): void {
+        this.bankOf(address).askForMemoryOperation(chip, address % this.bankOf(address).getSize());
     }
 
     public read(address: number): number {
@@ -46,12 +46,6 @@ export class WorkingMemory extends ComputerChip {
         this.dataBanks.forEach(dataBank => dataBank.update());
     }
 
-    computeMeshProperties(): void {
-    }
-
-    drawUpdate(): void {
-    }
-
     private initializeGraphics(): void {
         const tmpDataBank = new DataCellArray(this, 0, 0, this.numberOfWords, this.wordSize);
         const bodyHeight = tmpDataBank.height + WorkingMemory.CONTENTS_MARGIN * 2 + WorkingMemory.INNER_SPACING +
@@ -62,7 +56,7 @@ export class WorkingMemory extends ComputerChip {
         const startOffset = -bodyWidth / 2 + tmpDataBank.width / 2 + WorkingMemory.CONTENTS_MARGIN;
         for (let i = 0; i < this.numberOfBanks; i++) {
             const dataBank = new DataCellArray(this, startOffset + i * (tmpDataBank.width + WorkingMemory.BANK_SPACING),
-                (- WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2 , this.numberOfWords, this.wordSize, `Bank ${i}`);
+                (- WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2 , this.numberOfWords, this.wordSize, false,`Bank ${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }

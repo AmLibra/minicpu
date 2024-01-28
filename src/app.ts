@@ -1,8 +1,8 @@
 import {OrthographicCamera, Scene, WebGLRenderer} from "three";
 import {DrawUtils} from "./DrawUtils";
-import {CPU} from "./actors/CPU";
+import {SISDCore} from "./actors/SISDCore";
 import {ComputerChip} from "./actors/ComputerChip";
-import {RAM} from "./actors/RAM";
+import {InstructionMemory} from "./actors/InstructionMemory";
 import {WorkingMemory} from "./actors/WorkingMemory";
 import {HUD} from "./HUD";
 
@@ -17,7 +17,7 @@ export class App {
     renderer: WebGLRenderer;
     camera: OrthographicCamera;
     paused: boolean = false;
-    cpu: CPU;
+    cpu: SISDCore;
     gameActors: ComputerChip[] = []
 
     private hud: HUD;
@@ -70,10 +70,7 @@ export class App {
         setInterval(() => {
                 if (this.paused)
                     return;
-                this.gameActors.forEach(gameActor => {
-                    gameActor.update()
-                    gameActor.drawUpdate()
-                });
+                this.gameActors.forEach(gameActor => gameActor.update());
                 this.hud.update()
             },
             ComputerChip.ONE_SECOND / this.cpu.getClockFrequency());
@@ -85,9 +82,9 @@ export class App {
     }
 
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 5, 4, 3)
-        const instructionMemory = new RAM([1.7, 0], this.scene, workingMemory, 2.5, 16) // RAM speed must be STRICTLY slower than cpu speed by a factor of 2
-        const cpu = new CPU([0, 0], this.scene, instructionMemory, workingMemory, 5)
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 1, 4, 3)
+        const instructionMemory = new InstructionMemory([1.7, 0], this.scene, workingMemory, 2.5, 16) // InstructionMemory speed must be STRICTLY slower than cpu speed by a factor of 2
+        const cpu = new SISDCore([0, 0], this.scene, instructionMemory, workingMemory, 5)
         this.cpu = cpu;
         this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);

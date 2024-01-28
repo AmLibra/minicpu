@@ -1,6 +1,6 @@
 import {Mesh, PlaneGeometry, Scene} from "three";
 import {Instruction} from "../components/Instruction";
-import {CPU} from "./CPU";
+import {SISDCore} from "./SISDCore";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
@@ -9,7 +9,7 @@ import {InstructionBuffer} from "./macros/InstructionBuffer";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
 import {floor} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
-export class RAM extends ComputerChip {
+export class InstructionMemory extends ComputerChip {
     public readonly size: number;
     private readonly instructionBuffer: AddressedInstructionBuffer;
     private readonly instructionStream: Queue<Instruction>;
@@ -23,7 +23,7 @@ export class RAM extends ComputerChip {
         this.size = size;
         this.instructionStream = new Queue<Instruction>(size * 2);
         this.instructionBuffer  = new AddressedInstructionBuffer(this, size,
-            RAM.ADDRESS_MARGIN * 0.6 + RAM.INNER_SPACING - RAM.CONTENTS_MARGIN, 0, false)
+            InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN, 0, false)
         this.initializeGraphics();
     }
 
@@ -32,7 +32,7 @@ export class RAM extends ComputerChip {
     }
 
     displayName(): string {
-        return "RAM";
+        return "InstructionMemory";
     }
 
     update() {
@@ -41,7 +41,7 @@ export class RAM extends ComputerChip {
             let hasLoop = false;
             let n = 0;
             while (this.instructionStream.size() < this.instructionStream.maxSize) {
-                if (!hasLoop && Math.random() < 0.6) {
+                if (Math.random() < 0.6) {
                     this.typicalForLoop(n, 4).moveTo(this.instructionStream);
                     hasLoop = true;
                     n += 4;
@@ -53,19 +53,13 @@ export class RAM extends ComputerChip {
             }
         }
 
-        if (Math.random() < 0.6)
+        if (Math.random() < 0.2)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
-    computeMeshProperties(): void {
-    }
-
-    drawUpdate(): void {
-    }
-
     private initializeGraphics(): void {
-        const bodyHeight = this.instructionBuffer.height + RAM.CONTENTS_MARGIN * 2;
-        const bodyWidth = this.instructionBuffer.width + RAM.CONTENTS_MARGIN * 2 + RAM.ADDRESS_MARGIN;
+        const bodyHeight = this.instructionBuffer.height + InstructionMemory.CONTENTS_MARGIN * 2;
+        const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2 + InstructionMemory.ADDRESS_MARGIN;
         this.buildBodyMesh(bodyWidth, bodyHeight);
 
         this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));
@@ -95,7 +89,7 @@ export class RAM extends ComputerChip {
         const numberOfALUOperations = minNumberOfALUOperations
             + Math.floor(Math.random() * (instructionsLeft - minNumberOfALUOperations - 2));
         for (let i = 0; i < numberOfALUOperations; ++i) {
-            const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
+            const randomOpcode = SISDCore.ALU_OPCODES[Math.floor(Math.random() * SISDCore.ALU_OPCODES.length)];
             const randomRegisterNumber = this.randomRegisterNumber();
             const result_reg = this.registerName(randomRegisterNumber);
             const op1_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
@@ -126,14 +120,14 @@ export class RAM extends ComputerChip {
 
         const numberOfALUOperations =  n - 1;
         for (let i = 0; i < numberOfALUOperations; ++i) {
-            const randomOpcode = CPU.ALU_OPCODES[Math.floor(Math.random() * CPU.ALU_OPCODES.length)];
+            const randomOpcode = SISDCore.ALU_OPCODES[Math.floor(Math.random() * SISDCore.ALU_OPCODES.length)];
             const result_reg = this.registerName(it);
             const op1_reg = this.registerName(it);
             const op2_reg = this.registerName(comparedTo);
             typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
         }
 
-        const branchOp = CPU.BRANCH_OPCODES[Math.floor(Math.random() * CPU.BRANCH_OPCODES.length)];
+        const branchOp = SISDCore.BRANCH_OPCODES[Math.floor(Math.random() * SISDCore.BRANCH_OPCODES.length)];
         const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions
         typicalWorkload.enqueue(new Instruction(branchOp, undefined,
             this.registerName(it), this.registerName(comparedTo), branchTarget));
@@ -147,14 +141,14 @@ export class RAM extends ComputerChip {
     }
 
     private randomRegisterNumber(): number {
-        return Math.floor(Math.random() * (CPU.REGISTER_SIZE - 1));
+        return Math.floor(Math.random() * (SISDCore.REGISTER_SIZE - 1));
     }
 
     private randomConsecutiveRegisterNumbers(n: number): number[] {
         const randomRegisterNumber = this.randomRegisterNumber();
         const randomRegisterNumbers: number[] = [];
         for (let i = 0; i < n; ++i)
-            randomRegisterNumbers.push((randomRegisterNumber + i) % CPU.REGISTER_SIZE);
+            randomRegisterNumbers.push((randomRegisterNumber + i) % SISDCore.REGISTER_SIZE);
         return randomRegisterNumbers;
     }
 

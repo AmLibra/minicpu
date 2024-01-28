@@ -8,7 +8,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 
 export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
-    private static readonly BUFFER_BASE_WIDTH: number = 0.8;
+    protected static readonly BUFFER_BASE_WIDTH: number = 0.8;
     private static readonly INNER_SPACING = 0.01;
     protected readonly noOpMesh: Mesh;
     private readonly bufferHighlightGeometry: PlaneGeometry;
@@ -120,7 +120,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.noOpMesh.geometry.dispose();
     }
 
-    protected buildBufferTextMesh(index: number): Mesh {
+    protected buildBufferTextMesh(index: number, replaceString?: string): Mesh {
         if (index < 0 || index >= this.size)
             throw new Error("Index out of bounds");
 
@@ -131,7 +131,8 @@ export class InstructionBuffer extends ComputerChipMacro {
             const color = this.storedInstructions.get(index).isMemoryOperation() ?
                 ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
                     ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
-            return DrawUtils.buildTextMesh(this.storedInstructions.get(index).toString(), xOffset, yOffset,
+            return DrawUtils.buildTextMesh( (replaceString ? replaceString : this.storedInstructions.get(index).toString())
+                , xOffset, yOffset,
                 ComputerChipMacro.TEXT_SIZE, color, true, this.horizontal ? Math.PI / 2 : 0
             );
         } else { // using instancing to save memory

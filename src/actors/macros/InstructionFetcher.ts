@@ -16,6 +16,7 @@ export class InstructionFetcher extends ComputerChipMacro {
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, instructionMemory: AddressedInstructionBuffer, width: number = 0.9) {
         super(parent, xOffset, yOffset);
         this.instructionMemory = instructionMemory;
+        this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
         this.programCounter = new Counter(parent, xOffset, yOffset);
         this.programCounter.dispose();
@@ -26,8 +27,9 @@ export class InstructionFetcher extends ComputerChipMacro {
             false, bufferWidth)
     }
 
-    public read(): Queue<Instruction> {
-        return this.instructionBuffer.read(1);
+    public read(): Instruction {
+        const instruction = this.instructionBuffer.read(1);
+        return instruction ? instruction.dequeue() : null;
     }
 
     public setProgramCounter(n: number): void {

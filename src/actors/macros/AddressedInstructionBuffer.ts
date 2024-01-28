@@ -2,7 +2,7 @@ import {InstructionBuffer} from "./InstructionBuffer";
 import {Mesh} from "three";
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {DrawUtils} from "../../DrawUtils";
-import {RAM} from "../RAM";
+import {InstructionMemory} from "../InstructionMemory";
 import {Instruction} from "../../components/Instruction";
 import {ComputerChip} from "../ComputerChip";
 import {Queue} from "../../components/Queue";
@@ -11,7 +11,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private addressMeshes: Mesh[] = [];
     private addressReached: number;
     private iterateMode: boolean = false;
-    private highlightedAddressMeshes: number[] = [];
     private highlightedBufferMeshes: number[] = [];
 
     private potentialJumpAddressQueue: Queue<number> = new Queue<number>();
@@ -71,16 +70,13 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
     public clearJumpInstruction(jumpInstructionAddress: number): void {
         if (this.iterateMode) {
+            this.clearHighlights();
             this.iterateMode = false;
-            const localJumpInstructionAddress = this.toLocalAddress(jumpInstructionAddress);
-            const localPotentialJumpAddress = this.toLocalAddress(this.potentialJumpAddressQueue.peek());
-            const n = localJumpInstructionAddress - localPotentialJumpAddress;
+            const n = this.toLocalAddress(jumpInstructionAddress) - this.toLocalAddress(this.potentialJumpAddressQueue.peek());
             for (let i = 0; i < n + 1; ++i)
                 this.storedInstructions.dequeue();
             this.shiftMeshesDown(n + 1);
-            this.highlightedAddressMeshes.forEach(index => {this.addressMeshes[index].material = ComputerChipMacro.TEXT_COLOR;});
-            this.highlightedAddressMeshes = [];
-            this.potentialJumpAddressQueue.dequeue();
+            this.potentialJumpAddressQueue.dequeue()
         }
     }
 
@@ -90,7 +86,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         super.initializeGraphics();
         for (let i = 0; i < this.size; i++) {
             const addressMesh =
-                DrawUtils.buildTextMesh(DrawUtils.toHex(i), this.position.x - this.width / 2 - RAM.ADDRESS_MARGIN * 0.6,
+                DrawUtils.buildTextMesh(DrawUtils.toHex(i), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
                     ComputerChipMacro.TEXT_COLOR, true)
             this.addressMeshes[i] = addressMesh;
@@ -113,7 +109,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
         for (let i = this.size - 1; i > this.size - nPositions - 1; --i) {
             const addressMesh =
-                DrawUtils.buildTextMesh(DrawUtils.toHex(this.addressReached++), this.position.x - this.width / 2 - RAM.ADDRESS_MARGIN * 0.6,
+                DrawUtils.buildTextMesh(DrawUtils.toHex(this.addressReached++), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
                     ComputerChipMacro.TEXT_COLOR, true)
             this.addressMeshes[i] = addressMesh;
@@ -138,11 +134,9 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         this.highlightedBufferMeshes.forEach(index => {
             if (!this.storedInstructions.get(index)) return;
 
-             const color = this.storedInstructions.get(index).isMemoryOperation() ?
-            ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
-                ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
-
-            this.liveMeshes[index].material = color;
+            this.liveMeshes[index].material = this.storedInstructions.get(index).isMemoryOperation() ?
+                ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
+                    ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
         });
         this.highlightedBufferMeshes = [];
     }
@@ -159,7 +153,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
     private highlightJumpAddress(address: number) {
         this.addressMeshes[address].material = ComputerChipMacro.BRANCH_COLOR;
-        this.highlightedAddressMeshes.push(address);
     }
 
     private toLocalAddress(address: number): number {

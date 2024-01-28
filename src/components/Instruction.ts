@@ -1,4 +1,4 @@
-import {CPU} from "../actors/CPU";
+import {SISDCore} from "../actors/SISDCore";
 import {DrawUtils} from "../DrawUtils";
 
 /**
@@ -35,7 +35,7 @@ export class Instruction {
     constructor(opcode: string, result_reg: string, op1_reg?: string, op2_reg?: string, address?: number) {
         this.opcode = opcode;
         this.resultReg = result_reg;
-        if (CPU.MEMORY_OPCODES.includes(opcode)) {
+        if (SISDCore.MEMORY_OPCODES.includes(opcode)) {
             if (address === undefined)
                 throw new Error("Missing memory address for MEMORY operation")
             if (op1_reg !== undefined || op2_reg !== undefined)
@@ -43,7 +43,7 @@ export class Instruction {
 
             this.type = InstructionType.MEMORY
             this.address = address;
-        } else if (CPU.ALU_OPCODES.includes(opcode)) {
+        } else if (SISDCore.ALU_OPCODES.includes(opcode)) {
             if (op1_reg === undefined || op2_reg === undefined)
                 throw new Error("Missing operand register for ALU operation")
             if (address !== undefined)
@@ -52,7 +52,7 @@ export class Instruction {
             this.type = InstructionType.ALU
             this.op1Reg = op1_reg;
             this.op2Reg = op2_reg;
-        } else if (CPU.BRANCH_OPCODES.includes(opcode)) {
+        } else if (SISDCore.BRANCH_OPCODES.includes(opcode)) {
             if (op1_reg === undefined || op2_reg === undefined)
                 throw new Error("Missing operand register for BRANCH operation")
             if (address === undefined)
@@ -91,7 +91,7 @@ export class Instruction {
      */
     public toString(): string {
         if (this.type == InstructionType.MEMORY)
-            return (this.opcode == "STORE" ? "ST" : "LD") + " " + this.resultReg + ",[" + DrawUtils.toHex(this.address) + "]";
+            return this.opcode + " " + this.resultReg + ",[" + DrawUtils.toHex(this.address) + "]";
         else if (this.type == InstructionType.ALU)
             return this.opcode + " " + this.resultReg + "," + this.op1Reg + "," + this.op2Reg;
         else if (this.type == InstructionType.BRANCH)

@@ -1,6 +1,6 @@
 import {Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2} from "three";
 import {DrawUtils} from "./DrawUtils";
-import {CPU} from "./actors/CPU";
+import {SISDCore} from "./actors/SISDCore";
 import {App} from "./app";
 import {ComputerChip} from "./actors/ComputerChip";
 
@@ -35,7 +35,7 @@ export class HUD {
     private totalExecutedInstructions: Mesh;
 
     private scene: Scene;
-    private cpu: CPU;
+    private cpu: SISDCore;
     private readonly camera: OrthographicCamera;
     private app: App;
     private selectedActor: ComputerChip;

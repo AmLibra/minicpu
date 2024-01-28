@@ -3,6 +3,7 @@ import {ComputerChip} from "../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
 import {DrawUtils} from "../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
+import {ALU} from "./ALU";
 
 export class DataCellArray extends ComputerChipMacro {
     protected static readonly REGISTER_SIDE_LENGTH: number = 0.11;
@@ -16,19 +17,23 @@ export class DataCellArray extends ComputerChipMacro {
     private readonly memoryArray: number[];
     private readonly bankName?: string;
 
+    private readonly noDelay: boolean;
     private ready: boolean = false;
     private highlightedMemoryCell: number = 0;
     private memoryOperationTimeout: number = 0;
 
+    private initialValue: number = 7;
+
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4,
-                bankName?: string) {
+                noDelay: boolean = false, bankName?: string) {
         super(parent, xOffset, yOffset);
         this.numberOfWords = numberOfWords;
         this.wordSize = wordSize;
+        this.noDelay = noDelay;
         this.bankName = bankName;
         this.memoryArray = new Array(this.numberOfWords * this.wordSize);
         for (let i = 0; i < this.memoryArray.length; i++)
-            this.memoryArray[i] = 0;
+            this.memoryArray[i] = this.initialValue;
         this.width = DataCellArray.REGISTER_SIDE_LENGTH * this.numberOfWords
             + DataCellArray.INNER_SPACING * (this.numberOfWords - 1);
         this.height = DataCellArray.REGISTER_SIDE_LENGTH * this.wordSize
@@ -42,10 +47,14 @@ export class DataCellArray extends ComputerChipMacro {
     }
 
     public isReady(): boolean {
+        if (this.noDelay)
+            throw new Error("No delay data arrays are always ready");
         return this.ready;
     }
 
     public askForMemoryOperation(chip: ComputerChip, address: number): void {
+        if (this.noDelay)
+            throw new Error("There is no need to ask for memory operations when there is no delay");
         if (this.memoryOperationTimeout > 0)
             return;
         this.ready = false;
@@ -61,12 +70,14 @@ export class DataCellArray extends ComputerChipMacro {
         return this.memoryArray[address];
     }
 
-    public write(address: number, value: number): void {
+    public write(address: number, value: number, chipMacro?: ComputerChipMacro): void {
         this.ensureAddressIsInBounds(address);
         this.checkIfReady();
         this.memoryArray[address] = value;
         DrawUtils.updateText(this.liveMeshes[address], value.toString(), true);
         this.clearHighlights();
+        if (this.noDelay)
+            this.highlightCell(address, chipMacro);
         this.ready = false;
     }
 
@@ -75,6 +86,8 @@ export class DataCellArray extends ComputerChipMacro {
             this.memoryOperationTimeout--;
             this.ready = this.memoryOperationTimeout <= 0;
         }
+        if (this.noDelay)
+            this.clearHighlights();
     }
 
     initializeGraphics(): void {
@@ -113,7 +126,7 @@ export class DataCellArray extends ComputerChipMacro {
         if (index < 0 || index >= this.memoryArray.length)
             throw new Error("Index out of bounds");
 
-        if (this.memoryArray[index] == 0) {
+        if (this.memoryArray[index] == this.initialValue) {
             const position = this.cellPositions[index];
             const textMesh = DrawUtils.buildTextMesh(
                 this.memoryArray[index].toString(), position[0], position[1] - DataCellArray.REGISTER_SIDE_LENGTH / 2 + DrawUtils.baseTextHeight / 2
@@ -124,13 +137,13 @@ export class DataCellArray extends ComputerChipMacro {
             throw new Error("No data to display");
     }
 
-    private highlightCell(index: number): void {
+    private highlightCell(index: number, chipMacro?: ComputerChipMacro): void {
         if (index < 0 || index >= this.memoryArray.length)
             throw new Error("Index out of bounds");
 
         this.clearHighlights();
-
-        const highlightMesh = new Mesh(this.cellHighlightGeometry, ComputerChipMacro.MEMORY_COLOR);
+        const color = chipMacro && chipMacro instanceof ALU ? ComputerChipMacro.ALU_COLOR : ComputerChipMacro.MEMORY_COLOR
+        const highlightMesh = new Mesh(this.cellHighlightGeometry, color);
         const position = this.cellPositions[index];
         highlightMesh.position.set(position[0], position[1], 0);
         this.highlightedMemoryCell = index;
@@ -179,7 +192,7 @@ export class DataCellArray extends ComputerChipMacro {
     }
 
     private checkIfReady(): void {
-        if (!this.ready)
+        if (!this.noDelay && !this.ready)
             throw new Error("Data array from " + this.parent.displayName() + " is not ready to be read");
     }
 }
