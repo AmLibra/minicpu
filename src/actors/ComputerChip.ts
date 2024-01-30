@@ -22,7 +22,7 @@ export abstract class ComputerChip {
 
     protected static readonly CONTENTS_MARGIN = 0.03;
     protected static readonly INNER_SPACING = 0.01;
-    protected static readonly WORD_SIZE = 6; // bytes
+    protected static readonly WORD_SIZE = 4; // bytes
     static readonly MAX_BYTE_VALUE = 8;
 
     protected static readonly BODY_COLOR: MeshBasicMaterial =

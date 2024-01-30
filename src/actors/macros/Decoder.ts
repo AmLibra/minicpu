@@ -37,19 +37,17 @@ export class Decoder extends InstructionBuffer {
         this.liveMeshes[0] = mesh;
         this.scene.add(mesh);
 
-
-            if (instruction.isArithmetic())
-                this.alu.compute(this.storedInstructions.dequeue());
-            else if (instruction.isMemoryOperation()) {
-                this.io.processIO(this.storedInstructions.dequeue());
-            } else if (instruction.isBranch()) {
-                if (Math.random() < 0.4)
-                    this.fetcher.setProgramCounter(instruction.getAddress());
-                else
-                    this.fetcher.notifyBranchSkipped();
-                this.storedInstructions.dequeue();
-            }
-
+        if (instruction.isArithmetic())
+            this.alu.compute(this.storedInstructions.dequeue());
+        else if (instruction.isMemoryOperation()) {
+            this.io.processIO(this.storedInstructions.dequeue());
+        } else if (instruction.isBranch()) {
+            if (Math.random() < 0.4)
+                this.fetcher.setProgramCounter(instruction.getAddress());
+            else
+                this.fetcher.notifyBranchSkipped();
+            this.storedInstructions.dequeue();
+        }
     }
 
     update() {

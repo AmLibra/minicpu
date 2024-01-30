@@ -1,7 +1,6 @@
 import {Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
-import {Instruction} from "../components/Instruction";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
@@ -139,27 +138,36 @@ export class SISDCore extends ComputerChip {
     }
 
     private initializeGraphics(): void {
-        const buffersWidth = 1;
-        const ioBufferHeight = 0.4;
-        const bodyHeight: number = ioBufferHeight + SISDCore.CONTENTS_MARGIN * 2;
-          const ioInterfaceWidth = new IOInterface(this, this.registers, this.workingMemory).width;
-        const bodyWidth: number = buffersWidth + ioInterfaceWidth + SISDCore.INNER_SPACING_L + SISDCore.CONTENTS_MARGIN * 2;
-        this.registers = new DataCellArray(this, - bodyWidth / 2
-            +  new DataCellArray(this, 0,0, SISDCore.WORD_SIZE, SISDCore.WORDS).width / 2
-            + SISDCore.INNER_SPACING_L + SISDCore.CONTENTS_MARGIN + ioInterfaceWidth
+        const ioBufferWidth = 0.4;
+        const ioInterfaceWidth = new IOInterface(this, this.registers, this.workingMemory).width;
+        const aluWidth = new ALU(this, this.registers).width;
+        const bodyWidth: number = ioBufferWidth + aluWidth + new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width
+            + SISDCore.INNER_SPACING_L * 2
+            + SISDCore.CONTENTS_MARGIN * 2;
+        const buffersWidth = bodyWidth - 2 * SISDCore.CONTENTS_MARGIN;
+
+        const bodyHeight: number = new ALU(this, this.registers).height * 3 + SISDCore.INNER_SPACING_L * 2
+            + SISDCore.CONTENTS_MARGIN * 2;
+        this.registers = new DataCellArray(this, bodyWidth / 2
+            - new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width / 2
+            - SISDCore.INNER_SPACING_L - SISDCore.CONTENTS_MARGIN - aluWidth
             , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN, SISDCore.WORD_SIZE, SISDCore.WORDS, true);
 
-        this.IOInterface = new IOInterface(this, this.registers, this.workingMemory, -bodyWidth / 2 + ioInterfaceWidth / 2 + SISDCore.CONTENTS_MARGIN
-            , 0, ioBufferHeight);
+        this.IOInterface = new IOInterface(this, this.registers, this.workingMemory,
+            bodyWidth / 2
+            - ioBufferWidth / 2
+            - new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width
+            - SISDCore.INNER_SPACING_L * 2 - SISDCore.CONTENTS_MARGIN - aluWidth
+            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN, ioBufferWidth, false);
 
-        this.instructionFetcher = new InstructionFetcher(this, bodyWidth / 2 - buffersWidth / 2  - SISDCore.CONTENTS_MARGIN,
-             -bodyHeight / 2 + ioInterfaceWidth / 2 + SISDCore.CONTENTS_MARGIN
+        this.instructionFetcher = new InstructionFetcher(this, 0,
+            -bodyHeight / 2 + ioInterfaceWidth / 2 + SISDCore.CONTENTS_MARGIN
             , this.instructionMemory.getInstructionBuffer(), buffersWidth);
 
         this.alu = new ALU(this, this.registers, bodyWidth / 2 - new ALU(this, this.registers).width / 2 - SISDCore.CONTENTS_MARGIN
             , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN);
         this.decoder = new Decoder(this, this.registers, this.instructionFetcher, this.alu, this.IOInterface,
-            bodyWidth / 2 - buffersWidth / 2  - SISDCore.CONTENTS_MARGIN, 0, buffersWidth);
+            0, 0, buffersWidth);
 
         this.instructionFetcher.initializeGraphics();
         this.registers.initializeGraphics();
@@ -170,7 +178,7 @@ export class SISDCore extends ComputerChip {
         this.buildBodyMesh(bodyWidth, bodyHeight);
         this.drawCPUPins();
     }
-    
+
     private updateRetiredInstructionCounters(): void {
         if (this.previousRetiredInstructionCounts.isFull())
             this.previousRetiredInstructionCounts.dequeue();
