@@ -1,28 +1,18 @@
-import {SISDCore} from "../actors/SISDCore";
-import {DrawUtils} from "../DrawUtils";
+import { SISDProcessor } from "../actors/SISDProcessor";
+import { DrawUtils } from "../DrawUtils";
 
 /**
- * Instruction types:
- * - ALU
- * - MEMORY
+ * Enum for instruction types.
  */
 enum InstructionType {
-    ALU,
-    MEMORY,
-    BRANCH
+    ALU = "ALU",
+    MEMORY = "MEMORY",
+    BRANCH = "BRANCH"
 }
 
 /**
- * Instruction class
- *
- * @class Instruction
- *
- * @param {string} opcode - The instruction opcode
- * @param {string} result_reg - The instruction result register
- * @param {string} op1_reg - The instruction operand 1 register (only for ALU operations)
- * @param {string} op2_reg - The instruction operand 2 register (only for ALU operations)
- * @param {number} address - The instruction memory address (only for memory operations)
- * @param {InstructionType} type - The instruction type
+ * Represents an instruction in the processor simulation.
+ * It supports different types of instructions including ALU, MEMORY, and BRANCH operations.
  */
 export class Instruction {
     private readonly opcode: string;
@@ -32,112 +22,104 @@ export class Instruction {
     private readonly address: number;
     private readonly type: InstructionType;
 
-    constructor(opcode: string, result_reg: string, op1_reg?: string, op2_reg?: string, address?: number) {
+    /**
+     * Creates an instruction instance.
+     *
+     * @param {string} opcode - The operation code of the instruction.
+     * @param {string} resultReg - The name of the register where the result will be stored.
+     * @param {string} [op1Reg] - The first operand register (for ALU and BRANCH operations).
+     * @param {string} [op2Reg] - The second operand register (for ALU and BRANCH operations).
+     * @param {number} [address] - The memory address involved in the operation (for MEMORY and BRANCH operations).
+     * @throws {Error} If there are missing or extraneous parameters for a given opcode.
+     */
+    constructor(opcode: string, resultReg: string, op1Reg?: string, op2Reg?: string, address?: number) {
         this.opcode = opcode;
-        this.resultReg = result_reg;
-        if (SISDCore.MEMORY_OPCODES.includes(opcode)) {
-            if (address === undefined)
-                throw new Error("Missing memory address for MEMORY operation")
-            if (op1_reg !== undefined || op2_reg !== undefined)
-                throw new Error("Cannot have operand registers for MEMORY operation")
+        this.resultReg = resultReg;
 
-            this.type = InstructionType.MEMORY
-            this.address = address;
-        } else if (SISDCore.ALU_OPCODES.includes(opcode)) {
-            if (op1_reg === undefined || op2_reg === undefined)
-                throw new Error("Missing operand register for ALU operation")
-            if (address !== undefined)
-                throw new Error("Cannot have address for ALU operation")
-
-            this.type = InstructionType.ALU
-            this.op1Reg = op1_reg;
-            this.op2Reg = op2_reg;
-        } else if (SISDCore.BRANCH_OPCODES.includes(opcode)) {
-            if (op1_reg === undefined || op2_reg === undefined)
-                throw new Error("Missing operand register for BRANCH operation")
-            if (address === undefined)
-                throw new Error("Missing address for BRANCH operation")
-
-            this.type = InstructionType.BRANCH
-            this.op1Reg = op1_reg;
-            this.op2Reg = op2_reg;
-            this.address = address;
+        if (SISDProcessor.MEMORY_OPCODES.includes(opcode)) {
+            this.validateMemoryOperation(op1Reg, op2Reg, address);
+            this.type = InstructionType.MEMORY;
+            this.address = address!;
+        } else if (SISDProcessor.ALU_OPCODES.includes(opcode)) {
+            this.validateAluOperation(op1Reg, op2Reg, address);
+            this.type = InstructionType.ALU;
+            this.op1Reg = op1Reg!;
+            this.op2Reg = op2Reg!;
+        } else if (SISDProcessor.BRANCH_OPCODES.includes(opcode)) {
+            this.validateBranchOperation(op1Reg, op2Reg, address);
+            this.type = InstructionType.BRANCH;
+            this.op1Reg = op1Reg!;
+            this.op2Reg = op2Reg!;
+            this.address = address!;
+        } else {
+            throw new Error(`Invalid opcode: ${opcode}`);
         }
     }
 
     /**
-     * Returns true if the instruction is a memory operation
+     * Checks if this instruction is a memory operation.
+     *
+     * @returns {boolean} True if the instruction is a memory operation, false otherwise.
      */
     public isMemoryOperation(): boolean {
-        return this.type == InstructionType.MEMORY
+        return this.type === InstructionType.MEMORY;
     }
 
     /**
-     * Returns true if the instruction is an arithmetic operation
+     * Checks if this instruction is an ALU operation.
+     *
+     * @returns {boolean} True if the instruction is an ALU operation, false otherwise.
      */
     public isArithmetic(): boolean {
-        return this.type == InstructionType.ALU
+        return this.type === InstructionType.ALU;
     }
 
     /**
-     * Returns true if the instruction is a branch operation
+     * Checks if this instruction is a branch operation.
+     *
+     * @returns {boolean} True if the instruction is a branch operation, false otherwise.
      */
     public isBranch(): boolean {
-        return this.type == InstructionType.BRANCH
+        return this.type === InstructionType.BRANCH;
     }
 
     /**
-     * Used to display the instruction in the UI
+     * Returns a string representation of the instruction.
+     *
+     * @returns {string} The string representation.
      */
     public toString(): string {
-        if (this.type == InstructionType.MEMORY)
-            return this.opcode + " " + this.resultReg + ",[" + DrawUtils.toHex(this.address) + "]";
-        else if (this.type == InstructionType.ALU)
-            return this.opcode + " " + this.resultReg + "," + this.op1Reg + "," + this.op2Reg;
-        else if (this.type == InstructionType.BRANCH)
-            return this.opcode + " " + this.op1Reg + "," + this.op2Reg + "," + DrawUtils.toHex(this.address);
-        else
-            throw new Error("Invalid instruction type");
+        switch (this.type) {
+            case InstructionType.MEMORY:
+                return `${this.opcode} ${this.resultReg},[${DrawUtils.toHex(this.address)}]`;
+            case InstructionType.ALU:
+                return `${this.opcode} ${this.resultReg},${this.op1Reg},${this.op2Reg}`;
+            case InstructionType.BRANCH:
+                return `${this.opcode} ${this.op1Reg},${this.op2Reg},${DrawUtils.toHex(this.address)}`;
+            default:
+                throw new Error("Invalid instruction type");
+        }
     }
 
-    /**
-     * Returns the instruction opcode
-     */
-    public getOpcode(): string {
-        return this.opcode;
+    // Getters for the instruction properties
+    public getOpcode(): string { return this.opcode; }
+    public getOp1Reg(): string { return this.type !== InstructionType.MEMORY ? this.op1Reg : undefined; }
+    public getOp2Reg(): string { return this.type !== InstructionType.MEMORY ? this.op2Reg : undefined; }
+    public getResultReg(): string { return this.resultReg; }
+    public getAddress(): number { return this.type !== InstructionType.ALU ? this.address : undefined; }
+
+    // Private helper methods for validating instruction parameters
+    private validateMemoryOperation(op1Reg?: string, op2Reg?: string, address?: number): void {
+        if (address === undefined) throw new Error("Missing memory address for MEMORY operation");
+        if (op1Reg !== undefined || op2Reg !== undefined) throw new Error("Cannot have operand registers for MEMORY operation");
     }
 
-    /**
-     * Returns the first operand register
-     */
-    public getOp1Reg(): string {
-        if (this.type == InstructionType.MEMORY)
-            throw new Error("Cannot get op1 register for memory operation")
-        return this.op1Reg;
+    private validateAluOperation(op1Reg?: string, op2Reg?: string, address?: number): void {
+        if (op1Reg === undefined || op2Reg === undefined) throw new Error("Missing operand register for ALU operation");
+        if (address !== undefined) throw new Error("Cannot have address for ALU operation");
     }
 
-    /**
-     * Returns the second operand register
-     */
-    public getOp2Reg(): string {
-        if (this.type == InstructionType.MEMORY)
-            throw new Error("Cannot get op2 register for memory operation")
-        return this.op2Reg;
-    }
-
-    /**
-     * Returns the result register
-     */
-    public getResultReg(): string {
-        return this.resultReg;
-    }
-
-    /**
-     * Returns the target memory address for memory operations
-     */
-    public getAddress(): number {
-        if (this.type == InstructionType.ALU)
-            throw new Error("Cannot get address for ALU operation")
-        return this.address;
+    private validateBranchOperation(op1Reg?: string, op2Reg?: string, address?: number): void {
+        if (op1Reg === undefined || op2Reg === undefined || address === undefined) throw new Error("Missing parameters for BRANCH operation");
     }
 }

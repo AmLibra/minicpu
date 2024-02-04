@@ -17,14 +17,11 @@ import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
 
 /**
- * This class contains utility functions for drawing 3D objects.
- * It is a static class, so it cannot be instantiated.
- *
- * @class DrawUtils
- * @static
- *
+ * A utility class providing static methods for creating various 3D objects and text for the application.
+ * This class cannot be instantiated and all methods are meant to be accessed directly via the class name.
  */
 export class DrawUtils {
+    /** A predefined set of colors used throughout the application. */
     public static readonly COLOR_PALETTE: Map<string, string> = new Map([
         ["DARKEST", "#0F0D1B"],
         ["DARKER", "#1F1B2C"],
@@ -38,105 +35,111 @@ export class DrawUtils {
         ["LIGHT_BLUE", "rgb(60,178,252)"],
     ]);
 
+    /** Used for loading textures from images. */
     private static readonly textureLoader = new TextureLoader();
+
+    /** The directory path to the font used in the application. */
     private static readonly FONT_DIR: string = "res/Courier_New_Bold.json";
+
+    /** The font object loaded and used for rendering text. */
     public static font: Font = null;
 
+    /** The base height of the text, calculated after the font is loaded. */
     public static baseTextHeight: number;
+
+    /** The base width of the text, calculated after the font is loaded. */
     public static baseTextWidth: number;
 
     /**
-     * Loads the program font asynchronously. This function must be called before using any other function in this
-     * class. It also calculates the base text height and width for the font, which is used to center text all around
-     * the application.
+     * Asynchronously loads the font used for text in the application.
+     * This method should be called before any text rendering functions.
      *
-     * @returns a promise that resolves when the font is loaded
-     * @throws an error if the font is already loaded
+     * @returns {Promise<void>} A promise that resolves when the font is loaded.
      */
     public static loadFont(): Promise<void> {
         return new Promise((resolve, reject) => {
-            if (this.font != null) {
+            if (this.font) {
                 resolve();
                 return;
             }
 
             new FontLoader().load(this.FONT_DIR, (font: Font) => {
                 this.font = font;
-                const mesh = this.buildTextMesh("M", 0, 0, 0.1,  // Use a dummy text to calculate the base text height and width
-                    // M is usually the widest character in the font, although it does not matter in this case due to
-                    // the monospace font
-                    new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
+                // Calculate base text height and width using a sample character.
+                const mesh = this.buildTextMesh("M", 0, 0, 0.1, new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
+                mesh.geometry.computeBoundingBox();
                 this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
                 this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
                 resolve();
-            }, undefined, (error) => {
-                reject(error);
-            });
+            }, undefined, reject);
         });
     }
 
     /**
-     * Generates a quadrilateral mesh with the specified dimensions and color.
+     * Creates a quadrilateral mesh with specified dimensions and material.
      *
-     * @param width the width of the quadrilateral
-     * @param height the height of the quadrilateral
-     * @param color the color of the quadrilateral
-     *
-     * @returns a quadrilateral mesh
+     * @param {number} width - The width of the quadrilateral.
+     * @param {number} height - The height of the quadrilateral.
+     * @param {Material} material - The material to apply to the quadrilateral.
+     * @param {Vector2} position - The position of the quadrilateral in the scene.
+     * @returns {Mesh} The created quadrilateral mesh.
      */
-    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, color: Material, position: {
-        x: number,
-        y: number
-    }): Mesh {
-        const mesh = new Mesh(new PlaneGeometry(width, height), color)
+    public static buildQuadrilateralMesh(width: number = 1, height: number = 1, material: Material, position: Vector2): Mesh {
+        const geometry = new PlaneGeometry(width, height);
+        const mesh = new Mesh(geometry, material);
         mesh.position.set(position.x, position.y, 0);
         return mesh;
     }
 
     /**
-     * Generates a text mesh with the specified text, size and color.
-     * @param text the text to be displayed
-     * @param xOffset the x offset of the text
-     * @param yOffset the y offset of the text
-     * @param size the size of the text
-     * @param color the color of the text
+     * Creates a text mesh with the specified parameters.
      *
-     * @returns a text mesh
+     * @param {string} text - The text to display.
+     * @param {number} xOffset - The x offset from the origin.
+     * @param {number} yOffset - The y offset from the origin.
+     * @param {number} size - The size of the text.
+     * @param {Material} material - The material to apply to the text.
+     * @param {boolean} [centered=true] - Whether to center the text around its position.
+     * @param {number} [zRotation=0] - The rotation around the z-axis, in radians.
+     * @returns {Mesh} The created text mesh.
      */
-    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, color: Material,
-                                centered: boolean = true, zRotation: number = 0): Mesh {
-        if (!this.font)
-            throw new Error("Font not loaded");
+    public static buildTextMesh(text: string, xOffset: number, yOffset: number, size: number, material: Material, centered: boolean = true, zRotation: number = 0): Mesh {
+        if (!this.font) throw new Error("Font not loaded");
 
-        const textGeometry = new TextGeometry(text, {
+        const geometry = new TextGeometry(text, {
             font: this.font,
             size: size,
-            height: 0.05
+            height: 0.05,
         });
 
-        const textMesh = new Mesh(textGeometry, color);
-        textGeometry.computeBoundingBox();
-        const textWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-        const textHeight = textGeometry.boundingBox.max.y - textGeometry.boundingBox.min.y;
-        if (centered) {
-            textMesh.position.set(
-                xOffset - textWidth / 2, // Center the text
-                yOffset - textHeight / 2, // use top of text as the origin
-                0
-            );
-        } else {
-            textMesh.position.set(xOffset, yOffset, 0);
-        }
-        if (zRotation != 0) {
-            textMesh.geometry.center().rotateZ(zRotation);
-            textMesh.position.set(xOffset, yOffset, 0);
+        const mesh = new Mesh(geometry, material);
+        geometry.computeBoundingBox();
+        const textWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
+        const textHeight = geometry.boundingBox.max.y - geometry.boundingBox.min.y;
+
+        mesh.position.set(
+            xOffset - (centered ? textWidth / 2 : 0),
+            yOffset - (centered ? textHeight / 2 : 0),
+            0
+        );
+
+        if (zRotation !== 0) {
+            mesh.geometry.center().rotateZ(zRotation);
+            mesh.position.set(xOffset, yOffset, 0);
         }
 
-        return textMesh;
+        return mesh;
     }
 
-    public static updateText(mesh: Mesh, text: string, centered?: boolean): void {
-        mesh.geometry.dispose();
+    /**
+     * Updates the text of a given mesh with new content.
+     *
+     * @param {Mesh} mesh - The mesh whose text needs to be updated.
+     * @param {string} text - The new text content.
+     * @param {boolean} [centered=true] - Specifies whether the text should be centered.
+     */
+    public static updateText(mesh: Mesh, text: string, centered: boolean = true): void {
+        mesh.geometry.dispose();  // Dispose of the current geometry to prevent memory leaks.
         const textGeometry = new TextGeometry(text, {
             font: DrawUtils.font,
             size: mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1,
@@ -144,72 +147,106 @@ export class DrawUtils {
         });
 
         mesh.geometry = textGeometry;
-        if (centered)
-            mesh.geometry.center();
-    }
-
-    public static drawGrid(scene: Scene): void {
-        const gridColor = DrawUtils.COLOR_PALETTE.get("DARKER");
-        const size = 100; // A large size to simulate infinity
-        const divisions = 1000; // Number of divisions in the grid
-        const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);
-        gridHelper.rotateX(Math.PI / 2);
-        gridHelper.material.depthWrite = false;
-        gridHelper.position.set(0, 0, -0.01);
-        scene.add(gridHelper);
-    }
-
-    public static buildTriangleMesh(side: number, color: Color | Material): Mesh {
-        const height = Math.sqrt(3) / 2 * side; // Calculate height of an equilateral triangle
-
-        const geometry = new BufferGeometry();
-        const vertices = new Float32Array([
-            -side / 2, -height / 2, 0.0,  // Vertex 1 (X, Y, Z)
-            side / 2, -height / 2, 0.0,   // Vertex 2 (X, Y, Z)
-            0.0, height / 2, 0.0          // Vertex 3 (X, Y, Z)
-        ]);
-        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-
-        const material = color instanceof Material ? color : new MeshBasicMaterial({color: color});
-        return new Mesh(geometry, material);
-    }
-
-    public static buildImageMesh(image: string, width: number, height: number, callback: (mesh: Mesh) => void): void {
-        const geometry = new PlaneGeometry(width, height);
-        DrawUtils.textureLoader.load(image, function (texture) {
-            const material = new MeshBasicMaterial({
-                map: texture,
-                transparent: true, // Enable transparency
-            });
-            const mesh = new Mesh(geometry, material);
-            callback(mesh);
-        });
-    }
-
-    public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color): Line {
-        const geometry = new BufferGeometry();
-        const vertices = new Float32Array([
-            v1.x, v1.y, 0.0,  // Vertex 1 (X, Y, Z)
-            v2.x, v2.y, 0.0,  // Vertex 2 (X, Y, Z)
-        ]);
-        geometry.setAttribute('position', new BufferAttribute(vertices, 3));
-        let material = new LineBasicMaterial({color: color});
-        return new Line(geometry, material);
+        if (centered) {
+            mesh.geometry.center();  // Center the geometry if requested.
+        }
     }
 
     /**
-     * Converts a number to a hexadecimal string for display
+     * Draws a grid helper in the given scene, useful for visualizing the ground plane.
      *
-     * @param value the number to convert
-     * @protected
+     * @param {Scene} scene - The scene where the grid should be added.
+     */
+    public static drawGrid(scene: Scene): void {
+        const gridColor = DrawUtils.COLOR_PALETTE.get("DARKER");
+        const size = 100;  // A large size to simulate an infinite ground plane.
+        const divisions = 1000;  // Dense divisions to give a detailed grid.
+        const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);
+        gridHelper.rotateX(Math.PI / 2);  // Rotate to lay flat on the ground.
+        gridHelper.material.depthWrite = false;  // Prevent grid lines from interfering with depth calculations.
+        gridHelper.position.set(0, 0, -0.01);  // Slightly below y=0 to avoid z-fighting with other ground elements.
+        scene.add(gridHelper);
+    }
+
+    /**
+     * Creates a triangle mesh based on the given side length and color/material.
+     *
+     * @param {number} side - The length of each side of the equilateral triangle.
+     * @param {Color | Material} color - The color or material to apply to the triangle.
+     * @returns {Mesh} The created triangle mesh.
+     */
+    public static buildTriangleMesh(side: number, color: Color | Material): Mesh {
+        const height = Math.sqrt(3) / 2 * side;  // Calculate height of an equilateral triangle.
+        const geometry = new BufferGeometry();  // Use BufferGeometry for efficient memory usage.
+        const vertices = new Float32Array([
+            -side / 2, -height / 2, 0,  // Vertex 1
+            side / 2, -height / 2, 0,   // Vertex 2
+            0, height / 2, 0            // Vertex 3
+        ]);
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));  // Define the position attribute.
+
+        const material = color instanceof Material ? color : new MeshBasicMaterial({color: color});
+        return new Mesh(geometry, material);  // Create and return the mesh.
+    }
+
+    /**
+     * Loads an image texture and applies it to a mesh of the specified dimensions.
+     * The mesh is passed to a callback function once loaded.
+     *
+     * @param {string} image - The URL of the image texture.
+     * @param {number} width - The width of the resulting mesh.
+     * @param {number} height - The height of the resulting mesh.
+     * @param {(mesh: Mesh) => void} callback - A function called with the created mesh once the image is loaded.
+     */
+    public static buildImageMesh(image: string, width: number, height: number, callback: (mesh: Mesh) => void): void {
+        const geometry = new PlaneGeometry(width, height);  // Create a plane geometry with the given dimensions.
+        DrawUtils.textureLoader.load(image, texture => {
+            const material = new MeshBasicMaterial({
+                map: texture,
+                transparent: true,  // Allow for PNG transparency.
+            });
+            const mesh = new Mesh(geometry, material);
+            callback(mesh);  // Invoke the callback with the loaded mesh.
+        });
+    }
+
+    /**
+     * Creates a line mesh between two points with the specified color.
+     *
+     * @param {Vector2} v1 - The start point of the line.
+     * @param {Vector2} v2 - The end point of the line.
+     * @param {Color} color - The color of the line.
+     * @returns {Line} The created line mesh.
+     */
+    public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color): Line {
+        const geometry = new BufferGeometry();  // Use BufferGeometry for efficient memory usage.
+        const vertices = new Float32Array([
+            v1.x, v1.y, 0,  // Start point
+            v2.x, v2.y, 0   // End point
+        ]);
+        geometry.setAttribute('position', new BufferAttribute(vertices, 3));  // Define the position attribute.
+
+        const material = new LineBasicMaterial({color: color});
+        return new Line(geometry, material);  // Create and return the line.
+    }
+
+    /**
+     * Converts a numeric value to a hexadecimal string representation.
+     *
+     * @param {number} value - The number to convert to hex.
+     * @returns {string} The hexadecimal string representation of the value.
      */
     public static toHex(value: number): string {
         return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
     }
 
+    /**
+     * Formats a frequency value into a human-readable string.
+     *
+     * @param {number} frequency - The frequency value to format.
+     * @returns {string} The formatted frequency string.
+     */
     public static formatFrequency(frequency: number): string {
         return frequency < 1000 ? `${frequency} KHz` : `${(frequency / 1000).toFixed(2)} MHz`;
     }
 }
-
-

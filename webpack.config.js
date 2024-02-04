@@ -13,8 +13,13 @@ module.exports = {
             },
             {
                 test: /\.tsx?$/,
-                use: 'ts-loader',
-                exclude: /node_modules/
+                use: [{
+                    loader: 'ts-loader',
+                    options: {
+                        transpileOnly: true, // Skip type checking for speed
+                    },
+                }],
+                exclude: /node_modules/,
             }
         ]
     },
@@ -42,6 +47,10 @@ module.exports = {
         compress: true,
         port: 8080,
     },
+    cache: {
+        type: 'filesystem',
+        cacheDirectory: path.resolve(__dirname, '.webpack_cache')
+    }
 };
 
 

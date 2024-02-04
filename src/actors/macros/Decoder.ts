@@ -6,6 +6,7 @@ import {DataCellArray} from "./DataCellArray";
 import {InstructionFetcher} from "./InstructionFetcher";
 import {ALU} from "./ALU";
 import {IOInterface} from "./IOInterface";
+import {SISDProcessor} from "../SISDProcessor";
 
 export class Decoder extends InstructionBuffer {
     private registers: DataCellArray;
@@ -46,6 +47,9 @@ export class Decoder extends InstructionBuffer {
                 this.fetcher.setProgramCounter(instruction.getAddress());
             else
                 this.fetcher.notifyBranchSkipped();
+
+            if (this.parent instanceof SISDProcessor)
+                (this.parent as SISDProcessor).notifyInstructionRetired();
             this.storedInstructions.dequeue();
         }
     }

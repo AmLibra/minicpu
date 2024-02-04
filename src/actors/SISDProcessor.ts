@@ -10,7 +10,7 @@ import {DataCellArray} from "./macros/DataCellArray";
 import {IOInterface} from "./macros/IOInterface";
 import {Decoder} from "./macros/Decoder";
 
-export class SISDCore extends ComputerChip {
+export class SISDProcessor extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
 
     // ISA
@@ -18,7 +18,7 @@ export class SISDCore extends ComputerChip {
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly BRANCH_OPCODES = ["BEQ", "BNE"];
-    public static readonly REGISTER_SIZE = SISDCore.WORDS * SISDCore.WORD_SIZE;
+    public static readonly REGISTER_SIZE = SISDProcessor.WORDS * SISDProcessor.WORD_SIZE;
 
     private instructionFetcher: InstructionFetcher;
     private alu: ALU;
@@ -102,12 +102,16 @@ export class SISDCore extends ComputerChip {
         return closest;
     }
 
+    public notifyInstructionRetired(): void {
+        this.retiredInstructionCount++;
+    }
+
     public setPipelined(): void {
         if (this.isPipelined)
             return;
         this.isPipelined = true;
         this.clockFrequency *= 2;
-        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency));
+        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency), false);
     }
 
     public getIPC(): string {
@@ -141,31 +145,35 @@ export class SISDCore extends ComputerChip {
         const ioBufferWidth = 0.4;
         const ioInterfaceWidth = new IOInterface(this, this.registers, this.workingMemory).width;
         const aluWidth = new ALU(this, this.registers).width;
-        const bodyWidth: number = ioBufferWidth + aluWidth + new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width
-            + SISDCore.INNER_SPACING_L * 2
-            + SISDCore.CONTENTS_MARGIN * 2;
-        const buffersWidth = bodyWidth - 2 * SISDCore.CONTENTS_MARGIN;
+        const bodyWidth: number = ioBufferWidth + aluWidth + new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width
+            + SISDProcessor.INNER_SPACING_L * 2
+            + SISDProcessor.CONTENTS_MARGIN * 2;
+        const buffersWidth = bodyWidth - 2 * SISDProcessor.CONTENTS_MARGIN;
 
-        const bodyHeight: number = new ALU(this, this.registers).height * 3 + SISDCore.INNER_SPACING_L * 2
-            + SISDCore.CONTENTS_MARGIN * 2;
+        const bodyHeight: number = new ALU(this, this.registers).height * 3 + SISDProcessor.INNER_SPACING_L * 2
+            + SISDProcessor.CONTENTS_MARGIN * 2;
+        const registerNames = [];
+        for (let i = 0; i < SISDProcessor.WORDS * SISDProcessor.WORD_SIZE; i++)
+            registerNames.push(`R${i}`);
+
         this.registers = new DataCellArray(this, bodyWidth / 2
-            - new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width / 2
-            - SISDCore.INNER_SPACING_L - SISDCore.CONTENTS_MARGIN - aluWidth
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN, SISDCore.WORD_SIZE, SISDCore.WORDS, true);
+            - new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width / 2
+            - SISDProcessor.INNER_SPACING_L - SISDProcessor.CONTENTS_MARGIN - aluWidth
+            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS, true, registerNames);
 
         this.IOInterface = new IOInterface(this, this.registers, this.workingMemory,
             bodyWidth / 2
             - ioBufferWidth / 2
-            - new DataCellArray(this, 0, 0, SISDCore.WORD_SIZE, SISDCore.WORDS).width
-            - SISDCore.INNER_SPACING_L * 2 - SISDCore.CONTENTS_MARGIN - aluWidth
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN, ioBufferWidth, false);
+            - new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width
+            - SISDProcessor.INNER_SPACING_L * 2 - SISDProcessor.CONTENTS_MARGIN - aluWidth
+            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN, ioBufferWidth, false);
 
         this.instructionFetcher = new InstructionFetcher(this, 0,
-            -bodyHeight / 2 + ioInterfaceWidth / 2 + SISDCore.CONTENTS_MARGIN
+            -bodyHeight / 2 + ioInterfaceWidth / 2 + SISDProcessor.CONTENTS_MARGIN
             , this.instructionMemory.getInstructionBuffer(), buffersWidth);
 
-        this.alu = new ALU(this, this.registers, bodyWidth / 2 - new ALU(this, this.registers).width / 2 - SISDCore.CONTENTS_MARGIN
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDCore.CONTENTS_MARGIN);
+        this.alu = new ALU(this, this.registers, bodyWidth / 2 - new ALU(this, this.registers).width / 2 - SISDProcessor.CONTENTS_MARGIN
+            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN);
         this.decoder = new Decoder(this, this.registers, this.instructionFetcher, this.alu, this.IOInterface,
             0, 0, buffersWidth);
 

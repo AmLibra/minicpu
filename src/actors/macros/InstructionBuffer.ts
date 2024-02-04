@@ -44,7 +44,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.rectangleSize = ((this.horizontal ? this.width : this.height) - totalSpacing) / this.size;
 
         this.noOpMesh = DrawUtils.buildTextMesh("NOP", 0, 0, ComputerChipMacro.TEXT_SIZE,
-            ComputerChipMacro.BODY_COLOR, true, this.horizontal ? Math.PI / 2 : 0);
+            ComputerChipMacro.BODY_MATERIAL, true, this.horizontal ? Math.PI / 2 : 0);
         this.bufferHighlightGeometry = new PlaneGeometry(this.horizontal ? this.rectangleSize :
             this.width, this.horizontal ? this.height : this.rectangleSize);
     }
@@ -129,8 +129,8 @@ export class InstructionBuffer extends ComputerChipMacro {
 
         if (this.storedInstructions.get(index)) {
             const color = this.storedInstructions.get(index).isMemoryOperation() ?
-                ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
-                    ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
+                ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
+                    ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
             return DrawUtils.buildTextMesh( (replaceString ? replaceString : this.storedInstructions.get(index).toString())
                 , xOffset, yOffset,
                 ComputerChipMacro.TEXT_SIZE, color, true, this.horizontal ? Math.PI / 2 : 0
@@ -176,15 +176,15 @@ export class InstructionBuffer extends ComputerChipMacro {
 
         this.clearHighlights();
         const color = this.storedInstructions.get(index).isMemoryOperation() ?
-            ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
-                ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
+            ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
+                ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
 
         const highlightMesh = new Mesh(this.bufferHighlightGeometry, color);
         highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
             this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
-        this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_COLOR;
+        this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_MATERIAL;
     }
 
     protected buildBuffersMesh(): Mesh {
@@ -207,6 +207,6 @@ export class InstructionBuffer extends ComputerChipMacro {
         const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, true);
         if (!mergedGeometry)
             throw new Error("Failed to merge geometries");
-        return new Mesh(mergedGeometry, ComputerChipMacro.COMPONENT_COLOR);
+        return new Mesh(mergedGeometry, ComputerChipMacro.COMPONENT_MATERIAL);
     }
 }

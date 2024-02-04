@@ -35,11 +35,11 @@ export class Counter extends ComputerChipMacro {
     }
 
     public initializeGraphics(): void {
-        const bodyMesh = new Mesh(this.highlightGeometry, Counter.COMPONENT_COLOR);
+        const bodyMesh = new Mesh(this.highlightGeometry, Counter.COMPONENT_MATERIAL);
         bodyMesh.position.set(this.position.x, this.position.y, 0);
         this.addStaticMesh(bodyMesh);
         this.liveMeshes.push(DrawUtils.buildTextMesh(DrawUtils.toHex(this.count), this.position.x, this.position.y,
-            ComputerChipMacro.TEXT_SIZE, ComputerChipMacro.TEXT_COLOR, false));
+            ComputerChipMacro.TEXT_SIZE, ComputerChipMacro.TEXT_MATERIAL, false));
         this.liveMeshes[0].geometry.center();
         this.scene.add(this.liveMeshes[0]);
     }
@@ -50,11 +50,11 @@ export class Counter extends ComputerChipMacro {
     }
 
     private highlight() {
-        const highlightMesh = new Mesh(this.highlightGeometry, ComputerChipMacro.BRANCH_COLOR);
+        const highlightMesh = new Mesh(this.highlightGeometry, ComputerChipMacro.BRANCH_MATERIAL);
         highlightMesh.position.set(this.position.x, this.position.y, 0);
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
-        this.liveMeshes[0].material = ComputerChipMacro.COMPONENT_COLOR;
+        this.liveMeshes[0].material = ComputerChipMacro.COMPONENT_MATERIAL;
         this.highlighted = true;
     }
 
@@ -62,6 +62,6 @@ export class Counter extends ComputerChipMacro {
         super.clearHighlights();
         this.highlighted = false;
         if (this.liveMeshes[0])
-            this.liveMeshes[0].material = ComputerChipMacro.TEXT_COLOR;
+            this.liveMeshes[0].material = ComputerChipMacro.TEXT_MATERIAL;
     }
 }

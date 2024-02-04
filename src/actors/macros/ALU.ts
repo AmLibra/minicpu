@@ -5,6 +5,7 @@ import {InstructionBuffer} from "./InstructionBuffer";
 import {DrawUtils} from "../../DrawUtils";
 import {Instruction} from "../../components/Instruction";
 import {DataCellArray} from "./DataCellArray";
+import {SISDProcessor} from "../SISDProcessor";
 
 export class ALU extends ComputerChipMacro {
     height: number = InstructionBuffer.BUFFER_HEIGHT;
@@ -55,6 +56,8 @@ export class ALU extends ComputerChipMacro {
         const op2 = this.registers.read(this.toIndex(instruction.getOp2Reg()));
         const result = this.preventOverflow(computeALUResult(op1, op2, instruction.getOpcode()));
         this.registers.write(this.toIndex(instruction.getResultReg()), result, this);
+        if (this.parent instanceof SISDProcessor)
+            (this.parent as SISDProcessor).notifyInstructionRetired();
         this.instruction = null;
     }
 
@@ -64,7 +67,7 @@ export class ALU extends ComputerChipMacro {
     }
 
     initializeGraphics(): void {
-        const bodyMesh = new Mesh(this.highlightGeometry, ALU.COMPONENT_COLOR);
+        const bodyMesh = new Mesh(this.highlightGeometry, ALU.COMPONENT_MATERIAL);
         bodyMesh.position.set(this.position.x, this.position.y, 0);
         this.addStaticMesh(bodyMesh);
     }
@@ -75,11 +78,11 @@ export class ALU extends ComputerChipMacro {
     }
 
     private highlight() {
-        const highlightMesh = new Mesh(this.highlightGeometry, ComputerChipMacro.ALU_COLOR);
+        const highlightMesh = new Mesh(this.highlightGeometry, ComputerChipMacro.ALU_MATERIAL);
         highlightMesh.position.set(this.position.x, this.position.y, 0);
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
-        this.liveMeshes[0].material = ComputerChipMacro.COMPONENT_COLOR;
+        this.liveMeshes[0].material = ComputerChipMacro.COMPONENT_MATERIAL;
         this.highlighted = true;
     }
 
@@ -94,7 +97,7 @@ export class ALU extends ComputerChipMacro {
         const drawALUTextComponent = (text: string, xOffset: number, yOffset: number): void => {
             const mesh = DrawUtils.buildTextMesh(text,
                 this.position.x + xOffset,
-                this.position.y + yOffset, this.textSize, ALU.COMPONENT_COLOR)
+                this.position.y + yOffset, this.textSize, ALU.COMPONENT_MATERIAL)
             this.liveMeshes.push(mesh);
             this.scene.add(mesh);
         };

@@ -5,6 +5,7 @@ import {Queue} from "../../components/Queue";
 import {Instruction} from "../../components/Instruction";
 import {WorkingMemory} from "../WorkingMemory";
 import {DrawUtils} from "../../DrawUtils";
+import {SISDProcessor} from "../SISDProcessor";
 
 export class IOInterface extends InstructionBuffer {
     private registers: DataCellArray;
@@ -32,6 +33,8 @@ export class IOInterface extends InstructionBuffer {
             this.liveMeshes[0] = mesh;
             this.scene.add(mesh);
             this.highlightBuffer(0);
+             if (this.parent instanceof SISDProcessor)
+                (this.parent as SISDProcessor).notifyInstructionRetired();
         }
 
         const storedInstruction = this.storedInstructions.peek();

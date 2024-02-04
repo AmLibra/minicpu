@@ -1,8 +1,7 @@
 import {ComputerChip} from "./ComputerChip";
-import {Mesh, PlaneGeometry, Scene} from "three";
-import {DrawUtils} from "../DrawUtils";
-import {SISDCore} from "./SISDCore";
+import {Scene} from "three";
 import {DataCellArray} from "./macros/DataCellArray";
+import {DrawUtils} from "../DrawUtils";
 
 export class WorkingMemory extends ComputerChip {
     public readonly size: number;
@@ -47,20 +46,26 @@ export class WorkingMemory extends ComputerChip {
     }
 
     private initializeGraphics(): void {
-        const tmpDataBank = new DataCellArray(this, 0, 0, this.numberOfWords, this.wordSize);
-        const bodyHeight = tmpDataBank.height + WorkingMemory.CONTENTS_MARGIN * 2 + WorkingMemory.INNER_SPACING +
+        const cellArrayDimensions = DataCellArray.computeDimensions(this.numberOfWords, this.wordSize);
+        const bodyHeight = cellArrayDimensions.height + WorkingMemory.CONTENTS_MARGIN * 2 + WorkingMemory.INNER_SPACING +
             WorkingMemory.TEXT_SIZE;
-        let bodyWidth = tmpDataBank.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
+        let bodyWidth = cellArrayDimensions.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
             + (this.numberOfBanks - 1) * WorkingMemory.BANK_SPACING;
 
-        const startOffset = -bodyWidth / 2 + tmpDataBank.width / 2 + WorkingMemory.CONTENTS_MARGIN;
+        const startOffset = -bodyWidth / 2 + cellArrayDimensions.width / 2 + WorkingMemory.CONTENTS_MARGIN;
+        const bankSize = this.numberOfWords * this.wordSize;
         for (let i = 0; i < this.numberOfBanks; i++) {
-            const dataBank = new DataCellArray(this, startOffset + i * (tmpDataBank.width + WorkingMemory.BANK_SPACING),
-                (- WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2 , this.numberOfWords, this.wordSize, false,`Bank ${i}`);
+            const cellNames = [];
+            for (let j = 0; j < bankSize; j++)
+                cellNames.push(DrawUtils.toHex(i * bankSize + j));
+            console.log(cellNames);
+
+            const dataBank = new DataCellArray(this, startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
+                (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2, this.numberOfWords, this.wordSize,
+                false, cellNames, `Bank ${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }
-        tmpDataBank.dispose();
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
         this.drawPins(this.bodyMesh, 'top', this.size).forEach((mesh, _name) => this.scene.add(mesh));

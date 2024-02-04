@@ -1,6 +1,6 @@
 import {Mesh, PlaneGeometry, Scene} from "three";
 import {Instruction} from "../components/Instruction";
-import {SISDCore} from "./SISDCore";
+import {SISDProcessor} from "./SISDProcessor";
 import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
@@ -89,7 +89,7 @@ export class InstructionMemory extends ComputerChip {
         const numberOfALUOperations = minNumberOfALUOperations
             + Math.floor(Math.random() * (instructionsLeft - minNumberOfALUOperations - 2));
         for (let i = 0; i < numberOfALUOperations; ++i) {
-            const randomOpcode = SISDCore.ALU_OPCODES[Math.floor(Math.random() * SISDCore.ALU_OPCODES.length)];
+            const randomOpcode = SISDProcessor.ALU_OPCODES[Math.floor(Math.random() * SISDProcessor.ALU_OPCODES.length)];
             const randomRegisterNumber = this.randomRegisterNumber();
             const result_reg = this.registerName(randomRegisterNumber);
             const op1_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
@@ -120,14 +120,14 @@ export class InstructionMemory extends ComputerChip {
 
         const numberOfALUOperations =  n - 1;
         for (let i = 0; i < numberOfALUOperations; ++i) {
-            const randomOpcode = SISDCore.ALU_OPCODES[Math.floor(Math.random() * SISDCore.ALU_OPCODES.length)];
+            const randomOpcode = SISDProcessor.ALU_OPCODES[Math.floor(Math.random() * SISDProcessor.ALU_OPCODES.length)];
             const result_reg = this.registerName(it);
             const op1_reg = this.registerName(it);
             const op2_reg = this.registerName(comparedTo);
             typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
         }
 
-        const branchOp = SISDCore.BRANCH_OPCODES[Math.floor(Math.random() * SISDCore.BRANCH_OPCODES.length)];
+        const branchOp = SISDProcessor.BRANCH_OPCODES[Math.floor(Math.random() * SISDProcessor.BRANCH_OPCODES.length)];
         const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions
         typicalWorkload.enqueue(new Instruction(branchOp, undefined,
             this.registerName(it), this.registerName(comparedTo), branchTarget));
@@ -141,14 +141,14 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private randomRegisterNumber(): number {
-        return Math.floor(Math.random() * (SISDCore.REGISTER_SIZE - 1));
+        return Math.floor(Math.random() * (SISDProcessor.REGISTER_SIZE - 1));
     }
 
     private randomConsecutiveRegisterNumbers(n: number): number[] {
         const randomRegisterNumber = this.randomRegisterNumber();
         const randomRegisterNumbers: number[] = [];
         for (let i = 0; i < n; ++i)
-            randomRegisterNumbers.push((randomRegisterNumber + i) % SISDCore.REGISTER_SIZE);
+            randomRegisterNumbers.push((randomRegisterNumber + i) % SISDProcessor.REGISTER_SIZE);
         return randomRegisterNumbers;
     }
 

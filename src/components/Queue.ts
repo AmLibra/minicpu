@@ -1,126 +1,142 @@
 /**
- * Queue data structure implementation in TypeScript
- * @class Queue
- * @template T
- * @constructor
- * @param {number} maxSize - The maximum size of the queue
- * @property {Array<T>} items - The items in the queue
- * @property {number} maxSize - The maximum size of the queue
+ * A generic queue data structure with a configurable maximum size.
+ * Supports basic queue operations like enqueue, dequeue, and inspection.
+ *
+ * @template T The type of elements in the queue.
  */
 export class Queue<T> {
     private items: Array<T>;
     public readonly maxSize: number;
 
+    /**
+     * Constructs a new instance of Queue.
+     *
+     * @param {number} [maxSize=Infinity] - The maximum number of items that the queue can hold.
+     */
     constructor(maxSize: number = Infinity) {
         this.items = [];
         this.maxSize = maxSize;
     }
 
     /**
-     * Enqueue item (add to the end of the queue)
+     * Adds an item to the end of the queue.
      *
-     * @param item - The item to be enqueued
+     * @param {T} item - The item to add to the queue.
+     * @throws {Error} If the queue is at its maximum capacity.
      */
     enqueue(item: T): void {
-        if (this.size() >= this.maxSize) {
+        if (this.isFull()) {
             throw new Error("Queue overflow error: attempting to enqueue to a full queue.");
         }
         this.items.push(item);
     }
 
     /**
-     * Dequeue item (remove from the front of the queue)
+     * Removes and returns the item at the front of the queue.
      *
-     * @returns {T} The dequeued item
+     * @returns {T | undefined} The item at the front of the queue, or undefined if the queue is empty.
      */
     dequeue(): T | undefined {
-        if (this.isEmpty()) {
-            return undefined;
-        }
         return this.items.shift();
     }
 
     /**
-     * Check if the queue is empty
+     * Checks if the queue is empty.
+     *
+     * @returns {boolean} True if the queue is empty, false otherwise.
      */
     isEmpty(): boolean {
         return this.items.length === 0;
     }
 
     /**
-     * Check if the queue is full
+     * Checks if the queue is full.
+     *
+     * @returns {boolean} True if the queue has reached its maximum size, false otherwise.
      */
     isFull(): boolean {
-        return this.items.length === this.maxSize;
+        return this.items.length >= this.maxSize;
     }
 
     /**
-     * Get the size of the queue
+     * Returns the number of items in the queue.
+     *
+     * @returns {number} The number of items in the queue.
      */
     size(): number {
         return this.items.length;
     }
 
     /**
-     * Clear (empty) the queue
+     * Removes all items from the queue.
      */
     clear(): void {
         this.items = [];
     }
 
     /**
-     * Get the item at the specified index
+     * Retrieves the item at the specified index without removing it.
      *
-     * @param {number} index - The index of the item to be retrieved
-     * @returns {T} The item at the specified index
+     * @param {number} index - The zero-based index of the item to retrieve.
+     * @returns {T | undefined} The item at the specified index, or undefined if the index is out of bounds.
      */
     get(index: number): T | undefined {
-        if (index < 0 || index >= this.items.length)
+        if (index < 0 || index >= this.items.length) {
             return undefined; // Out of bounds
+        }
         return this.items[index];
     }
 
+    /**
+     * Removes and returns the item at the specified index.
+     *
+     * @param {number} index - The zero-based index of the item to remove.
+     * @returns {T | undefined} The removed item, or undefined if the index is out of bounds.
+     */
     remove(index: number): T | undefined {
-        if (index < 0 || index >= this.items.length)
+        if (index < 0 || index >= this.items.length) {
             return undefined; // Out of bounds
+        }
         return this.items.splice(index, 1)[0];
     }
 
+    /**
+     * Returns the item at the front of the queue without removing it.
+     *
+     * @returns {T | undefined} The item at the front of the queue, or undefined if the queue is empty.
+     */
     peek(): T | undefined {
-        return this.get(0);
+        return this.items[0];
     }
 
+    /**
+     * Moves a specified number of items from this queue to another queue.
+     *
+     * @param {Queue<T>} to - The destination queue.
+     * @param {number} [count=this.size()] - The maximum number of items to move.
+     */
     moveTo(to: Queue<T>, count: number = this.size()): void {
         for (let i = 0; i < Math.min(count, to.maxSize); ++i) {
-            if (this.isEmpty() || to.size() >= to.maxSize) break;
+            if (this.isEmpty() || to.isFull()) break;
             to.enqueue(this.dequeue());
         }
     }
 
     /**
-     * Used to iterate over the queue
-     * @returns {Iterator<T>} The iterator
-     * @example
-     * for (let item of queue) {
-     *    console.log(item);
-     * }
+     * Creates an iterator for the queue, allowing it to be used in for...of loops.
+     *
+     * @returns {Iterator<T>} An iterator for the queue.
      */
     [Symbol.iterator](): Iterator<T> {
         let pointer = 0;
-        let items = this.items;
+        const items = this.items;
 
         return {
             next(): IteratorResult<T> {
                 if (pointer < items.length) {
-                    return {
-                        done: false,
-                        value: items[pointer++]
-                    };
+                    return {done: false, value: items[pointer++]};
                 } else {
-                    return {
-                        done: true,
-                        value: null
-                    };
+                    return {done: true, value: null};
                 }
             }
         };

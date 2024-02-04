@@ -1,6 +1,6 @@
 import {Mesh, MeshBasicMaterial, OrthographicCamera, Raycaster, Scene, Vector2} from "three";
 import {DrawUtils} from "./DrawUtils";
-import {SISDCore} from "./actors/SISDCore";
+import {SISDProcessor} from "./actors/SISDProcessor";
 import {App} from "./app";
 import {ComputerChip} from "./actors/ComputerChip";
 
@@ -35,7 +35,7 @@ export class HUD {
     private totalExecutedInstructions: Mesh;
 
     private scene: Scene;
-    private cpu: SISDCore;
+    private cpu: SISDProcessor;
     private readonly camera: OrthographicCamera;
     private app: App;
     private selectedActor: ComputerChip;
@@ -93,9 +93,9 @@ export class HUD {
     }
 
     update(): void {
-        DrawUtils.updateText(this.IPCMesh, "IPC: " + this.cpu.getIPC());
-        DrawUtils.updateText(this.totalExecutedInstructions, "Retired instructions: " + this.cpu.getAccRetiredInstructionsCount());
-        DrawUtils.updateText(this.IPSMesh, "IPS: " + this.cpu.getIPS());
+        DrawUtils.updateText(this.IPCMesh, "IPC: " + this.cpu.getIPC(), false);
+        DrawUtils.updateText(this.totalExecutedInstructions, "Retired instructions: " + this.cpu.getAccRetiredInstructionsCount(), false);
+        DrawUtils.updateText(this.IPSMesh, "IPS: " + this.cpu.getIPS(), false);
     }
 
     private showMenu(): void {
@@ -127,7 +127,8 @@ export class HUD {
 
     private drawMenu(): void {
         this.menuMesh = DrawUtils.buildQuadrilateralMesh(this.hudCamera.right * 2, this.hudCamera.top * 0.8, HUD.MENU_COLOR,
-            {x: this.hudCamera.position.x, y: this.hudCamera.position.y - this.hudCamera.top * 0.8});
+            new Vector2(this.hudCamera.position.x, this.hudCamera.position.y - this.hudCamera.top * 0.8)
+        );
         this.menuMesh.visible = false;
 
         this.menuTitleMesh = DrawUtils.buildTextMesh("undefined",0,this.hudCamera.bottom + 0.5,
@@ -159,10 +160,8 @@ export class HUD {
         this.pauseButtonMesh = DrawUtils.buildTriangleMesh(0.1, HUD.BASE_COLOR)
             .translateX(startX).translateY(startY).rotateZ(-Math.PI / 2);
 
-        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(0.1, 0.1, HUD.BASE_COLOR, {
-            x: startX,
-            y: startY
-        })
+        this.playButtonMesh = DrawUtils.buildQuadrilateralMesh(0.1, 0.1, HUD.BASE_COLOR,
+            new Vector2(startX, startY));
         this.playButtonMesh.visible = false;
 
         this.hudScene.add(this.pauseButtonMesh, this.playButtonMesh);

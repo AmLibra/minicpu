@@ -88,7 +88,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             const addressMesh =
                 DrawUtils.buildTextMesh(DrawUtils.toHex(i), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
-                    ComputerChipMacro.TEXT_COLOR, true)
+                    ComputerChipMacro.TEXT_MATERIAL, true)
             this.addressMeshes[i] = addressMesh;
             this.scene.add(addressMesh);
         }
@@ -111,7 +111,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             const addressMesh =
                 DrawUtils.buildTextMesh(DrawUtils.toHex(this.addressReached++), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
-                    ComputerChipMacro.TEXT_COLOR, true)
+                    ComputerChipMacro.TEXT_MATERIAL, true)
             this.addressMeshes[i] = addressMesh;
             this.scene.add(addressMesh);
         }
@@ -135,8 +135,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             if (!this.storedInstructions.get(index)) return;
 
             this.liveMeshes[index].material = this.storedInstructions.get(index).isMemoryOperation() ?
-                ComputerChipMacro.MEMORY_COLOR : (this.storedInstructions.get(index).isArithmetic() ?
-                    ComputerChipMacro.ALU_COLOR : ComputerChipMacro.BRANCH_COLOR);
+                ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
+                    ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
         });
         this.highlightedBufferMeshes = [];
     }
@@ -152,7 +152,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     private highlightJumpAddress(address: number) {
-        this.addressMeshes[address].material = ComputerChipMacro.BRANCH_COLOR;
+        this.addressMeshes[address].material = ComputerChipMacro.BRANCH_MATERIAL;
     }
 
     private toLocalAddress(address: number): number {
