@@ -9,8 +9,11 @@ import {SISDProcessor} from "../SISDProcessor";
 
 export class ALU extends ComputerChipMacro {
     height: number = InstructionBuffer.BUFFER_HEIGHT;
-
     textSize: number = 0.03;
+
+    private static readonly DISTANCE_TO_CENTER = 0.07;
+    private static readonly OP_Y_OFFSET = -0.03;
+    private static readonly RES_Y_OFFSET = 0.02;
 
     private readonly highlightGeometry: PlaneGeometry;
     private highlighted: boolean = false;
@@ -50,7 +53,6 @@ export class ALU extends ComputerChipMacro {
         this.instruction = instruction;
         this.drawALUText();
         this.highlight();
-        this.highlighted = true;
 
         const op1 = this.registers.read(this.toIndex(instruction.getOp1Reg()));
         const op2 = this.registers.read(this.toIndex(instruction.getOp2Reg()));
@@ -118,12 +120,11 @@ export class ALU extends ComputerChipMacro {
                     throw new Error("Invalid ALU opcode: " + opcode);
             }
         }
-        const distanceToCenter = 0.07;
 
-        drawALUTextComponent(opcodeSymbol(this.instruction.getOpcode()), 0, -0.03);
-        drawALUTextComponent(this.instruction.getOp1Reg(), distanceToCenter, -0.03);
-        drawALUTextComponent(this.instruction.getOp2Reg(), -distanceToCenter, -0.03);
-        drawALUTextComponent(this.instruction.getResultReg(), 0, 0.02);
+        drawALUTextComponent(opcodeSymbol(this.instruction.getOpcode()), 0, ALU.OP_Y_OFFSET);
+        drawALUTextComponent(this.instruction.getOp1Reg(), ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
+        drawALUTextComponent(this.instruction.getOp2Reg(), -ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
+        drawALUTextComponent(this.instruction.getResultReg(), 0, ALU.RES_Y_OFFSET);
     }
 
     private preventOverflow(n: number): number {

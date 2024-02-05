@@ -136,9 +136,9 @@ export abstract class ComputerChip {
             const pinName = this.pinName(i, side);
             const pin = (side === 'left' || side === 'right') ?
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS * 2, ComputerChip.PIN_RADIUS,
-                    ComputerChip.PIN_COLOR, {x: xOffset, y: yOffset}) :
+                    ComputerChip.PIN_COLOR,  new Vector2(xOffset, yOffset)) :
                 DrawUtils.buildQuadrilateralMesh(ComputerChip.PIN_RADIUS, ComputerChip.PIN_RADIUS * 2,
-                    ComputerChip.PIN_COLOR, {x: xOffset, y: yOffset});
+                    ComputerChip.PIN_COLOR, new Vector2(xOffset, yOffset));
 
             pin.position.set(xOffset, yOffset, 0);
             pins.set(pinName, pin);
@@ -189,10 +189,6 @@ export abstract class ComputerChip {
 
     protected pinName(pinNumber: number, side: 'left' | 'right' | 'top' | 'bottom'): string {
         return `PIN${pinNumber}_${side.toUpperCase()}`;
-    }
-
-    protected registerName(registerNumber: number): string {
-        return `R${registerNumber}`;
     }
 
     protected buildBodyMesh(bodyWidth: number, bodyHeight: number): void {

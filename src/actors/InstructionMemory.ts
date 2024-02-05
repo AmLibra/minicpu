@@ -1,29 +1,27 @@
-import {Mesh, PlaneGeometry, Scene} from "three";
+import {Scene} from "three";
 import {Instruction} from "../components/Instruction";
 import {SISDProcessor} from "./SISDProcessor";
-import {DrawUtils} from "../DrawUtils";
 import {ComputerChip} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
-import {InstructionBuffer} from "./macros/InstructionBuffer";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
-import {floor} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export class InstructionMemory extends ComputerChip {
+    public static readonly ADDRESS_MARGIN: number = 0.2;
+
     public readonly size: number;
     private readonly instructionBuffer: AddressedInstructionBuffer;
     private readonly instructionStream: Queue<Instruction>;
-
     private readonly workingMemory: WorkingMemory;
-    public static readonly ADDRESS_MARGIN: number = 0.2;
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
         super(position, scene, clockFrequency);
         this.workingMemory = workingMemory;
         this.size = size;
         this.instructionStream = new Queue<Instruction>(size * 2);
-        this.instructionBuffer  = new AddressedInstructionBuffer(this, size,
-            InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN, 0, false)
+        this.instructionBuffer = new AddressedInstructionBuffer(this, size,
+            InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
+            0, false)
         this.initializeGraphics();
     }
 
@@ -32,34 +30,36 @@ export class InstructionMemory extends ComputerChip {
     }
 
     displayName(): string {
-        return "InstructionMemory";
+        return "Instruction Memory";
     }
 
     update() {
         this.instructionBuffer.update();
-        if (this.instructionStream.isEmpty()) {
-            let hasLoop = false;
-            let n = 0;
-            while (this.instructionStream.size() < this.instructionStream.maxSize) {
-                if (Math.random() < 0.6) {
-                    this.typicalForLoop(n, 4).moveTo(this.instructionStream);
-                    hasLoop = true;
-                    n += 4;
-                }
-                else {
-                    this.typicalInstructionSequence(8).moveTo(this.instructionStream);
-                    n += 8;
-                }
-            }
-        }
+        this.updateInstructionStream();
 
         if (Math.random() < 0.2)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
+    private updateInstructionStream() {
+        if (!this.instructionStream.isEmpty())
+            return;
+        let n = 0;
+        while (this.instructionStream.size() < this.instructionStream.maxSize) {
+            if (Math.random() < 0.3) {
+                this.typicalForLoop(n, 4).moveTo(this.instructionStream);
+                n += 4;
+            } else {
+                this.typicalInstructionSequence(8).moveTo(this.instructionStream);
+                n += 8;
+            }
+        }
+    }
+
     private initializeGraphics(): void {
         const bodyHeight = this.instructionBuffer.height + InstructionMemory.CONTENTS_MARGIN * 2;
-        const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2 + InstructionMemory.ADDRESS_MARGIN;
+        const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2
+            + InstructionMemory.ADDRESS_MARGIN;
         this.buildBodyMesh(bodyWidth, bodyHeight);
 
         this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));
@@ -69,31 +69,30 @@ export class InstructionMemory extends ComputerChip {
     private typicalInstructionSequence(n: number): Queue<Instruction> {
         const typicalWorkload = new Queue<Instruction>(n);
         let instructionsLeft = n;
-        let modifiedRegisters: number[] = [];
+        let loadedRegisters: number[] = [];
 
-        const minNumberOfLoadOperations = n / 4 + 1;
-        const maxNumberOfLoadOperations = n / 2;
-        const numberOfLoadOperations = minNumberOfLoadOperations
-            + Math.floor(Math.random() * (maxNumberOfLoadOperations - minNumberOfLoadOperations));
+        const minNumberOfLoadOperations = Math.floor(n * 0.3); // min 30% of the instructions are load operations
+        const maxNumberOfLoadOperations = n / 2; // max 50% of the instructions are load operations
+        const numberOfLoadOperations = minNumberOfLoadOperations + Math.floor(Math.random() * maxNumberOfLoadOperations);
+
         const randomRegisterNumbers = this.randomConsecutiveRegisterNumbers(numberOfLoadOperations);
         const randomAddresses = this.randomConsecutiveAddresses(numberOfLoadOperations);
         for (let i = 0; i < numberOfLoadOperations; ++i) {
-            modifiedRegisters.push(randomRegisterNumbers[i]);
+            loadedRegisters.push(randomRegisterNumbers[i]);
             typicalWorkload.enqueue(new Instruction("LOAD", this.registerName(randomRegisterNumbers[i]),
                 undefined, undefined, randomAddresses[i]));
         }
         instructionsLeft -= numberOfLoadOperations;
 
         let resultRegisters: number[] = [];
-        const minNumberOfALUOperations = 3;
-        const numberOfALUOperations = minNumberOfALUOperations
-            + Math.floor(Math.random() * (instructionsLeft - minNumberOfALUOperations - 2));
+        const minNumberOfALUOperations = Math.floor(n * 0.4); // min 40% of the instructions are ALU operations
+        const numberOfALUOperations = minNumberOfALUOperations + Math.floor(Math.random() * (instructionsLeft - 2));
         for (let i = 0; i < numberOfALUOperations; ++i) {
             const randomOpcode = SISDProcessor.ALU_OPCODES[Math.floor(Math.random() * SISDProcessor.ALU_OPCODES.length)];
             const randomRegisterNumber = this.randomRegisterNumber();
             const result_reg = this.registerName(randomRegisterNumber);
-            const op1_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
-            const op2_reg = this.registerName(this.randomArrayElement(modifiedRegisters));
+            const op1_reg = this.registerName(this.randomArrayElement(loadedRegisters));
+            const op2_reg = this.registerName(this.randomArrayElement(loadedRegisters));
             if (!resultRegisters.includes(randomRegisterNumber)) resultRegisters.push(randomRegisterNumber);
             typicalWorkload.enqueue(new Instruction(randomOpcode, result_reg, op1_reg, op2_reg));
         }
@@ -111,14 +110,13 @@ export class InstructionMemory extends ComputerChip {
         return typicalWorkload;
     }
 
-
-    private typicalForLoop(nPreviouslyAddedInstructions:number, n: number): Queue<Instruction> {
+    private typicalForLoop(nPreviouslyAddedInstructions: number, n: number): Queue<Instruction> {
         const typicalWorkload = new Queue<Instruction>(n);
 
         const it = this.randomRegisterNumber();
         const comparedTo = this.randomRegisterNumber();
 
-        const numberOfALUOperations =  n - 1;
+        const numberOfALUOperations = n - 1;
         for (let i = 0; i < numberOfALUOperations; ++i) {
             const randomOpcode = SISDProcessor.ALU_OPCODES[Math.floor(Math.random() * SISDProcessor.ALU_OPCODES.length)];
             const result_reg = this.registerName(it);
@@ -158,5 +156,9 @@ export class InstructionMemory extends ComputerChip {
         for (let i = 0; i < n; ++i)
             randomAddresses.push((randomAddress + i) % this.workingMemory.size);
         return randomAddresses;
+    }
+
+    private registerName(registerNumber: number): string {
+        return `R${registerNumber}`;
     }
 }

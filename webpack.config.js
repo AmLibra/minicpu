@@ -35,6 +35,7 @@ module.exports = {
         publicPath: '/'
     },
     devServer: {
+        hot: true,
         static: [
             {
                 directory: path.join(__dirname, 'docs'),

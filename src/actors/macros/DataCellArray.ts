@@ -196,6 +196,12 @@ export class DataCellArray extends ComputerChipMacro {
         }
     }
 
+    /**
+     * Builds the mesh for the contents of a data cell.
+     *
+     * @param index The index of the data cell in the memory array.
+     * @private
+     */
     private buildDataCellContentsMesh(index: number): Mesh {
         if (index < 0 || index >= this.memoryArray.length)
             throw new Error("Index out of bounds");
@@ -211,6 +217,13 @@ export class DataCellArray extends ComputerChipMacro {
             throw new Error("No valid data to display (poor initialization ?)");
     }
 
+    /**
+     * Highlights a cell in the data cell array.
+     *
+     * @param index The index of the cell to highlight.
+     * @param chipMacro The chip that is highlighting the cell.
+     * @private
+     */
     private highlightCell(index: number, chipMacro?: ComputerChipMacro): void {
         if (index < 0 || index >= this.memoryArray.length)
             throw new Error("Index out of bounds");
@@ -227,6 +240,12 @@ export class DataCellArray extends ComputerChipMacro {
         this.addHighlightMesh(highlightMesh);
     }
 
+    /**
+     * Builds the meshes for the data cell array and its register names.
+     *
+     * @param registerNames An optional array of names for each register in the array.
+     * @private
+     */
     private buildDataCellMeshes(registerNames?: string[]): [Mesh, Mesh] {
         // Initialize start positions
         const startX = this.getStartPositionX();
@@ -255,14 +274,32 @@ export class DataCellArray extends ComputerChipMacro {
         ];
     }
 
+    /**
+     * Returns the x-coordinate of the start position of the data cell array.
+     * @private
+     */
     private getStartPositionX(): number {
         return this.position.x - this.width / 2 + DataCellArray.REGISTER_SIDE_LENGTH / 2;
     }
 
+    /**
+     * Returns the y-coordinate of the start position of the data cell array.
+     * @private
+     */
     private getStartPositionY(): number {
         return this.position.y + this.height / 2 - DataCellArray.REGISTER_SIDE_LENGTH / 2;
     }
 
+    /**
+     * Generates the geometries for the registers and their names.
+     *
+     * @param registerGeometries The array of geometries for the registers.
+     * @param registerNamesGeometries The array of geometries for the register names.
+     * @param registerNames An optional array of names for each register in the array.
+     * @param startX The x-coordinate of the start position of the data cell array.
+     * @param startY The y-coordinate of the start position of the data cell array.
+     * @private
+     */
     private generateGeometries(registerGeometries: BufferGeometry[], registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, startX: number, startY: number): void {
         for (let i = 0; i < this.wordSize; i++) {
             for (let j = 0; j < this.numberOfWords; j++) {
@@ -274,18 +311,46 @@ export class DataCellArray extends ComputerChipMacro {
         }
     }
 
+    /**
+     * Calculates the x and y offsets for a register cell in the array.
+     *
+     * @param startX The x-coordinate of the start position of the data cell array.
+     * @param startY The y-coordinate of the start position of the data cell array.
+     * @param rowIndex The index of the row in the array.
+     * @param columnIndex The index of the column in the array.
+     * @private
+     */
     private calculateOffsets(startX: number, startY: number, rowIndex: number, columnIndex: number): [number, number] {
         const xOffset = startX + columnIndex * (DataCellArray.REGISTER_SIDE_LENGTH + DataCellArray.INNER_SPACING);
         const yOffset = startY - rowIndex * (DataCellArray.REGISTER_SIDE_LENGTH + DataCellArray.INNER_SPACING);
         return [xOffset, yOffset];
     }
 
+    /**
+     * Creates the geometry for a register cell in the array.
+     *
+     * @param registerGeometries The array of geometries for the registers.
+     * @param xOffset The x-offset for the register cell.
+     * @param yOffset The y-offset for the register cell.
+     * @private
+     */
     private createCellGeometry(registerGeometries: BufferGeometry[], xOffset: number, yOffset: number): void {
         const registerGeometry = this.cellHighlightGeometry.clone();
         registerGeometry.translate(xOffset, yOffset, 0);
         registerGeometries.push(registerGeometry);
     }
 
+    /**
+     * Creates the geometry for the name of a register in the array.
+     *
+     * @param registerNamesGeometries The array of geometries for the register names.
+     * @param registerNames An optional array of names for each register in the array.
+     * @param rowIndex The index of the row in the array.
+     * @param columnIndex The index of the column in the array.
+     * @param xOffset The x-offset for the register name.
+     * @param yOffset The y-offset for the register name.
+     * @private
+     */
     private createNameGeometry(registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, rowIndex: number, columnIndex: number, xOffset: number, yOffset: number): void {
         const registerName = registerNames ? registerNames[rowIndex * this.numberOfWords + columnIndex] : DrawUtils.toHex(rowIndex * this.numberOfWords + columnIndex);
         const registerNameGeometry = DrawUtils.buildTextMesh(registerName, 0, 0, DataCellArray.TEXT_SIZE / 2, DataCellArray.BODY_MATERIAL).geometry.center()
@@ -293,11 +358,22 @@ export class DataCellArray extends ComputerChipMacro {
         registerNamesGeometries.push(registerNameGeometry);
     }
 
+    /**
+     * Ensures that the given address is within the bounds of the data array.
+     * @param address The address to check.
+     * @private
+     * @throws {Error} If the address is out of bounds.
+     */
     private ensureAddressIsInBounds(address: number): void {
         if (address >= this.memoryArray.length || address < 0)
             throw new Error("Address " + address + " is out of bounds for data array from " + this.parent.displayName());
     }
 
+    /**
+     * Checks if the data array is ready to be read from or written to.
+     * @private
+     * @throws {Error} If the data array is not ready.
+     */
     private checkIfReady(): void {
         if (!this.noDelay && !this.ready)
             throw new Error("Data array from " + this.parent.displayName() + " is not ready to be read");
