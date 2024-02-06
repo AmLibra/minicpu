@@ -6,12 +6,15 @@ import {ComputerChip} from "../ComputerChip";
 import {DrawUtils} from "../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
+/**
+ * An abstract class representing a buffer for storing instructions within a computer chip simulation.
+ */
 export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
     protected static readonly BUFFER_BASE_WIDTH: number = 0.8;
     private static readonly INNER_SPACING = 0.01;
     protected readonly noOpMesh: Mesh;
-    private readonly bufferHighlightGeometry: PlaneGeometry;
+    protected readonly bufferHighlightGeometry: PlaneGeometry;
 
     private readonly spacing: number;
     private readonly rectangleSize: number;
@@ -27,6 +30,19 @@ export class InstructionBuffer extends ComputerChipMacro {
     protected readTimeout: number = 0;
     protected readonly noDelay: boolean;
 
+    /**
+     * Constructs a new InstructionBuffer instance.
+     *
+     * @param parent The parent ComputerChip instance.
+     * @param size The size of the instruction buffer.
+     * @param xOffset The x-offset from the parent's position to place this component.
+     * @param yOffset The y-offset from the parent's position to place this component.
+     * @param noDelay Whether the instruction buffer has no delay.
+     * @param reversed Whether the instruction buffer is reversed.
+     * @param horizontal Whether the instruction buffer is oriented horizontally.
+     * @param bufferWidth The width of the instruction buffer.
+     * @param spacing The spacing between instructions in the buffer.
+     */
     constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, noDelay: boolean = true, reversed: boolean = false,
                 horizontal: boolean = false, bufferWidth: number = InstructionBuffer.BUFFER_BASE_WIDTH, spacing: number = InstructionBuffer.INNER_SPACING) {
         super(parent, xOffset, yOffset);
@@ -49,12 +65,29 @@ export class InstructionBuffer extends ComputerChipMacro {
             this.width, this.horizontal ? this.height : this.rectangleSize);
     }
 
+    /**
+     * Determines whether the instruction buffer is full.
+     */
+    public isFull() {
+        return this.storedInstructions.size() === this.size;
+    }
+
+
+    /**
+     * Determines whether the instruction buffer is ready to be read.
+     */
     public isReadyToBeRead(): boolean {
         if (this.noDelay)
             throw new Error("No delay instruction buffers are always ready to be read");
         return this.readyToBeRead;
     }
 
+    /**
+     * Asks for instructions from the parent computer chip.
+     *
+     * @param chip The parent computer chip.
+     * @param n The number of instructions to ask for.
+     */
     public askForInstructions(chip: ComputerChip, n: number): void {
         if (this.noDelay)
             throw new Error("There is no need to ask for instructions when there is no delay");
@@ -68,6 +101,11 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
     }
 
+    /**
+     * Reads instructions from the instruction buffer.
+     *
+     * @param readCount The number of instructions to read.
+     */
     public read(readCount: number): Queue<Instruction> {
         if (!this.noDelay && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
@@ -84,6 +122,12 @@ export class InstructionBuffer extends ComputerChipMacro {
         return instructionsToRead;
     }
 
+    /**
+     * Writes instructions to the instruction buffer.
+     *
+     * @param instructions The instructions to write.
+     * @param writeCount The number of instructions to write.
+     */
     public write(instructions: Queue<Instruction>, writeCount = instructions.size()): void {
         if (writeCount > this.size)
             throw new Error("Cannot write more instructions than the size of the buffer");
@@ -120,6 +164,13 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.noOpMesh.geometry.dispose();
     }
 
+    /**
+     * Builds a text mesh for the instruction buffer.
+     *
+     * @param index The index of the instruction in the buffer.
+     * @param replaceString The string to replace the instruction with.
+     * @returns The text mesh for the instruction buffer.
+     */
     protected buildBufferTextMesh(index: number, replaceString?: string): Mesh {
         if (index < 0 || index >= this.size)
             throw new Error("Index out of bounds");
@@ -140,6 +191,12 @@ export class InstructionBuffer extends ComputerChipMacro {
         }
     }
 
+    /**
+     * Shifts the meshes in the instruction buffer down by a certain number of positions.
+     *
+     * @param nPositions The number of positions to shift down by.
+     * @protected
+     */
     protected shiftMeshesDown(nPositions: number): void {
         if (nPositions <= 0)
             throw new Error("Cannot shift down by a negative number of positions");
@@ -170,15 +227,18 @@ export class InstructionBuffer extends ComputerChipMacro {
         }
     }
 
+    /**
+     * Highlights a certain instruction in the instruction buffer.
+     *
+     * @param index The index of the instruction to highlight.
+     * @protected
+     */
     protected highlightBuffer(index: number): void {
         if (index < 0 || index >= this.size)
             throw new Error("Index out of bounds");
 
         this.clearHighlights();
-        const color = this.storedInstructions.get(index).isMemoryOperation() ?
-            ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
-                ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
-
+        const color = this.instructionMaterial(this.storedInstructions.get(index));
         const highlightMesh = new Mesh(this.bufferHighlightGeometry, color);
         highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
             this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
@@ -187,6 +247,11 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_MATERIAL;
     }
 
+    /**
+     * Builds the aggregate mesh for the instruction buffer.
+     *
+     * @protected
+     */
     protected buildBuffersMesh(): Mesh {
         const startOffset = this.horizontal
             ? this.position.x + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.width / 2)

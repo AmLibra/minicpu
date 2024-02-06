@@ -29,10 +29,10 @@ export class DrawUtils {
         ["MEDIUM_DARK", "#5C5470"],
         ["MEDIUM_LIGHT", "#B9B4C7"],
         ["LIGHT", "#dee7e8"],
-        ["GOLDEN_YELLOW", "rgb(255,197,105)"],
-        ["LIGHT_GREEN", "rgb(39,203,114)"],
-        ["LIGHT_RED", "rgb(217,82,82)"],
-        ["LIGHT_BLUE", "rgb(60,178,252)"],
+        ["GOLDEN_YELLOW", "#FFC569"],
+        ["LIGHT_GREEN", "#27CB72"],
+        ["LIGHT_RED", "#D95252"],
+        ["LIGHT_BLUE", "#3CB2FC"]
     ]);
 
     /** Used for loading textures from images. */
@@ -140,16 +140,13 @@ export class DrawUtils {
      */
     public static updateText(mesh: Mesh, text: string, centered: boolean = true): void {
         mesh.geometry.dispose();  // Dispose of the current geometry to prevent memory leaks.
-        const textGeometry = new TextGeometry(text, {
+        mesh.geometry = new TextGeometry(text, {
             font: DrawUtils.font,
             size: mesh.geometry instanceof TextGeometry ? mesh.geometry.parameters.options.size : 0.1,
             height: 0.1,
         });
-
-        mesh.geometry = textGeometry;
-        if (centered) {
-            mesh.geometry.center();  // Center the geometry if requested.
-        }
+        if (centered)
+            mesh.geometry.center();
     }
 
     /**
@@ -221,8 +218,8 @@ export class DrawUtils {
     public static buildLineMesh(v1: Vector2, v2: Vector2, color: Color): Line {
         const geometry = new BufferGeometry();  // Use BufferGeometry for efficient memory usage.
         const vertices = new Float32Array([
-            v1.x, v1.y, 0,  // Start point
-            v2.x, v2.y, 0   // End point
+            v1.x, v1.y, 0,
+            v2.x, v2.y, 0
         ]);
         geometry.setAttribute('position', new BufferAttribute(vertices, 3));  // Define the position attribute.
 
@@ -238,15 +235,5 @@ export class DrawUtils {
      */
     public static toHex(value: number): string {
         return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
-    }
-
-    /**
-     * Formats a frequency value into a human-readable string.
-     *
-     * @param {number} frequency - The frequency value to format.
-     * @returns {string} The formatted frequency string.
-     */
-    public static formatFrequency(frequency: number): string {
-        return frequency < 1000 ? `${frequency} KHz` : `${(frequency / 1000).toFixed(2)} MHz`;
     }
 }

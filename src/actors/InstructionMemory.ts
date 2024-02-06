@@ -14,11 +14,13 @@ export class InstructionMemory extends ComputerChip {
     private readonly instructionStream: Queue<Instruction>;
     private readonly workingMemory: WorkingMemory;
 
+    private forLoopProbability: number = 0.3;
+
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
         super(position, scene, clockFrequency);
         this.workingMemory = workingMemory;
         this.size = size;
-        this.instructionStream = new Queue<Instruction>(size * 2);
+        this.instructionStream = new Queue<Instruction>();
         this.instructionBuffer = new AddressedInstructionBuffer(this, size,
             InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
             0, false)
@@ -37,21 +39,27 @@ export class InstructionMemory extends ComputerChip {
         this.instructionBuffer.update();
         this.updateInstructionStream();
 
-        if (Math.random() < 0.2)
+        if (Math.random() < 0.4)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
     private updateInstructionStream() {
         if (!this.instructionStream.isEmpty())
             return;
-        let n = 0;
-        while (this.instructionStream.size() < this.instructionStream.maxSize) {
-            if (Math.random() < 0.3) {
-                this.typicalForLoop(n, 4).moveTo(this.instructionStream);
-                n += 4;
+        let addedInstructions = 0;
+        while (this.instructionStream.size() < this.size * 2) {
+            if (Math.random() < this.forLoopProbability) {
+                const minInstructions = 2;
+                const maxInstructions = 6;
+                const n = minInstructions + Math.floor(Math.random() * (maxInstructions - minInstructions));
+                this.typicalForLoop(addedInstructions, n).moveTo(this.instructionStream);
+                addedInstructions += n;
             } else {
-                this.typicalInstructionSequence(8).moveTo(this.instructionStream);
-                n += 8;
+                const minInstructions = 4;
+                const maxInstructions = 8;
+                const n = minInstructions + Math.floor(Math.random() * (maxInstructions - minInstructions));
+                this.typicalInstructionSequence(n).moveTo(this.instructionStream);
+                addedInstructions += n;
             }
         }
     }
@@ -129,7 +137,7 @@ export class InstructionMemory extends ComputerChip {
         const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions
         typicalWorkload.enqueue(new Instruction(branchOp, undefined,
             this.registerName(it), this.registerName(comparedTo), branchTarget));
-        this.instructionBuffer.setPotentialJumpAddress(branchTarget);
+        this.instructionBuffer.setJumpAddress(branchTarget, branchTarget + n);
 
         return typicalWorkload;
     }

@@ -101,7 +101,7 @@ export class Instruction {
         }
     }
 
-    // Getters for the instruction properties
+    /** Getter methods for instruction parameters */
     public getOpcode(): string { return this.opcode; }
     public getOp1Reg(): string { return this.type !== InstructionType.MEMORY ? this.op1Reg : undefined; }
     public getOp2Reg(): string { return this.type !== InstructionType.MEMORY ? this.op2Reg : undefined; }

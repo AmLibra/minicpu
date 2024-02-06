@@ -141,4 +141,13 @@ export class Queue<T> {
             }
         };
     }
+
+    /**
+     * Returns a string representation of the queue.
+     *
+     * @returns {string} A string representation of the queue.
+     */
+    toString(): string {
+        return this.items.toString();
+    }
 }

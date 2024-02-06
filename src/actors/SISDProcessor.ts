@@ -53,11 +53,8 @@ export class SISDProcessor extends ComputerChip {
     }
 
     public setPipelined(): void {
-        if (this.isPipelined)
-            return;
         this.isPipelined = true;
-        this.clockFrequency *= 2;
-        DrawUtils.updateText(this.clockMesh, DrawUtils.formatFrequency(this.clockFrequency), false);
+        this.updateClock(this.getClockFrequency() * 2);
     }
 
     public getIPC(): string {
@@ -65,7 +62,7 @@ export class SISDProcessor extends ComputerChip {
     }
 
     public getIPS(): string {
-        return (this.calculateAverageInstructionCount() * this.clockFrequency).toFixed(2);
+        return (this.calculateAverageInstructionCount() * this.getClockFrequency()).toFixed(2);
     }
 
     public getAccRetiredInstructionsCount(): number {
@@ -73,13 +70,14 @@ export class SISDProcessor extends ComputerChip {
     }
 
     displayName(): string {
-        return "SISDCore";
+        return "Single Core Processor";
     }
 
     update() {
         this.registers.update();
         this.alu.update();
         this.IOInterface.update();
+        this.decoder.update();
 
         this.decoder.decode();
         this.instructionFetcher.fetchInstruction();

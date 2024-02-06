@@ -1,6 +1,7 @@
 import {Mesh, MeshBasicMaterial, Scene} from "three";
 import {ComputerChip} from "../ComputerChip";
 import {DrawUtils} from "../../DrawUtils";
+import {Instruction} from "../../components/Instruction";
 
 /**
  * An abstract class representing a macro component of a computer chip within a simulation.
@@ -120,5 +121,13 @@ export abstract class ComputerChipMacro {
             mesh.geometry.dispose();
         });
         this.highlightMeshes = [];
+    }
+
+    protected instructionMaterial(instruction: Instruction): MeshBasicMaterial {
+        if (instruction.isMemoryOperation())
+            return ComputerChipMacro.MEMORY_MATERIAL;
+        if (instruction.isArithmetic())
+            return ComputerChipMacro.ALU_MATERIAL;
+        return ComputerChipMacro.BRANCH_MATERIAL;
     }
 }
