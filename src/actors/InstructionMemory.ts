@@ -1,7 +1,7 @@
 import {Scene} from "three";
 import {Instruction} from "../components/Instruction";
 import {SISDProcessor} from "./SISDProcessor";
-import {ComputerChip} from "./ComputerChip";
+import {ComputerChip, Side} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
@@ -62,7 +62,7 @@ export class InstructionMemory extends ComputerChip {
             + InstructionMemory.ADDRESS_MARGIN;
         this.buildBodyMesh(bodyWidth, bodyHeight);
 
-        this.drawPins(this.bodyMesh, 'left', this.size).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.bodyMesh, Side.LEFT, this.size);
         this.instructionBuffer.initializeGraphics();
     }
 

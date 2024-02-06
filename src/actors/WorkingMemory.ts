@@ -1,4 +1,4 @@
-import {ComputerChip} from "./ComputerChip";
+import {ComputerChip, Side} from "./ComputerChip";
 import {Scene} from "three";
 import {DataCellArray} from "./macros/DataCellArray";
 import {DrawUtils} from "../DrawUtils";
@@ -117,7 +117,7 @@ export class WorkingMemory extends ComputerChip {
         }
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawPins(this.bodyMesh, 'top', this.size).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.bodyMesh, Side.TOP, this.size);
     }
 
     /**

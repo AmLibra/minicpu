@@ -175,7 +175,7 @@ export class HUD {
 
         this.app.gameActors.forEach(actor => {
             this.gameMouseClickEvents.set(
-                () => this.raycaster.intersectObject(actor.getHitboxMesh()).length > 0,
+                () => this.raycaster.intersectObject(actor.getHitBoxMesh()).length > 0,
                 () => {
                     if (this.selectedActor)
                         this.selectedActor = this.selectedActor.deselect();

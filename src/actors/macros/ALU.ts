@@ -11,6 +11,7 @@ export class ALU extends ComputerChipMacro {
     height: number = InstructionBuffer.BUFFER_HEIGHT;
     textSize: number = 0.03;
 
+    private static readonly MAX_BYTE_VALUE = 8;
     private static readonly DISTANCE_TO_CENTER = 0.07;
     private static readonly OP_Y_OFFSET = -0.03;
     private static readonly RES_Y_OFFSET = 0.02;
@@ -128,8 +129,8 @@ export class ALU extends ComputerChipMacro {
     }
 
     private preventOverflow(n: number): number {
-        const result = n % ComputerChip.MAX_BYTE_VALUE;
-        return result >= 0 ? result : result + ComputerChip.MAX_BYTE_VALUE;
+        const result = n % ALU.MAX_BYTE_VALUE;
+        return result >= 0 ? result : result + ALU.MAX_BYTE_VALUE;
     }
 
 

@@ -11,6 +11,9 @@ import {HUD} from "./HUD";
  * including the rendering pipeline, scene setup, and game loop.
  */
 export class App {
+    /** The number of milliseconds in a second, used for app timing. */
+    public static readonly ONE_SECOND: number = 1000;
+
     /** The main scene where all objects are placed. */
     scene: Scene = new Scene();
 
@@ -94,7 +97,7 @@ export class App {
             if (this.paused) return;
             this.gameActors.forEach(actor => actor.update());
             this.hud.update();
-        }, ComputerChip.ONE_SECOND / this.cpu.getClockFrequency());
+        }, App.ONE_SECOND / this.cpu.getClockFrequency());
     }
 
     /**

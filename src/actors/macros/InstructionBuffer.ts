@@ -204,7 +204,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             geometries.push(geometry);
         }
 
-        const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, true);
+        const mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false);
         if (!mergedGeometry)
             throw new Error("Failed to merge geometries");
         return new Mesh(mergedGeometry, ComputerChipMacro.COMPONENT_MATERIAL);

@@ -1,6 +1,6 @@
 import {Scene} from "three";
 import {DrawUtils} from "../DrawUtils";
-import {ComputerChip} from "./ComputerChip";
+import {ComputerChip, Side} from "./ComputerChip";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
@@ -15,6 +15,7 @@ export class SISDProcessor extends ComputerChip {
 
     // ISA
     private static readonly WORDS = 1;
+    protected static readonly WORD_SIZE = 4; // bytes
     public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
     public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
     public static readonly BRANCH_OPCODES = ["BEQ", "BNE"];
@@ -43,63 +44,8 @@ export class SISDProcessor extends ComputerChip {
         this.isPipelined = false;
 
         this.initializeGraphics();
-        this.drawRightTraces(0.2, 0.02);
-        this.drawBottomTraces(0.05, 0.02);
-    }
-
-    private drawBottomTraces(baseOffset: number, distanceBetweenPins: number): void {
-        const halfwayWorkingMem = this.findMatchingWidth(this.workingMemory.size / 2, 'bottom')
-        for (let i = 0; i < halfwayWorkingMem; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
-                'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
-                baseOffset + (distanceBetweenPins * i)));
-        }
-        for (let i = halfwayWorkingMem; i < this.workingMemory.size; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'bottom')),
-                'bottom', this.workingMemory.getPinPosition(i, 'top'), 'top',
-                baseOffset + (distanceBetweenPins * (halfwayWorkingMem + 1)) - (distanceBetweenPins * (i - halfwayWorkingMem))));
-        }
-    }
-
-    private drawRightTraces(baseOffset: number, distanceBetweenPins: number): void {
-        const halfwayInstructionMem = this.findMatchingHeight(this.instructionMemory.size / 2, 'right')
-        for (let i = 0; i < halfwayInstructionMem; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
-                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                baseOffset + (distanceBetweenPins * i)));
-        }
-        for (let i = halfwayInstructionMem; i < this.instructionMemory.size; ++i) {
-            this.scene.add(this.buildTrace(this.pinPositions.get(this.pinName(i, 'right')),
-                'right', this.instructionMemory.getPinPosition(i, 'left'), 'left',
-                baseOffset + (distanceBetweenPins * halfwayInstructionMem) - (distanceBetweenPins * (i - halfwayInstructionMem))));
-        }
-    }
-
-
-    private findMatchingHeight(pin: number, side: "left" | "right" | "top" | "bottom"): number {
-        const pinPositionY = this.pinPositions.get(this.pinName(pin, side)).y;
-        let closest = 0;
-        for (let i = 0; i < this.instructionMemory.size; ++i) {
-            const instructionPositionY = this.instructionMemory.getPinPosition(i, 'left').y;
-            if (Math.abs(instructionPositionY - pinPositionY) < Math.abs(
-                this.instructionMemory.getPinPosition(closest, 'left').y - pinPositionY)) {
-                closest = i;
-            }
-        }
-        return closest;
-    }
-
-    private findMatchingWidth(pin: number, side: "left" | "right" | "top" | "bottom"): number {
-        const pinPositionX = this.pinPositions.get(this.pinName(pin, side)).x;
-        let closest = 0;
-        for (let i = 0; i < this.workingMemory.size; ++i) {
-            const instructionPositionX = this.workingMemory.getPinPosition(i, 'top').x;
-            if (Math.abs(instructionPositionX - pinPositionX) < Math.abs(
-                this.workingMemory.getPinPosition(closest, 'top').x - pinPositionX)) {
-                closest = i;
-            }
-        }
-        return closest;
+        this.drawTraces(Side.BOTTOM, this.workingMemory, Side.TOP, 0.05, 0.02, 'x');
+        this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, 0.2, 0.02, 'y');
     }
 
     public notifyInstructionRetired(): void {
@@ -196,8 +142,8 @@ export class SISDProcessor extends ComputerChip {
     }
 
     private drawCPUPins(): void {
-        this.drawPins(this.bodyMesh, 'right', this.instructionMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
-        this.drawPins(this.bodyMesh, 'bottom', this.workingMemory.size).forEach((mesh, _name) => this.scene.add(mesh));
+        this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);
+        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.size);
     }
 
     private calculateAverageInstructionCount(): number {
