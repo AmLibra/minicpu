@@ -19,20 +19,34 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private jumpAddressQueue: Queue<number> = new Queue<number>();
     private jumpInstructionQueue: Queue<number> = new Queue<number>();
     private requestedInstructionAddress: number = -1;
+    private toHighlightJumpPointer = 0;
 
     private flaggedBuffers: number[] = [];
     private flaggedBufferMeshes: Mesh[] = [];
 
+    /**
+     * Returns the highest instruction address that was reached in the instruction buffer.
+     */
     public highestInstructionAddress(): number {
         return this.addressReached - this.storedInstructions.maxSize + this.storedInstructions.size();
     }
 
+    /**
+     * Used to set the jump address and the address of the instruction that caused the jump.
+     * @param jumpAddress the address to jump to
+     * @param jumpInstructionAddress the address of the instruction that caused the jump
+     */
     public setJumpAddress(jumpAddress: number, jumpInstructionAddress: number): void {
         this.jumpAddressQueue.enqueue(jumpAddress);
         this.jumpInstructionQueue.enqueue(jumpInstructionAddress);
-        this.checkJumpInstructionGraphics();
     }
 
+    /**
+     * Asks for the next n instructions to be fetched from the instruction memory.
+     * @param chip the computer chip instance
+     * @param n the number of instructions to fetch
+     * @param address the address of the first instruction to fetch
+     */
     public askForInstructionsAt(chip: ComputerChip, n: number, address: number) {
         if (this.noDelay)
             throw new Error("There is no need to ask for instructions when there is no delay");
@@ -52,6 +66,11 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
     }
 
+    /**
+     * Fetches the instruction at the given address from the instruction memory.
+     *
+     * @param address the address of the instruction to fetch
+     */
     public fetchInstructionAt(address: number): Instruction {
         if (!this.noDelay && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
@@ -70,7 +89,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.shiftMeshesDown(1)
         } else { // iterate mode clear previously highlighted buffers
             this.clearHighlights();
-            this.checkJumpInstructionGraphics();
         }
 
         this.readyToBeRead = false;
@@ -78,6 +96,9 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         return instruction;
     }
 
+    /**
+     * Clears the jump instruction from the instruction buffer and resets the graphics.
+     */
     public clearJumpInstruction(): void {
         if (!this.iterateMode)
             return;
@@ -85,6 +106,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         this.clearHighlights();
         this.iterateMode = false;
         const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue()) - this.toLocalAddress(this.jumpAddressQueue.dequeue());
+        this.toHighlightJumpPointer--;
         for (let i = 0; i < n; ++i)
             this.storedInstructions.dequeue();
         this.flaggedBufferMeshes.splice(0, n).forEach(mesh => {
@@ -92,8 +114,14 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             mesh.geometry.dispose();
         });
         this.flaggedBuffers.splice(0, n);
-
         this.shiftMeshesDown(n);
+    }
+
+    write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
+        super.write(instructions, writeCount);
+        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer);
+        if (jumpInstructionAddress && this.storedInstructions.size() > this.toLocalAddress(jumpInstructionAddress))
+            this.updateJumpInstructionGraphics(this.toHighlightJumpPointer++);
     }
 
     initializeGraphics() {
@@ -133,9 +161,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.addressMeshes[i] = addressMesh;
             this.scene.add(addressMesh);
         }
-
-        if (this.jumpAddressQueue.peek())
-            this.checkJumpInstructionGraphics();
     }
 
     highlightBuffer(index: number) {
@@ -144,20 +169,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.highlightedBufferMeshes.push(index);
     }
 
-    private highlightFlaggedBuffer(index: number) {
-        this.clearHighlights();
-        const material = new MeshBasicMaterial({
-            color: ComputerChipMacro.BRANCH_MATERIAL.color, // Use the color from BRANCH_MATERIAL
-            transparent: true,
-            opacity: 0.1,
-        });
-        const highlightMesh = new Mesh(this.bufferHighlightGeometry, material);
-        highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
-            this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
-        this.flaggedBufferMeshes.push(highlightMesh);
-        this.flaggedBuffers.push(index);
-        this.scene.add(highlightMesh);
-    }
 
     clearHighlights() {
         super.clearHighlights();
@@ -178,6 +189,31 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         this.addressMeshes = [];
     }
 
+    /**
+     * Highlights the buffer at the given index, using the BRANCH_MATERIAL color and a low opacity.
+     * @param index the index of the buffer to highlight
+     * @private
+     */
+    private highlightFlaggedBuffer(index: number) {
+        this.clearHighlights();
+        const material = new MeshBasicMaterial({
+            color: ComputerChipMacro.BRANCH_MATERIAL.color, // Use the color from BRANCH_MATERIAL
+            transparent: true,
+            opacity: 0.1,
+        });
+        const highlightMesh = new Mesh(this.bufferHighlightGeometry, material);
+        highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
+            this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
+        this.flaggedBufferMeshes.push(highlightMesh);
+        this.flaggedBuffers.push(index);
+        this.scene.add(highlightMesh);
+    }
+
+    /**
+     * Highlights the address mesh of the given instruction address.
+     * @param address the address to highlight
+     * @private
+     */
     private highlightJumpAddress(address: number) {
         this.addressMeshes[address].material = ComputerChipMacro.BRANCH_MATERIAL;
     }
@@ -191,37 +227,60 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         return this.size - this.addressReached + address;
     }
 
-    private checkJumpInstructionGraphics() {
-        const jumpAddress = this.jumpAddressQueue.peek();
-        const jumpInstructionAddress = this.jumpInstructionQueue.peek();
-
+    /**
+     * Updates the graphics of a given jump instruction and the intermediate addresses.
+     * @param index the index of the jump instruction
+     * @private
+     */
+    private updateJumpInstructionGraphics(index: number): void {
+        const jumpAddress = this.jumpAddressQueue.get(index);
+        const jumpInstructionAddress = this.jumpInstructionQueue.get(index);
         if (!this.isValidAddress(jumpAddress) || !this.isValidAddress(jumpInstructionAddress)) return;
 
         const localJumpAddress = this.toLocalAddress(jumpAddress);
         const localInstructionAddress = this.toLocalAddress(jumpInstructionAddress);
 
-        if (this.isAddressInRange(localJumpAddress) || this.iterateMode)
+        if (this.isAddressInRange(localJumpAddress) && this.isAddressInRange(localInstructionAddress)) {
             this.highlightJumpAddress(localJumpAddress);
-
-        this.highlightIntermediateAddresses(localJumpAddress, localInstructionAddress);
+            this.highlightIntermediateAddresses(localJumpAddress, localInstructionAddress);
+        }
     }
 
+    /**
+     * Checks if the given address is valid.
+     * @param address the address to check
+     * @returns {boolean} true if the address is valid, false otherwise
+     * @private
+     */
     private isValidAddress(address: number): boolean {
         return address !== undefined && address !== null;
     }
 
+    /**
+     * Checks if the given address is in the range of the instruction buffer.
+     * @param address the address to check
+     * @returns {boolean} true if the address is in range, false otherwise
+     * @private
+     */
     private isAddressInRange(address: number): boolean {
         return address < this.addressMeshes.length && address >= 0;
     }
 
+    /**
+     * Highlights the intermediate addresses between the start and end addresses.
+     *
+     * @param start the start address
+     * @param end the end address
+     * @private
+     */
     private highlightIntermediateAddresses(start: number, end: number): void {
         for (let i = start; i < end; ++i) {
             if (!this.isAddressInRange(i)) continue;
 
-            const instructionExists = this.storedInstructions.get(i);
-            const isAlreadyFlagged = this.flaggedBuffers.includes(i);
+            const instructionAdded = this.storedInstructions.get(i);
+            const isNotAlreadyFlagged = !this.flaggedBuffers.includes(i);
 
-            if (instructionExists && !isAlreadyFlagged)
+            if (instructionAdded && isNotAlreadyFlagged)
                 this.highlightFlaggedBuffer(i);
         }
     }

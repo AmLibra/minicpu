@@ -47,22 +47,33 @@ export class Decoder extends InstructionBuffer {
             const instruction = this.fetcher.read();
             if (!instruction)
                 return;
-
-            this.storedInstructions.enqueue(instruction);
-
-            if (this.liveMeshes[0])
-                this.scene.remove(this.liveMeshes[0]);
-
-            const mesh = this.buildBufferTextMesh(0);
-            this.liveMeshes[0] = mesh;
-            this.scene.add(mesh);
+            this.enqueueInstruction(instruction);
         }
 
-        if (!this.alu.isReady() || !this.io.isReady())
-            return;
+        if (this.alu.isReady() && this.io.isReady())
+            this.decodeInstruction();
+    }
 
+    /**
+     * Enqueues an instruction to be decoded.
+     *
+     * @param instruction The instruction to be enqueued.
+     */
+    private enqueueInstruction(instruction: Instruction): void {
+        this.storedInstructions.enqueue(instruction);
+        if (this.liveMeshes[0])
+            this.scene.remove(this.liveMeshes[0]);
+
+        const mesh = this.buildBufferTextMesh(0);
+        this.liveMeshes[0] = mesh;
+        this.scene.add(mesh);
+    }
+
+    /**
+     * Decodes the next instruction in the instruction buffer.
+     */
+    private decodeInstruction(): void {
         const storedInstruction = this.storedInstructions.peek();
-
         if (storedInstruction.isArithmetic())
             this.alu.compute(this.storedInstructions.dequeue());
         else if (storedInstruction.isMemoryOperation()) {

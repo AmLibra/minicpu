@@ -14,7 +14,7 @@ export class InstructionMemory extends ComputerChip {
     private readonly instructionStream: Queue<Instruction>;
     private readonly workingMemory: WorkingMemory;
 
-    private forLoopProbability: number = 0.3;
+    private forLoopProbability: number = 0.6;
 
     constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
         super(position, scene, clockFrequency);

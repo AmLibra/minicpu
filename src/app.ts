@@ -112,10 +112,10 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 3, 3, 4);
+        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 5, 3, 4);
         const instructionMemory = new InstructionMemory([1.7, 0], this.scene, workingMemory, 4.5, 16);
         // instruction memory speed should be less than CPU speed / 2
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 2.5);
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 5);
         // clock frequency is actually 10 Hz due to pipelining
 
         this.cpu = cpu;
