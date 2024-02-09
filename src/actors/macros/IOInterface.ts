@@ -95,7 +95,7 @@ export class IOInterface extends InstructionBuffer {
      * @private
      */
     private executeInstruction(storedInstruction: Instruction): void {
-        const resultReg = this.toIndex(storedInstruction.getResultReg());
+        const resultReg = storedInstruction.getResultReg();
         if (storedInstruction.getOpcode() == "LOAD") {
             this.registers.write(resultReg, this.memory.read(storedInstruction.getAddress()));
         } else if (storedInstruction.getOpcode() == "STORE")
@@ -128,15 +128,5 @@ export class IOInterface extends InstructionBuffer {
      */
     private shortMemoryInstruction(instruction: Instruction): string {
         return (instruction.getOpcode() == "LOAD" ? "LD " : "ST ") + "[" + DrawUtils.toHex(instruction.getAddress()) + "]";
-    }
-
-    /**
-     * Converts a register name to an index.
-     *
-     * @param regName The register name to convert.
-     * @private
-     */
-    private toIndex(regName: string): number {
-        return parseInt(regName.substring(1));
     }
 }

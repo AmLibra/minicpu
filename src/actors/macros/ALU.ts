@@ -96,9 +96,9 @@ export class ALU extends ComputerChipMacro {
         this.drawALUText();
         this.highlight();
 
-        const op1 = this.registers.read(this.toIndex(instruction.getOp1Reg()));
+        const op1 = this.registers.read(instruction.getOp1Reg());
         const op2 = (instruction.isImmediate() ? instruction.getImmediate() :
-            this.registers.read(this.toIndex(instruction.getOp2Reg())));
+            this.registers.read(instruction.getOp2Reg()));
 
         if (this.branchStalling){
             const result = computeALUResult(op1, op2, instruction.getOpcode());
@@ -115,7 +115,7 @@ export class ALU extends ComputerChipMacro {
         }
 
         const result = this.preventOverflow(computeALUResult(op1, op2, instruction.getOpcode()));
-        this.registers.write(this.toIndex(instruction.getResultReg()), result, this);
+        this.registers.write(instruction.getResultReg(), result, this);
         if (this.parent instanceof SISDProcessor)
             (this.parent as SISDProcessor).notifyInstructionRetired();
         this.instruction = null;
@@ -208,11 +208,12 @@ export class ALU extends ComputerChipMacro {
 
         this.noOpMesh.visible = false;
         drawALUTextComponent(opcodeSymbol(this.instruction.getOpcode()), 0, ALU.OP_Y_OFFSET);
-        drawALUTextComponent(this.instruction.getOp1Reg(), ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
+        drawALUTextComponent("R" + this.instruction.getOp1Reg(), ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
         drawALUTextComponent((this.instruction.isImmediate() ?
-                this.instruction.getImmediate().toString() : this.instruction.getOp2Reg()),
+                this.instruction.getImmediate().toString() : "R" + this.instruction.getOp2Reg()),
             -ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
-        drawALUTextComponent((this.instruction.isBranch() ? "DECODER" : this.instruction.getResultReg()), 0, ALU.RES_Y_OFFSET);
+        drawALUTextComponent((this.instruction.isBranch() ? "DECODER" : "R" + this.instruction.getResultReg()),
+            0, ALU.RES_Y_OFFSET);
     }
 
     /**
@@ -225,16 +226,5 @@ export class ALU extends ComputerChipMacro {
     private preventOverflow(n: number): number {
         const result = n % ALU.MAX_BYTE_VALUE;
         return result >= 0 ? result : result + ALU.MAX_BYTE_VALUE;
-    }
-
-    /**
-     * Converts a register name to an index.
-     *
-     * @param regName The name of the register.
-     * @returns The index of the register.
-     * @private
-     */
-    private toIndex(regName: string): number {
-        return parseInt(regName.substring(1));
     }
 }

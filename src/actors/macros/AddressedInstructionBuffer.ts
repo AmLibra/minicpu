@@ -37,8 +37,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param jumpInstructionAddress the address of the instruction that caused the jump
      */
     public setJumpAddress(jumpAddress: number, jumpInstructionAddress: number): void {
-        console.log("Jump Address: " + DrawUtils.toHex(jumpAddress));
-        console.log("Jump Instruction Address: " + DrawUtils.toHex(jumpInstructionAddress));
         this.jumpAddressQueue.enqueue(jumpAddress);
         this.jumpInstructionQueue.enqueue(jumpInstructionAddress);
     }
@@ -64,7 +62,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             if (this.storedInstructions.get(i))
                 this.highlightBuffer(i);
 
-
         this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
     }
 
@@ -89,8 +86,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (!this.iterateMode) {
             this.storedInstructions.remove(localAddress);
             this.shiftMeshesDown(1)
-        } else { // iterate mode clear previously highlighted buffers
-            this.clearHighlights();
         }
 
         this.readyToBeRead = false;
@@ -106,26 +101,18 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             return;
 
         this.iterateMode = false;
-        const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue())
-            - this.toLocalAddress(this.jumpAddressQueue.dequeue()) + 1;
-        this.toHighlightJumpPointer--;
-        console.log("Decremented pointer: " + this.toHighlightJumpPointer);
-        for (let i = 0; i < n; ++i)
-            this.storedInstructions.dequeue();
+        const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue()) - this.toLocalAddress(this.jumpAddressQueue.dequeue()) + 1;
+        for (let i = 0; i < n; ++i) this.storedInstructions.dequeue();
 
-        // shift highlighted buffer meshes down
-        this.highlightMeshes.forEach((mesh, index) =>
-            mesh.position.setY(this.bufferMeshOffsets[this.highlightedBufferMeshes[index] - n]));
+        this.highlightMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[this.highlightedBufferMeshes[index] - n]));
         this.highlightedBufferMeshes = this.highlightedBufferMeshes.map(index => index - n);
         this.shiftMeshesDown(n);
+        this.toHighlightJumpPointer--;
     }
 
     write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
         super.write(instructions, writeCount);
-        console.log("Currently highlighting Pointer: " + this.toHighlightJumpPointer);
         const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer) + 1;
-        // if (jumpInstructionAddress) console.log("Jump Instruction Address: " +
-        // DrawUtils.toHex(jumpInstructionAddress));
         if (jumpInstructionAddress && this.storedInstructions.size() > this.toLocalAddress(jumpInstructionAddress))
             this.updateJumpInstructionGraphics(this.toHighlightJumpPointer++);
     }
@@ -135,8 +122,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             throw new Error("Horizontal instruction buffers are not supported for AddressedInstructionBuffer");
         super.initializeGraphics();
         for (let i = 0; i < this.size; i++) {
-            const addressMesh =
-                DrawUtils.buildTextMesh(DrawUtils.toHex(i), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
+            const addressMesh = DrawUtils.buildTextMesh(DrawUtils.toHex(i),
+                this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
                     ComputerChipMacro.TEXT_MATERIAL, true)
             this.addressMeshes[i] = addressMesh;
@@ -164,14 +151,12 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             if (newIndex >= 0) {
                 mesh.position.y = this.bufferMeshOffsets[newIndex];
             } else {
-                // Remove and dispose of meshes that have moved beyond the buffer range
                 this.scene.remove(mesh);
                 mesh.geometry.dispose();
                 this.flaggedBufferMeshes[index] = null;
             }
         });
         this.flaggedBuffers = this.flaggedBuffers.filter(index => index >= 0);
-        // Filter out any null meshes that were removed
         this.flaggedBufferMeshes = this.flaggedBufferMeshes.filter(mesh => mesh !== null);
 
         for (let i = this.size - nPositions; i < this.size; ++i) {

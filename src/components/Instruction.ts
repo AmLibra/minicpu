@@ -17,9 +17,9 @@ enum InstructionType {
  */
 export class Instruction {
     private readonly opcode: string;
-    private readonly resultReg: string;
-    private readonly op1Reg: string;
-    private readonly op2Reg: string;
+    private readonly resultReg: number;
+    private readonly op1Reg: number;
+    private readonly op2Reg: number;
     private readonly address: number;
     private readonly immediate: number;
     private readonly type: InstructionType;
@@ -28,14 +28,14 @@ export class Instruction {
      * Creates an instruction instance.
      *
      * @param {string} opcode - The operation code of the instruction.
-     * @param {string} resultReg - The name of the register where the result will be stored.
-     * @param {string} [op1Reg] - The first operand register (for ALU and BRANCH operations).
-     * @param {string} [op2Reg] - The second operand register (for ALU and BRANCH operations).
+     * @param {number} resultReg - The name of the register where the result will be stored.
+     * @param {number} [op1Reg] - The first operand register (for ALU and BRANCH operations).
+     * @param {number} [op2Reg] - The second operand register (for ALU and BRANCH operations).
      * @param {number} [address] - The memory address involved in the operation (for MEMORY and BRANCH operations).
      * @param {number} [immediate] - The immediate value to use in the operation (for ALU_IMM operations).
      * @throws {Error} If there are missing or extraneous parameters for a given opcode.
      */
-    private constructor(opcode: string, resultReg?: string, op1Reg?: string, op2Reg?: string, address?: number, immediate?: number) {
+    private constructor(opcode: string, resultReg?: number, op1Reg?: number, op2Reg?: number, address?: number, immediate?: number) {
         this.opcode = opcode;
         if (ISA.MEMORY_OPCODES.includes(opcode)) {
             this.validateMemoryOperation(resultReg, op1Reg, op2Reg, address);
@@ -69,11 +69,11 @@ export class Instruction {
      * Creates a new memory instruction.
      *
      * @param {string} opcode - The operation code of the instruction.
-     * @param {string} resultReg - The name of the register where the result will be stored.
+     * @param {number} resultReg - The name of the register where the result will be stored.
      * @param {number} address - The memory address involved in the operation.
      * @returns {Instruction} The new memory instruction.
      */
-    public static memory(opcode: string, resultReg: string, address: number): Instruction {
+    public static memory(opcode: string, resultReg: number, address: number): Instruction {
         return new Instruction(opcode, resultReg, undefined, undefined, address);
     }
 
@@ -81,12 +81,12 @@ export class Instruction {
      * Creates a new ALU instruction.
      *
      * @param {string} opcode - The operation code of the instruction.
-     * @param {string} resultReg - The name of the register where the result will be stored.
-     * @param {string} op1Reg - The first operand register.
-     * @param {string} op2Reg - The second operand register.
+     * @param {number} resultReg - The name of the register where the result will be stored.
+     * @param {number} op1Reg - The first operand register.
+     * @param {number} op2Reg - The second operand register.
      * @returns {Instruction} The new ALU instruction.
      */
-    public static alu(opcode: string, resultReg: string, op1Reg: string, op2Reg: string): Instruction {
+    public static alu(opcode: string, resultReg: number, op1Reg: number, op2Reg: number): Instruction {
         return new Instruction(opcode, resultReg, op1Reg, op2Reg);
     }
 
@@ -94,25 +94,25 @@ export class Instruction {
      * Creates a new branch instruction.
      *
      * @param {string} opcode - The operation code of the instruction.
-     * @param {string} op1Reg - The first operand register.
-     * @param {string} op2Reg - The second operand register.
-     * @param {number} address - The memory address involved in the operation.
+     * @param {number} op1Reg - The first operand register.
+     * @param {number} op2Reg - The second operand register.
+     * @param {number} target - The memory target address.
      * @returns {Instruction} The new branch instruction.
      */
-    public static branch(opcode: string, op1Reg: string, op2Reg: string, address: number): Instruction {
-        return new Instruction(opcode, undefined, op1Reg, op2Reg, address);
+    public static branch(opcode: string, op1Reg: number, op2Reg: number, target: number): Instruction {
+        return new Instruction(opcode, undefined, op1Reg, op2Reg, target);
     }
 
     /**
      * Creates a new ALU instruction with an immediate value.
      *
      * @param {string} opcode - The operation code of the instruction.
-     * @param {string} resultReg - The name of the register where the result will be stored.
-     * @param {string} op1Reg - The first operand register.
+     * @param {number} resultReg - The name of the register where the result will be stored.
+     * @param {number} op1Reg - The first operand register.
      * @param {number} immediate - The immediate value to use in the operation.
      * @returns {Instruction} The new ALU instruction with an immediate value.
      */
-    public static aluImm(opcode: string, resultReg: string, op1Reg: string, immediate: number): Instruction {
+    public static aluImm(opcode: string, resultReg: number, op1Reg: number, immediate: number): Instruction {
         return new Instruction(opcode, resultReg, op1Reg, undefined, undefined, immediate);
     }
 
@@ -155,13 +155,13 @@ export class Instruction {
     public toString(): string {
         switch (this.type) {
             case InstructionType.MEMORY:
-                return `${this.opcode} ${this.resultReg},[${DrawUtils.toHex(this.address)}]`;
+                return `${this.opcode} R${this.resultReg}, [${DrawUtils.toHex(this.address)}]`;
             case InstructionType.ALU:
-                return `${this.opcode} ${this.resultReg},${this.op1Reg},${this.op2Reg}`;
+                return `${this.opcode} R${this.resultReg}, R${this.op1Reg}, R${this.op2Reg}`;
             case InstructionType.BRANCH:
-                return `${this.opcode} ${this.op1Reg},${this.op2Reg},${DrawUtils.toHex(this.address)}`;
+                return `${this.opcode} R${this.op1Reg}, R${this.op2Reg}, ${DrawUtils.toHex(this.address)}`;
             case InstructionType.ALU_IMM:
-                return `${this.opcode} ${this.resultReg},${this.op1Reg},${this.immediate}`;
+                return `${this.opcode} R${this.resultReg}, R${this.op1Reg}, ${this.immediate}`;
             default:
                 throw new Error("Invalid instruction type");
         }
@@ -172,11 +172,11 @@ export class Instruction {
         return this.opcode;
     }
 
-    public getOp1Reg(): string {
+    public getOp1Reg(): number {
         return this.type !== InstructionType.MEMORY ? this.op1Reg : undefined;
     }
 
-    public getOp2Reg(): string {
+    public getOp2Reg(): number {
         return this.type !== InstructionType.MEMORY ? this.op2Reg : undefined;
     }
 
@@ -184,7 +184,7 @@ export class Instruction {
         return this.type === InstructionType.ALU_IMM ? this.immediate : undefined;
     }
 
-    public getResultReg(): string {
+    public getResultReg(): number {
         return this.resultReg;
     }
 
@@ -193,27 +193,27 @@ export class Instruction {
     }
 
     // Private helper methods for validating instruction parameters
-    private validateMemoryOperation(resultReg?: string, op1Reg?: string, op2Reg?: string, address?: number, immediate?: number): void {
+    private validateMemoryOperation(resultReg?: number, op1Reg?: number, op2Reg?: number, address?: number, immediate?: number): void {
         if (address === undefined) throw new Error("Missing memory address for MEMORY operation");
         if (resultReg === undefined) throw new Error("Missing result register for MEMORY operation");
         if (op1Reg !== undefined || op2Reg !== undefined) throw new Error("Cannot have operand registers for MEMORY operation");
         if (immediate !== undefined) throw new Error("Cannot have immediate value for MEMORY operation");
     }
 
-    private validateAluOperation(resultReg?: string, op1Reg?: string, op2Reg?: string, address?: number, immediate?: number): void {
+    private validateAluOperation(resultReg?: number, op1Reg?: number, op2Reg?: number, address?: number, immediate?: number): void {
         if (op1Reg === undefined || op2Reg === undefined) throw new Error("Missing operand register for ALU operation");
         if (resultReg === undefined) throw new Error("Missing result register for ALU operation");
         if (address !== undefined) throw new Error("Cannot have address for ALU operation");
         if (immediate !== undefined) throw new Error("Cannot have immediate value for ALU operation");
     }
 
-    private validateBranchOperation(resultReg?: string, op1Reg?: string, op2Reg?: string, address?: number, immediate?: number): void {
+    private validateBranchOperation(resultReg?: number, op1Reg?: number, op2Reg?: number, address?: number, immediate?: number): void {
         if (op1Reg === undefined || op2Reg === undefined || address === undefined) throw new Error("Missing parameters for BRANCH operation");
         if (resultReg !== undefined) throw new Error("Cannot have result register for BRANCH operation");
         if (immediate !== undefined) throw new Error("Cannot have immediate value for BRANCH operation");
     }
 
-    private validateAluImmOperation(resultReg?: string, op1Reg?: string, op2Reg?: string, address?: number, immediate?: number): void {
+    private validateAluImmOperation(resultReg?: number, op1Reg?: number, op2Reg?: number, address?: number, immediate?: number): void {
         if (op1Reg === undefined || immediate === undefined) throw new Error("Missing operand register or immediate value for ALU_IMM operation");
         if (resultReg === undefined) throw new Error("Missing result register for ALU_IMM operation");
         if (op2Reg !== undefined || address !== undefined) throw new Error("Cannot have second operand register or" +
