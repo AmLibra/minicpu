@@ -1,5 +1,4 @@
 import {Scene} from "three";
-import {DrawUtils} from "../DrawUtils";
 import {ComputerChip, Side} from "./ComputerChip";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
@@ -9,17 +8,13 @@ import {ALU} from "./macros/ALU";
 import {DataCellArray} from "./macros/DataCellArray";
 import {IOInterface} from "./macros/IOInterface";
 import {Decoder} from "./macros/Decoder";
+import {ISA} from "../components/ISA";
 
+/**
+ * A Single Instruction, Single Data (SISD) processor.
+ */
 export class SISDProcessor extends ComputerChip {
     private static readonly INNER_SPACING_L = 0.02;
-
-    // ISA
-    private static readonly WORDS = 1;
-    protected static readonly WORD_SIZE = 4; // bytes
-    public static readonly ALU_OPCODES = ["ADD", "SUB", "MUL", "AND", "OR"];
-    public static readonly MEMORY_OPCODES = ["LOAD", "STORE"];
-    public static readonly BRANCH_OPCODES = ["BEQ", "BNE"];
-    public static readonly REGISTER_SIZE = SISDProcessor.WORDS * SISDProcessor.WORD_SIZE;
 
     private instructionFetcher: InstructionFetcher;
     private alu: ALU;
@@ -54,6 +49,7 @@ export class SISDProcessor extends ComputerChip {
 
     public setPipelined(): void {
         this.isPipelined = true;
+        this.decoder.setPipelined();
         this.updateClock(this.getClockFrequency() * 2);
     }
 
@@ -80,44 +76,40 @@ export class SISDProcessor extends ComputerChip {
         this.decoder.update();
 
         this.decoder.decode();
-        this.instructionFetcher.fetchInstruction();
-
         this.updateRetiredInstructionCounters();
     }
 
-    private initializeGraphics(): void {
+    initializeGraphics(): void {
+        // Single Core Single Data Processor
         const ioBufferWidth = 0.4;
         const ioInterfaceWidth = new IOInterface(this, this.registers, this.workingMemory).width;
-        const aluWidth = new ALU(this, this.registers).width;
-        const bodyWidth: number = ioBufferWidth + aluWidth + new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width
-            + SISDProcessor.INNER_SPACING_L * 2
-            + SISDProcessor.CONTENTS_MARGIN * 2;
-        const buffersWidth = bodyWidth - 2 * SISDProcessor.CONTENTS_MARGIN;
+        const aluDims = ALU.dimensions();
+        const registerDims = DataCellArray.dimensions(ISA.REGISTER_SIZE, 1);
+        const buffersWidth = ioBufferWidth + aluDims.width + registerDims.width + SISDProcessor.INNER_SPACING_L * 2;
 
-        const bodyHeight: number = new ALU(this, this.registers).height * 3 + SISDProcessor.INNER_SPACING_L * 2
-            + SISDProcessor.CONTENTS_MARGIN * 2;
+        const bodyWidth: number = buffersWidth + SISDProcessor.CONTENTS_MARGIN * 2;
+        const bodyHeight: number = aluDims.height * 3 + SISDProcessor.INNER_SPACING_L * 2 + SISDProcessor.CONTENTS_MARGIN * 2;
+
         const registerNames = [];
-        for (let i = 0; i < SISDProcessor.WORDS * SISDProcessor.WORD_SIZE; i++)
+        for (let i = 0; i < ISA.REGISTER_SIZE ; i++)
             registerNames.push(`R${i}`);
 
-        this.registers = new DataCellArray(this, bodyWidth / 2
-            - new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width / 2
-            - SISDProcessor.INNER_SPACING_L - SISDProcessor.CONTENTS_MARGIN - aluWidth
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS, true, registerNames);
+        this.registers = new DataCellArray(this, bodyWidth / 2 - registerDims.width / 2
+            - SISDProcessor.INNER_SPACING_L - SISDProcessor.CONTENTS_MARGIN - aluDims.width,
+            bodyHeight / 2 - aluDims.height / 2 - SISDProcessor.CONTENTS_MARGIN, ISA.REGISTER_SIZE,
+           1, true, ISA.ZERO_REGISTER, registerNames);
 
         this.IOInterface = new IOInterface(this, this.registers, this.workingMemory,
-            bodyWidth / 2
-            - ioBufferWidth / 2
-            - new DataCellArray(this, 0, 0, SISDProcessor.WORD_SIZE, SISDProcessor.WORDS).width
-            - SISDProcessor.INNER_SPACING_L * 2 - SISDProcessor.CONTENTS_MARGIN - aluWidth
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN, ioBufferWidth, false);
+            bodyWidth / 2 - ioBufferWidth / 2 - registerDims.width
+            - SISDProcessor.INNER_SPACING_L * 2 - SISDProcessor.CONTENTS_MARGIN - aluDims.width,
+            bodyHeight / 2 - aluDims.height / 2 - SISDProcessor.CONTENTS_MARGIN, ioBufferWidth, false);
 
-        this.instructionFetcher = new InstructionFetcher(this, 0,
-            -bodyHeight / 2 + ioInterfaceWidth / 2 + SISDProcessor.CONTENTS_MARGIN
-            , this.instructionMemory.getInstructionBuffer(), buffersWidth);
+        this.alu = new ALU(this, this.registers, bodyWidth / 2 - aluDims.width / 2 - SISDProcessor.CONTENTS_MARGIN,
+            bodyHeight / 2 - aluDims.height / 2 - SISDProcessor.CONTENTS_MARGIN);
 
-        this.alu = new ALU(this, this.registers, bodyWidth / 2 - new ALU(this, this.registers).width / 2 - SISDProcessor.CONTENTS_MARGIN
-            , bodyHeight / 2 - new ALU(this, this.registers).height / 2 - SISDProcessor.CONTENTS_MARGIN);
+        this.instructionFetcher = new InstructionFetcher(this, 0, -bodyHeight / 2 + ioInterfaceWidth / 2
+            + SISDProcessor.CONTENTS_MARGIN, this.instructionMemory.getInstructionBuffer(), buffersWidth);
+
         this.decoder = new Decoder(this, this.registers, this.instructionFetcher, this.alu, this.IOInterface,
             0, 0, buffersWidth);
 
@@ -126,9 +118,11 @@ export class SISDProcessor extends ComputerChip {
         this.alu.initializeGraphics();
         this.IOInterface.initializeGraphics();
         this.decoder.initializeGraphics();
+        // end of SISDCore
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawCPUPins();
+        this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);
+        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.size);
     }
 
     private updateRetiredInstructionCounters(): void {
@@ -137,11 +131,6 @@ export class SISDProcessor extends ComputerChip {
         this.previousRetiredInstructionCounts.enqueue(this.retiredInstructionCount);
         this.accumulatedInstructionCount += this.retiredInstructionCount;
         this.retiredInstructionCount = 0;
-    }
-
-    private drawCPUPins(): void {
-        this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);
-        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.size);
     }
 
     private calculateAverageInstructionCount(): number {

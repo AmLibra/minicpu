@@ -17,6 +17,8 @@ export class Decoder extends InstructionBuffer {
     private alu: ALU;
     private io: IOInterface;
 
+    private pipelined: boolean = false;
+
     /**
      * Constructs a new Decoder instance.
      *
@@ -40,17 +42,50 @@ export class Decoder extends InstructionBuffer {
     }
 
     /**
+     * Sets the decoder to be pipelined.
+     */
+    public setPipelined(): void {
+        this.pipelined = true;
+    }
+
+    /**
+     * Used to take or not a branch based on the result of a condition check.
+     *
+     * @param conditionResult The result of the condition check.
+     */
+    public takeBranch(conditionResult: boolean): void {
+        if (conditionResult)
+            this.fetcher.setProgramCounter(this.storedInstructions.dequeue().getAddress());
+        else {
+            this.fetcher.notifyBranchSkipped();
+            this.storedInstructions.dequeue();
+        }
+        if (this.parent instanceof SISDProcessor)
+                (this.parent as SISDProcessor).notifyInstructionRetired();
+    }
+
+
+    /**
      * Decodes the next instruction in the instruction buffer.
      */
     public decode(): void {
+        const executionUnitsReady = this.alu.isReady() && this.io.isReady();
         if (this.storedInstructions.isEmpty()) {
-            const instruction = this.fetcher.read();
-            if (!instruction)
+            if (!this.pipelined && !executionUnitsReady)
                 return;
+
+            const instruction = this.fetcher.read();
+            if (!instruction) {
+                this.fetcher.next();
+                return;
+            }
             this.enqueueInstruction(instruction);
         }
 
-        if (this.alu.isReady() && this.io.isReady())
+        if (this.pipelined && !this.storedInstructions.get(0).isBranch())
+            this.fetcher.next();
+
+        if (executionUnitsReady)
             this.decodeInstruction();
     }
 
@@ -75,23 +110,16 @@ export class Decoder extends InstructionBuffer {
     private decodeInstruction(): void {
         const storedInstruction = this.storedInstructions.peek();
         if (storedInstruction.isArithmetic())
-            this.alu.compute(this.storedInstructions.dequeue());
+            this.alu.compute(this, this.storedInstructions.dequeue());
         else if (storedInstruction.isMemoryOperation()) {
             this.io.processIO(this.storedInstructions.dequeue());
         } else if (storedInstruction.isBranch()) {
-            if (Math.random() < 0.4)
-                this.fetcher.setProgramCounter(storedInstruction.getAddress());
-            else
-                this.fetcher.notifyBranchSkipped();
-
-            if (this.parent instanceof SISDProcessor)
-                (this.parent as SISDProcessor).notifyInstructionRetired();
-            this.storedInstructions.dequeue()
+            this.alu.compute(this, storedInstruction);
         }
     }
 
     update() {
-        if (this.liveMeshes[0]) {
+        if (this.liveMeshes[0] && this.storedInstructions.isEmpty())  {
             this.scene.remove(this.liveMeshes[0]);
             this.liveMeshes[0].geometry.dispose();
             this.liveMeshes[0] = this.buildBufferTextMesh(0);

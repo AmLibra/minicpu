@@ -74,27 +74,16 @@ export class WorkingMemory extends ComputerChip {
         this.bankOf(address).write(address % this.bankOf(address).getSize(), value);
     }
 
-    /**
-     * Returns the display name of the working memory.
-     *
-     * @returns The display name.
-     */
     displayName(): string {
         return "Main Memory";
     }
 
-    /**
-     * Updates the state of all data banks in the working memory.
-     */
     update(): void {
         this.dataBanks.forEach(dataBank => dataBank.update());
     }
 
-    /**
-     * Initializes the graphical representation of the working memory.
-     */
-    private initializeGraphics(): void {
-        const cellArrayDimensions = DataCellArray.computeDimensions(this.numberOfWords, this.wordSize);
+    initializeGraphics(): void {
+        const cellArrayDimensions = DataCellArray.dimensions(this.numberOfWords, this.wordSize);
         const bodyHeight = cellArrayDimensions.height + WorkingMemory.CONTENTS_MARGIN * 2
             + WorkingMemory.INNER_SPACING + WorkingMemory.TEXT_SIZE;
         let bodyWidth = cellArrayDimensions.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
@@ -111,7 +100,7 @@ export class WorkingMemory extends ComputerChip {
                 startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
                 (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2,
                  this.numberOfWords, this.wordSize,
-                false, cellNames, `Bank ${i}`);
+                false, undefined, cellNames, `Bank ${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }

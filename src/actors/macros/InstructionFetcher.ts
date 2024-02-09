@@ -5,6 +5,7 @@ import {Counter} from "./Counter";
 import {InstructionBuffer} from "./InstructionBuffer";
 import {Instruction} from "../../components/Instruction";
 import {Queue} from "../../components/Queue";
+import {Decoder} from "./Decoder";
 
 /**
  * Represents the instruction fetcher of a computer chip, handling the fetching of instructions.
@@ -72,7 +73,7 @@ export class InstructionFetcher extends ComputerChipMacro {
     /**
      * Fetches the next instruction from the instruction memory.
      */
-    public fetchInstruction(): void {
+    public next(): void {
         if (this.instructionBuffer.isFull())
             return;
 

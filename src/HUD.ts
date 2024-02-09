@@ -410,7 +410,11 @@ export class HUD {
         const aspectRatio = window.innerWidth / window.innerHeight;
         this.app.camera.left = -aspectRatio;
         this.app.camera.right = aspectRatio;
+        this.hudCamera.left = -aspectRatio;
+        this.hudCamera.right = aspectRatio;
+
         this.app.camera.updateProjectionMatrix();
+        this.hudCamera.updateProjectionMatrix();
         this.app.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 

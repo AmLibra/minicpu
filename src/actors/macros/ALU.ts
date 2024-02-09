@@ -1,17 +1,20 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {ComputerChip} from "../ComputerChip";
-import {Material, Mesh, PlaneGeometry} from "three";
+import {Mesh, PlaneGeometry} from "three";
 import {InstructionBuffer} from "./InstructionBuffer";
 import {DrawUtils} from "../../DrawUtils";
 import {Instruction} from "../../components/Instruction";
 import {DataCellArray} from "./DataCellArray";
 import {SISDProcessor} from "../SISDProcessor";
+import {Decoder} from "./Decoder";
 
 /**
  * Represents the Arithmetic Logic Unit (ALU) of a computer chip, performing arithmetic and logical operations.
  */
 export class ALU extends ComputerChipMacro {
+    private static readonly WIDTH = 0.2;
     height: number = InstructionBuffer.BUFFER_HEIGHT;
+    width: number = 0.2;
     textSize: number = 0.03;
 
     private static readonly MAX_BYTE_VALUE = 8;
@@ -22,6 +25,9 @@ export class ALU extends ComputerChipMacro {
     private readonly highlightGeometry: PlaneGeometry;
     private noOpMesh: Mesh;
     private highlighted: boolean = false;
+
+    private branchStalling = false;
+    private decoder: Decoder;
 
     private instruction: Instruction;
     private registers: DataCellArray;
@@ -35,11 +41,14 @@ export class ALU extends ComputerChipMacro {
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} width The width of the ALU.
      */
-    constructor(parent: ComputerChip, registers: DataCellArray, xOffset: number = 0, yOffset: number = 0, width: number = 0.2) {
+    constructor(parent: ComputerChip, registers: DataCellArray,xOffset: number = 0, yOffset: number = 0) {
         super(parent, xOffset, yOffset);
-        this.width = width;
         this.registers = registers;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
+    }
+
+    public static dimensions(): { width: number, height: number } {
+        return { width: ALU.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT };
     }
 
     /**
@@ -56,19 +65,28 @@ export class ALU extends ComputerChipMacro {
      *
      * @param {Instruction} instruction The instruction to process.
      */
-    public compute(instruction: Instruction): void {
+    public compute(decoder:Decoder, instruction: Instruction): void {
         function computeALUResult(op1: number, op2: number, opcode: string): number {
             switch (opcode) {
+                case "ADDI":
                 case "ADD":
                     return op1 + op2;
+                case "SUBI":
                 case "SUB":
                     return op1 - op2;
+                case "MULI":
                 case "MUL":
                     return op1 * op2;
                 case "AND":
                     return op1 & op2;
                 case "OR":
                     return op1 | op2;
+                case "BEQ":
+                case "EQ":
+                    return op1 === op2 ? 1 : 0;
+                case "BLT":
+                case "LT":
+                    return op1 < op2 ? 1 : 0;
                 default:
                     throw new Error("Invalid ALU opcode: " + opcode);
             }
@@ -79,7 +97,23 @@ export class ALU extends ComputerChipMacro {
         this.highlight();
 
         const op1 = this.registers.read(this.toIndex(instruction.getOp1Reg()));
-        const op2 = this.registers.read(this.toIndex(instruction.getOp2Reg()));
+        const op2 = (instruction.isImmediate() ? instruction.getImmediate() :
+            this.registers.read(this.toIndex(instruction.getOp2Reg())));
+
+        if (this.branchStalling){
+            const result = computeALUResult(op1, op2, instruction.getOpcode());
+            decoder.takeBranch(result === 1);
+            this.instruction = null;
+            this.branchStalling = false;
+            return;
+        }
+
+        if (instruction.isBranch()) {
+            this.branchStalling = true;
+            this.decoder = decoder;
+            return;
+        }
+
         const result = this.preventOverflow(computeALUResult(op1, op2, instruction.getOpcode()));
         this.registers.write(this.toIndex(instruction.getResultReg()), result, this);
         if (this.parent instanceof SISDProcessor)
@@ -90,6 +124,8 @@ export class ALU extends ComputerChipMacro {
     update(): void {
         if (this.highlighted)
             this.clearHighlights()
+        if (this.branchStalling)
+            this.compute(this.decoder, this.instruction);
     }
 
     initializeGraphics(): void {
@@ -147,24 +183,36 @@ export class ALU extends ComputerChipMacro {
         const opcodeSymbol = (opcode: string): string => {
             switch (opcode) {
                 case "ADD":
+                case "ADDI":
                     return "+";
                 case "SUB":
+                case "SUBI":
                     return "-";
                 case "MUL":
+                case "MULI":
                     return "x";
                 case "AND":
                     return "&";
                 case "OR":
                     return "v";
+                case "BEQ":
+                case "EQ":
+                    return "=";
+                case "BLT":
+                case "LT":
+                    return "<";
                 default:
                     throw new Error("Invalid ALU opcode: " + opcode);
             }
         }
+
         this.noOpMesh.visible = false;
         drawALUTextComponent(opcodeSymbol(this.instruction.getOpcode()), 0, ALU.OP_Y_OFFSET);
         drawALUTextComponent(this.instruction.getOp1Reg(), ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
-        drawALUTextComponent(this.instruction.getOp2Reg(), -ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
-        drawALUTextComponent(this.instruction.getResultReg(), 0, ALU.RES_Y_OFFSET);
+        drawALUTextComponent((this.instruction.isImmediate() ?
+                this.instruction.getImmediate().toString() : this.instruction.getOp2Reg()),
+            -ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
+        drawALUTextComponent((this.instruction.isBranch() ? "DECODER" : this.instruction.getResultReg()), 0, ALU.RES_Y_OFFSET);
     }
 
     /**

@@ -16,7 +16,7 @@ export class DataCellArray extends ComputerChipMacro {
     private static readonly INNER_SPACING = 0.01;
 
     /** The initial value with which each register in the array is filled. */
-    private static readonly INITIAL_REG_VALUE: number = 2;
+    private static readonly INITIAL_REG_VALUE: number = 0;
 
     /** An array of tuples representing the x and y positions of each cell in the 3D space. */
     private readonly cellPositions: [number, number][] = [];
@@ -42,6 +42,9 @@ export class DataCellArray extends ComputerChipMacro {
     /** Flag indicating whether memory operations should be instant without any delay. */
     private readonly noDelay: boolean;
 
+    /** The zero register index. */
+    private readonly zeroRegister: number;
+
     /** Indicates whether the data cell array is ready for a read or write operation. */
     private ready: boolean = false;
 
@@ -64,11 +67,12 @@ export class DataCellArray extends ComputerChipMacro {
      * @param bankName An optional name for the bank of registers or memory array.
      */
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4,
-                noDelay: boolean = false, registerNames?: string[], bankName?: string) {
+                noDelay: boolean = false, zeroRegister: number, registerNames?: string[], bankName?: string) {
         super(parent, xOffset, yOffset);
         this.numberOfWords = numberOfWords;
         this.wordSize = wordSize;
         this.noDelay = noDelay;
+        this.zeroRegister = zeroRegister;
         this.bankName = bankName;
         this.registerNames = registerNames;
         this.memoryArray = new Array(this.numberOfWords * this.wordSize).fill(DataCellArray.INITIAL_REG_VALUE);
@@ -83,10 +87,10 @@ export class DataCellArray extends ComputerChipMacro {
      * Computes the dimensions of the data cell array based on the number of words and the word size.
      * This is useful for positioning the data cell array in the scene relative to other components.
      *
-     * @param numberOfWords
-     * @param wordSize
+     * @param numberOfWords The number of words in the data cell array.
+     * @param wordSize The number of cells in each word.
      */
-    public static computeDimensions(numberOfWords: number, wordSize: number): { width: number, height: number } {
+    public static dimensions(numberOfWords: number, wordSize: number): { width: number, height: number } {
         return {
             width: DataCellArray.REGISTER_SIDE_LENGTH * numberOfWords + DataCellArray.INNER_SPACING * (numberOfWords - 1),
             height: DataCellArray.REGISTER_SIDE_LENGTH * wordSize + DataCellArray.INNER_SPACING * (wordSize - 1)
@@ -154,6 +158,8 @@ export class DataCellArray extends ComputerChipMacro {
     public write(address: number, value: number, chipMacro?: ComputerChipMacro): void {
         this.ensureAddressIsInBounds(address);
         this.checkIfReady();
+        if (address === this.zeroRegister)
+            return;
         this.memoryArray[address] = value;
         DrawUtils.updateText(this.liveMeshes[address], value.toString(), true);
         this.clearHighlights();

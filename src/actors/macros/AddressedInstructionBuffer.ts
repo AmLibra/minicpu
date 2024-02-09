@@ -37,6 +37,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param jumpInstructionAddress the address of the instruction that caused the jump
      */
     public setJumpAddress(jumpAddress: number, jumpInstructionAddress: number): void {
+        console.log("Jump Address: " + DrawUtils.toHex(jumpAddress));
+        console.log("Jump Instruction Address: " + DrawUtils.toHex(jumpInstructionAddress));
         this.jumpAddressQueue.enqueue(jumpAddress);
         this.jumpInstructionQueue.enqueue(jumpInstructionAddress);
     }
@@ -103,23 +105,27 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (!this.iterateMode)
             return;
 
-        this.clearHighlights();
         this.iterateMode = false;
-        const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue()) - this.toLocalAddress(this.jumpAddressQueue.dequeue());
+        const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue())
+            - this.toLocalAddress(this.jumpAddressQueue.dequeue()) + 1;
         this.toHighlightJumpPointer--;
+        console.log("Decremented pointer: " + this.toHighlightJumpPointer);
         for (let i = 0; i < n; ++i)
             this.storedInstructions.dequeue();
-        this.flaggedBufferMeshes.splice(0, n).forEach(mesh => {
-            this.scene.remove(mesh);
-            mesh.geometry.dispose();
-        });
-        this.flaggedBuffers.splice(0, n);
+
+        // shift highlighted buffer meshes down
+        this.highlightMeshes.forEach((mesh, index) =>
+            mesh.position.setY(this.bufferMeshOffsets[this.highlightedBufferMeshes[index] - n]));
+        this.highlightedBufferMeshes = this.highlightedBufferMeshes.map(index => index - n);
         this.shiftMeshesDown(n);
     }
 
     write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
         super.write(instructions, writeCount);
-        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer);
+        console.log("Currently highlighting Pointer: " + this.toHighlightJumpPointer);
+        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer) + 1;
+        // if (jumpInstructionAddress) console.log("Jump Instruction Address: " +
+        // DrawUtils.toHex(jumpInstructionAddress));
         if (jumpInstructionAddress && this.storedInstructions.size() > this.toLocalAddress(jumpInstructionAddress))
             this.updateJumpInstructionGraphics(this.toHighlightJumpPointer++);
     }
@@ -147,15 +153,31 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             mesh.geometry.dispose();
         });
 
-        this.addressMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[index]));
+        //this.addressMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[index]));
+        this.addressMeshes.forEach((mesh, index) =>
+            mesh.translateY(this.bufferMeshOffsets[index] - this.bufferMeshOffsets[index + nPositions]));
 
+        // Update flagged buffer indices and their mesh positions
         this.flaggedBuffers = this.flaggedBuffers.map(index => index - nPositions);
+        this.flaggedBufferMeshes.forEach((mesh, index) => {
+            const newIndex = this.flaggedBuffers[index];
+            if (newIndex >= 0) {
+                mesh.position.y = this.bufferMeshOffsets[newIndex];
+            } else {
+                // Remove and dispose of meshes that have moved beyond the buffer range
+                this.scene.remove(mesh);
+                mesh.geometry.dispose();
+                this.flaggedBufferMeshes[index] = null;
+            }
+        });
+        this.flaggedBuffers = this.flaggedBuffers.filter(index => index >= 0);
+        // Filter out any null meshes that were removed
+        this.flaggedBufferMeshes = this.flaggedBufferMeshes.filter(mesh => mesh !== null);
 
-        this.flaggedBufferMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[this.flaggedBuffers[index]]));
-
-        for (let i = this.size - 1; i > this.size - nPositions - 1; --i) {
+        for (let i = this.size - nPositions; i < this.size; ++i) {
             const addressMesh =
-                DrawUtils.buildTextMesh(DrawUtils.toHex(this.addressReached++), this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
+                DrawUtils.buildTextMesh(DrawUtils.toHex(this.addressReached++),
+                    this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
                     this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
                     ComputerChipMacro.TEXT_MATERIAL, true)
             this.addressMeshes[i] = addressMesh;
@@ -168,7 +190,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (this.storedInstructions.get(index))
             this.highlightedBufferMeshes.push(index);
     }
-
 
     clearHighlights() {
         super.clearHighlights();
@@ -274,13 +295,11 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @private
      */
     private highlightIntermediateAddresses(start: number, end: number): void {
-        for (let i = start; i < end; ++i) {
+        for (let i = start; i <= end; ++i) {
             if (!this.isAddressInRange(i)) continue;
 
-            const instructionAdded = this.storedInstructions.get(i);
             const isNotAlreadyFlagged = !this.flaggedBuffers.includes(i);
-
-            if (instructionAdded && isNotAlreadyFlagged)
+            if (isNotAlreadyFlagged)
                 this.highlightFlaggedBuffer(i);
         }
     }

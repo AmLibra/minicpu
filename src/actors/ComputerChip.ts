@@ -41,6 +41,7 @@ export abstract class ComputerChip {
     protected static readonly CONTENTS_MARGIN = 0.03;
     protected static readonly INNER_SPACING = 0.01;
 
+    // Colors
     protected static readonly BODY_MATERIAL: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
     protected static readonly HUD_TEXT_MATERIAL: MeshBasicMaterial =
@@ -48,16 +49,24 @@ export abstract class ComputerChip {
     protected static readonly PIN_MATERIAL: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
 
+    // The basic meshes of a computer chip
     protected bodyMesh: Mesh;
     protected selectedMesh: Mesh;
     protected clockMesh: Mesh;
 
+    // The positions of the pins on the chip per side
     public readonly pinPositions: Map<Side, Vector2[]>;
 
     public readonly scene: Scene;
     readonly position: { x: number; y: number };
     private clockFrequency: number = 1;
 
+    /**
+     * @constructor
+     * @param {number[]} position The position of the chip
+     * @param {Scene} scene The scene to add the chip to
+     * @param {number} clockFrequency The clock frequency of the chip
+     */
     protected constructor(position: [number, number], scene: Scene, clockFrequency: number) {
         this.position = {x: position[0], y: position[1]};
         this.scene = scene;
@@ -79,6 +88,13 @@ export abstract class ComputerChip {
      * @protected
      */
     abstract update(): void;
+
+    /**
+     * Initializes the graphics of the chip
+     *
+     * @protected
+     */
+    abstract initializeGraphics(): void;
 
     /**
      * Returns the clock frequency of the chip

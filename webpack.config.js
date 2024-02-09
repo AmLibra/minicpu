@@ -35,7 +35,8 @@ module.exports = {
         publicPath: '/'
     },
     devServer: {
-        hot: true,
+        hot: true, // Enable HMR
+        liveReload: true, // Enable live reloading on file changes
         static: [
             {
                 directory: path.join(__dirname, 'docs'),
@@ -47,7 +48,9 @@ module.exports = {
         ],
         compress: true,
         port: 8080,
+        watchFiles: ['src/**/*', 'docs/**/*', 'res/**/*'], // Watch these directories for changes
     },
+
     cache: {
         type: 'filesystem',
         cacheDirectory: path.resolve(__dirname, '.webpack_cache')
