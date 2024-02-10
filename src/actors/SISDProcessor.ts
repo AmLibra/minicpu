@@ -4,18 +4,20 @@ import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../components/Queue";
 import {SISDCore} from "./macros/SISDCore";
+import {InstructionCache} from "./macros/InstructionCache";
 
 /**
  * A Single Instruction, Single Data (SISD) processor.
  */
 export class SISDProcessor extends ComputerChip {
+    private static readonly COMPONENT_SPACING = 0.05;
     private core: SISDCore;
+    private iCache: InstructionCache;
 
     private readonly instructionMemory: InstructionMemory;
     private readonly workingMemory: WorkingMemory;
 
     private isPipelined: boolean;
-    private cacheSize: number;
 
     // used for computing SISDCore metrics
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(30);
@@ -38,9 +40,18 @@ export class SISDProcessor extends ComputerChip {
         this.instructionMemory = rom
         this.workingMemory = workingMemory
         this.isPipelined = false;
-        this.cacheSize = cacheSize;
-
-        this.core = new SISDCore(this, 0, 0, rom, workingMemory);
+        if (cacheSize > 0) {
+            const coreDimensions = SISDCore.dimensions();
+            const cacheDimensions = InstructionCache.dimensions(cacheSize);
+            const height = coreDimensions.height + cacheDimensions.height + SISDProcessor.CONTENTS_MARGIN * 2
+                + SISDProcessor.COMPONENT_SPACING;
+            this.iCache = new InstructionCache(this, rom.getInstructionBuffer(), 0,
+                -height / 2 + cacheDimensions.height / 2 + SISDProcessor.CONTENTS_MARGIN,
+                cacheSize, coreDimensions.width);
+            this.core = new SISDCore(this, 0, height / 2 - coreDimensions.height / 2
+                - SISDProcessor.CONTENTS_MARGIN, rom, workingMemory, this.iCache);
+        } else
+            this.core = new SISDCore(this, 0, 0, rom, workingMemory);
 
         this.initializeGraphics();
         this.drawTraces(Side.BOTTOM, this.workingMemory, Side.TOP, 0.05, 0.02, 'x');
@@ -90,13 +101,20 @@ export class SISDProcessor extends ComputerChip {
 
     update() {
         this.core.update();
+        this.iCache?.update();
         this.updateRetiredInstructionCounters();
     }
 
     initializeGraphics(): void {
         this.core.initializeGraphics();
-        const bodyWidth: number = this.core.width + SISDProcessor.CONTENTS_MARGIN * 2;
-        const bodyHeight: number = this.core.height + SISDProcessor.CONTENTS_MARGIN * 2;
+        this.iCache?.initializeGraphics();
+        let bodyWidth: number = this.core.width + SISDProcessor.CONTENTS_MARGIN * 2;
+        let bodyHeight: number = this.core.height + SISDProcessor.CONTENTS_MARGIN * 2;
+
+        if (this.iCache) {
+            bodyWidth = Math.max(bodyWidth, this.iCache.width);
+            bodyHeight += this.iCache.height + SISDProcessor.COMPONENT_SPACING;
+        }
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
         this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);

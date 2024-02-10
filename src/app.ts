@@ -106,16 +106,18 @@ export class App {
     private loadGame(): void {
         this.addGameActors();
         this.hud = new HUD(this);
+        DrawUtils.drawGrid(this.scene)
     }
 
     /**
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.2], this.scene, 4, 3, 4);
-        const instructionMemory = new InstructionMemory([1.7, 0], this.scene, workingMemory, 4, 16);
+        const workingMemory = new WorkingMemory([0, -1.7], this.scene, 4, 3, 4);
+        const instructionMemory = new InstructionMemory([1.7, 0], this.scene, workingMemory, 4, 32);
         // instruction memory speed should be less than CPU speed / 4
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 4);
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 4,
+            4);
         // clock frequency is actually double due to pipelining
 
         this.cpu = cpu;

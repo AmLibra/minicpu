@@ -30,7 +30,7 @@ export class AddressCounter extends ComputerChipMacro {
     }
 
     public static dimensions(): { width: number, height: number } {
-        return { width: this.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT };
+        return {width: this.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT};
     }
 
     /**
@@ -52,10 +52,12 @@ export class AddressCounter extends ComputerChipMacro {
         this.highlight();
     }
 
-    update(): void {
-        DrawUtils.updateText(this.liveMeshes[0], DrawUtils.toHex(this.count++), true);
+    update(highlightsOnly?: boolean): void {
         if (this.highlighted)
             this.clearHighlights()
+        if (highlightsOnly)
+            return;
+        DrawUtils.updateText(this.liveMeshes[0], DrawUtils.toHex(this.count++), true);
     }
 
     initializeGraphics(): void {

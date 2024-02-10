@@ -22,15 +22,16 @@ export class InstructionCacheLine extends ComputerChipMacro {
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} width The width of the instruction cache line.
+     * @param delay The fetching delay of the instruction buffer.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.9) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.9, delay: number) {
         super(parent, xOffset, yOffset);
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
         this.addressTag = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
         const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionCacheLine.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
-            xOffset + this.width / 2 - bufferWidth / 2, yOffset, 3, false,
+            xOffset + this.width / 2 - bufferWidth / 2, yOffset, delay, false,
             false, bufferWidth)
     }
 
@@ -97,6 +98,6 @@ export class InstructionCacheLine extends ComputerChipMacro {
     }
 
     update(): void {
-        this.addressTag.update();
+        this.addressTag.update(true);
     }
 }

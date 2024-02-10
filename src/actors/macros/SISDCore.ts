@@ -8,6 +8,7 @@ import {IOInterface} from "./IOInterface";
 import {ISA} from "../../components/ISA";
 import {InstructionMemory} from "../InstructionMemory";
 import {WorkingMemory} from "../WorkingMemory";
+import {InstructionCache} from "./InstructionCache";
 
 /**
  * A Single Instruction, Single Data (SISD) processor core.
@@ -23,6 +24,7 @@ export class SISDCore extends ComputerChipMacro {
     private decoder: Decoder;
 
     private readonly instructionMemory: InstructionMemory;
+    private readonly iCache: InstructionCache;
     private readonly workingMemory: WorkingMemory;
 
     /**
@@ -35,10 +37,11 @@ export class SISDCore extends ComputerChipMacro {
      * @param workingMemory The working memory for the SISDCore.
      */
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, rom: InstructionMemory,
-                workingMemory: WorkingMemory) {
+                workingMemory: WorkingMemory, instructionCache?: InstructionCache) {
         super(parent, xOffset, yOffset);
         this.instructionMemory = rom;
         this.workingMemory = workingMemory;
+        this.iCache = instructionCache;
     }
 
     /**
@@ -68,23 +71,24 @@ export class SISDCore extends ComputerChipMacro {
 
         const registerNames = new Array(ISA.REGISTER_SIZE).fill(0).map((_, i) => `R${i}`);
 
-        this.registers = new DataCellArray(this.parent, this.width / 2 - registerDims.width / 2
+        this.registers = new DataCellArray(this.parent, this.position.x + this.width / 2 - registerDims.width / 2
             - SISDCore.INNER_SPACING_L - aluDims.width,
-            this.height / 2 - aluDims.height / 2, ISA.REGISTER_SIZE,
+            this.position.y + this.height / 2 - aluDims.height / 2, ISA.REGISTER_SIZE,
             1, true, ISA.ZERO_REGISTER, registerNames);
 
         this.IOInterface = new IOInterface(this.parent, this.registers, this.workingMemory,
-            this.width / 2 - ioInterfaceWidth / 2 - registerDims.width - SISDCore.INNER_SPACING_L * 2 - aluDims.width,
-            this.height / 2 - aluDims.height / 2, ioInterfaceWidth, false);
+            this.position.x + this.width / 2 - ioInterfaceWidth / 2 - registerDims.width - SISDCore.INNER_SPACING_L * 2 - aluDims.width,
+            this.position.y + this.height / 2 - aluDims.height / 2, ioInterfaceWidth, false);
 
-        this.alu = new ALU(this.parent, this.registers, this.width / 2 - aluDims.width / 2,
-            this.height / 2 - aluDims.height / 2);
+        this.alu = new ALU(this.parent, this.registers, this.position.x + this.width / 2 - aluDims.width / 2,
+            this.position.y + this.height / 2 - aluDims.height / 2);
 
-        this.instructionFetcher = new InstructionFetcher(this.parent, 0,
-            -this.height / 2 + aluDims.height / 2, this.instructionMemory.getInstructionBuffer(), this.width);
+        this.instructionFetcher = new InstructionFetcher(this.parent, this.position.x,
+            this.position.y - this.height / 2 + aluDims.height / 2,
+            this.instructionMemory.getInstructionBuffer(), this.width, this.iCache);
 
         this.decoder = new Decoder(this.parent, this.registers, this.instructionFetcher, this.alu, this.IOInterface,
-            0, 0, this.width);
+            this.position.x, this.position.y, this.width);
 
         this.instructionFetcher.initializeGraphics();
         this.registers.initializeGraphics();

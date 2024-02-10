@@ -5,7 +5,7 @@ import {AddressCounter} from "./primitives/AddressCounter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Instruction} from "../../components/Instruction";
 import {Queue} from "../../components/Queue";
-import {Decoder} from "./Decoder";
+import {InstructionCache} from "./InstructionCache";
 
 /**
  * Represents the instruction fetcher of a computer chip, handling the fetching of instructions.
@@ -14,6 +14,7 @@ export class InstructionFetcher extends ComputerChipMacro {
     private static readonly WIDTH = 0.9;
     private static readonly SPACING = 0.01;
     private readonly instructionMemory: AddressedInstructionBuffer;
+    private iCache: InstructionCache;
 
     private readonly programCounter: AddressCounter;
     private readonly instructionBuffer: InstructionBuffer;
@@ -28,10 +29,14 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {AddressedInstructionBuffer} instructionMemory The instruction memory associated with the instruction
      *     fetcher.
      * @param {number} width The width of the instruction fetcher.
+     * @param iCache The instruction cache associated with the instruction fetcher.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, instructionMemory: AddressedInstructionBuffer, width: number = InstructionFetcher.WIDTH) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0,
+                instructionMemory: AddressedInstructionBuffer, width: number = InstructionFetcher.WIDTH,
+                iCache?: InstructionCache) {
         super(parent, xOffset, yOffset);
         this.instructionMemory = instructionMemory;
+        this.iCache = iCache;
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
         this.programCounter = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
@@ -89,7 +94,6 @@ export class InstructionFetcher extends ComputerChipMacro {
         this.instructionBuffer.write(queue, 1);
         this.programCounter.update();
     }
-
 
     initializeGraphics(): void {
         this.instructionBuffer.initializeGraphics();
