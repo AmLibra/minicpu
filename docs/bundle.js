@@ -1730,7 +1730,7 @@ var AddressedInstructionBuffer = /** @class */ (function (_super) {
      * @param address the address of the first instruction to fetch
      */
     AddressedInstructionBuffer.prototype.askForInstructionsAt = function (chip, n, address) {
-        if (this.noDelay)
+        if (this.delay)
             throw new Error("There is no need to ask for instructions when there is no delay");
         var localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)
@@ -1749,7 +1749,7 @@ var AddressedInstructionBuffer = /** @class */ (function (_super) {
      * @param address the address of the instruction to fetch
      */
     AddressedInstructionBuffer.prototype.fetchInstructionAt = function (address) {
-        if (!this.noDelay && !this.isReadyToBeRead())
+        if (!this.delay && !this.isReadyToBeRead())
             throw new Error("Instruction buffer from ".concat(this.parent.displayName(), " is not ready to be read"));
         if (this.jumpAddressQueue.peek() == address && !this.iterateMode)
             this.iterateMode = true;
@@ -2955,7 +2955,7 @@ var InstructionBuffer = /** @class */ (function (_super) {
      * Determines whether the instruction buffer is ready to be read.
      */
     InstructionBuffer.prototype.isReadyToBeRead = function () {
-        if (this.noDelay)
+        if (this.delay)
             throw new Error("No delay instruction buffers are always ready to be read");
         return this.readyToBeRead;
     };
@@ -2966,7 +2966,7 @@ var InstructionBuffer = /** @class */ (function (_super) {
      * @param n The number of instructions to ask for.
      */
     InstructionBuffer.prototype.askForInstructions = function (chip, n) {
-        if (this.noDelay)
+        if (this.delay)
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (this.readTimeout > 0)
             return;
@@ -2981,7 +2981,7 @@ var InstructionBuffer = /** @class */ (function (_super) {
      * @param readCount The number of instructions to read.
      */
     InstructionBuffer.prototype.read = function (readCount) {
-        if (!this.noDelay && !this.isReadyToBeRead())
+        if (!this.delay && !this.isReadyToBeRead())
             throw new Error("Instruction buffer from ".concat(this.parent.displayName(), " is not ready to be read"));
         if (readCount > this.size)
             throw new Error("Cannot read more instructions than the size of the buffer");
@@ -3013,7 +3013,7 @@ var InstructionBuffer = /** @class */ (function (_super) {
         }
     };
     InstructionBuffer.prototype.update = function () {
-        if (this.noDelay)
+        if (this.delay)
             throw new Error("No delay instruction buffers do not need to be updated");
         if (this.readTimeout > 0 && this.storedInstructions.size() > 0) {
             --this.readTimeout;

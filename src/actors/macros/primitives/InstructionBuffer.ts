@@ -1,9 +1,9 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {Mesh, PlaneGeometry} from "three";
-import {Queue} from "../../components/Queue";
-import {Instruction} from "../../components/Instruction";
-import {ComputerChip} from "../ComputerChip";
-import {DrawUtils} from "../../DrawUtils";
+import {Queue} from "../../../components/Queue";
+import {Instruction} from "../../../components/Instruction";
+import {ComputerChip} from "../../ComputerChip";
+import {DrawUtils} from "../../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 /**
@@ -28,7 +28,7 @@ export class InstructionBuffer extends ComputerChipMacro {
 
     protected readyToBeRead: boolean = false;
     protected readTimeout: number = 0;
-    protected readonly noDelay: boolean;
+    protected readonly delay: number;
 
     /**
      * Constructs a new InstructionBuffer instance.
@@ -37,18 +37,18 @@ export class InstructionBuffer extends ComputerChipMacro {
      * @param size The size of the instruction buffer.
      * @param xOffset The x-offset from the parent's position to place this component.
      * @param yOffset The y-offset from the parent's position to place this component.
-     * @param noDelay Whether the instruction buffer has no delay.
+     * @param delay Whether the instruction buffer has no delay.
      * @param reversed Whether the instruction buffer is reversed.
      * @param horizontal Whether the instruction buffer is oriented horizontally.
      * @param bufferWidth The width of the instruction buffer.
      * @param spacing The spacing between instructions in the buffer.
      */
-    constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, noDelay: boolean = true, reversed: boolean = false,
+    constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, delay: number = 0, reversed: boolean = false,
                 horizontal: boolean = false, bufferWidth: number = InstructionBuffer.BUFFER_BASE_WIDTH, spacing: number = InstructionBuffer.INNER_SPACING) {
         super(parent, xOffset, yOffset);
         this.storedInstructions = new Queue<Instruction>(size);
         this.size = size;
-        this.noDelay = noDelay;
+        this.delay = delay;
         this.reversed = reversed;
         this.horizontal = horizontal;
         const spaceNeeded = InstructionBuffer.BUFFER_HEIGHT * size + InstructionBuffer.INNER_SPACING * (size - 1);
@@ -65,6 +65,14 @@ export class InstructionBuffer extends ComputerChipMacro {
             this.width, this.horizontal ? this.height : this.rectangleSize);
     }
 
+    public static dimensions(size: number, horizontal: boolean, spacing: number = InstructionBuffer.INNER_SPACING): { width: number, height: number } {
+        const spaceNeeded = InstructionBuffer.BUFFER_HEIGHT * size + spacing * (size - 1);
+        return {
+            width: horizontal ? spaceNeeded : InstructionBuffer.BUFFER_BASE_WIDTH,
+            height: horizontal ? InstructionBuffer.BUFFER_BASE_WIDTH : spaceNeeded
+        };
+    }
+
     /**
      * Determines whether the instruction buffer is full.
      */
@@ -72,14 +80,29 @@ export class InstructionBuffer extends ComputerChipMacro {
         return this.storedInstructions.size() === this.size;
     }
 
+    /**
+     * Clears the instruction buffer.
+     */
+    public clear(): void {
+        this.read(this.size);
+    }
 
     /**
      * Determines whether the instruction buffer is ready to be read.
      */
     public isReadyToBeRead(): boolean {
-        if (this.noDelay)
+        if (this.delay == 0)
             throw new Error("No delay instruction buffers are always ready to be read");
         return this.readyToBeRead;
+    }
+
+    /**
+     * Peeks at the next instruction in the instruction buffer.
+     */
+    public peek(): Instruction {
+        this.clearHighlights();
+        this.highlightBuffer(0);
+        return this.storedInstructions.peek();
     }
 
     /**
@@ -89,7 +112,7 @@ export class InstructionBuffer extends ComputerChipMacro {
      * @param n The number of instructions to ask for.
      */
     public askForInstructions(chip: ComputerChip, n: number): void {
-        if (this.noDelay)
+        if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (this.readTimeout > 0)
             return;
@@ -98,7 +121,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             if (this.storedInstructions.get(i))
                 this.highlightBuffer(i);
 
-        this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
+        this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency() * this.delay;
     }
 
     /**
@@ -107,7 +130,7 @@ export class InstructionBuffer extends ComputerChipMacro {
      * @param readCount The number of instructions to read.
      */
     public read(readCount: number): Queue<Instruction> {
-        if (!this.noDelay && !this.isReadyToBeRead())
+        if (this.delay != 0 && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
         if (readCount > this.size)
             throw new Error("Cannot read more instructions than the size of the buffer");
@@ -142,7 +165,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     }
 
     update(): void {
-        if (this.noDelay)
+        if (this.delay == 0)
             throw new Error("No delay instruction buffers do not need to be updated");
         if (this.readTimeout > 0 && this.storedInstructions.size() > 0) {
             --this.readTimeout;

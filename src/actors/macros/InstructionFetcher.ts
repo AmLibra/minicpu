@@ -1,8 +1,8 @@
-import {ComputerChipMacro} from "./ComputerChipMacro";
+import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
-import {Counter} from "./Counter";
-import {InstructionBuffer} from "./InstructionBuffer";
+import {AddressCounter} from "./primitives/AddressCounter";
+import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Instruction} from "../../components/Instruction";
 import {Queue} from "../../components/Queue";
 import {Decoder} from "./Decoder";
@@ -11,10 +11,11 @@ import {Decoder} from "./Decoder";
  * Represents the instruction fetcher of a computer chip, handling the fetching of instructions.
  */
 export class InstructionFetcher extends ComputerChipMacro {
+    private static readonly WIDTH = 0.9;
     private static readonly SPACING = 0.01;
     private readonly instructionMemory: AddressedInstructionBuffer;
 
-    private readonly programCounter: Counter;
+    private readonly programCounter: AddressCounter;
     private readonly instructionBuffer: InstructionBuffer;
     private fetchingAddress: number = -1;
 
@@ -28,17 +29,15 @@ export class InstructionFetcher extends ComputerChipMacro {
      *     fetcher.
      * @param {number} width The width of the instruction fetcher.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, instructionMemory: AddressedInstructionBuffer, width: number = 0.9) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, instructionMemory: AddressedInstructionBuffer, width: number = InstructionFetcher.WIDTH) {
         super(parent, xOffset, yOffset);
         this.instructionMemory = instructionMemory;
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
-        this.programCounter = new Counter(parent, xOffset, yOffset);
-        this.programCounter.dispose();
-        this.programCounter = new Counter(parent, xOffset - this.width / 2 + this.programCounter.width / 2, yOffset);
-        const bufferWidth = this.width - this.programCounter.width - InstructionFetcher.SPACING;
+        this.programCounter = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
+        const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionFetcher.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
-            xOffset + this.width / 2 - bufferWidth / 2, yOffset, true, false,
+            xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
             false, bufferWidth)
     }
 

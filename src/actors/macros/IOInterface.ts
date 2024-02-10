@@ -1,6 +1,6 @@
-import {InstructionBuffer} from "./InstructionBuffer";
+import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
-import {DataCellArray} from "./DataCellArray";
+import {DataCellArray} from "./primitives/DataCellArray";
 import {Queue} from "../../components/Queue";
 import {Instruction} from "../../components/Instruction";
 import {WorkingMemory} from "../WorkingMemory";
@@ -27,7 +27,7 @@ export class IOInterface extends InstructionBuffer {
      */
     constructor(parent: ComputerChip, registers: DataCellArray, memory: WorkingMemory, xOffset: number = 0,
                 yOffset: number = 0, bufferWidth: number = IOInterface.BUFFER_BASE_WIDTH, horizontal: boolean = true) {
-        super(parent, 1, xOffset, yOffset, true, false, horizontal, bufferWidth, 0);
+        super(parent, 1, xOffset, yOffset, 0, false, horizontal, bufferWidth, 0);
         this.registers = registers;
         this.memory = memory;
     }

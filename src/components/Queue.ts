@@ -13,9 +13,19 @@ export class Queue<T> {
      *
      * @param {number} [maxSize=Infinity] - The maximum number of items that the queue can hold.
      */
-    constructor(maxSize: number = Infinity) {
-        this.items = [];
+    constructor(maxSize: number = Infinity, ...items: T[]) {
+        this.items = items;
         this.maxSize = maxSize;
+    }
+
+    /**
+     * Constructs a new instance of Queue with the specified items and maximum size.
+     *
+     * @param {number} maxSize - The maximum number of items that the queue can hold.
+     * @param {T[]} items - The items to initialize the queue with.
+     */
+    static of<U>(...items: U[]): Queue<U> {
+        return new Queue<U>(Infinity, ...items);
     }
 
     /**

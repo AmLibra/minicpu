@@ -1,12 +1,12 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
-import {ComputerChip} from "../ComputerChip";
+import {ComputerChip} from "../../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
 import {InstructionBuffer} from "./InstructionBuffer";
-import {DrawUtils} from "../../DrawUtils";
-import {Instruction} from "../../components/Instruction";
+import {DrawUtils} from "../../../DrawUtils";
+import {Instruction} from "../../../components/Instruction";
 import {DataCellArray} from "./DataCellArray";
-import {SISDProcessor} from "../SISDProcessor";
-import {Decoder} from "./Decoder";
+import {SISDProcessor} from "../../SISDProcessor";
+import {Decoder} from "../Decoder";
 
 /**
  * Represents the Arithmetic Logic Unit (ALU) of a computer chip, performing arithmetic and logical operations.

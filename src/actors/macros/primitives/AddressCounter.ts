@@ -1,13 +1,14 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
-import {ComputerChip} from "../ComputerChip";
+import {ComputerChip} from "../../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
 import {InstructionBuffer} from "./InstructionBuffer";
-import {DrawUtils} from "../../DrawUtils";
+import {DrawUtils} from "../../../DrawUtils";
 
 /**
  * A counter component for use within a computer chip.
  */
-export class Counter extends ComputerChipMacro {
+export class AddressCounter extends ComputerChipMacro {
+    private static readonly WIDTH = 0.3;
     private count = 0;
     height: number = InstructionBuffer.BUFFER_HEIGHT;
 
@@ -22,10 +23,14 @@ export class Counter extends ComputerChipMacro {
      * @param yOffset The y-offset from the parent's position to place this component.
      * @param width The width of the counter component.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.3) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = AddressCounter.WIDTH) {
         super(parent, xOffset, yOffset);
         this.width = width;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
+    }
+
+    public static dimensions(): { width: number, height: number } {
+        return { width: this.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT };
     }
 
     /**
@@ -54,7 +59,7 @@ export class Counter extends ComputerChipMacro {
     }
 
     initializeGraphics(): void {
-        const bodyMesh = new Mesh(this.highlightGeometry, Counter.COMPONENT_MATERIAL);
+        const bodyMesh = new Mesh(this.highlightGeometry, AddressCounter.COMPONENT_MATERIAL);
         bodyMesh.position.set(this.position.x, this.position.y, 0);
         this.addStaticMesh(bodyMesh);
         this.liveMeshes.push(DrawUtils.buildTextMesh(DrawUtils.toHex(this.count), this.position.x, this.position.y,

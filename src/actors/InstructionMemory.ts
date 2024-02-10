@@ -41,7 +41,7 @@ export class InstructionMemory extends ComputerChip {
         this.instructionStream = new Queue<Instruction>();
         this.instructionBuffer = new AddressedInstructionBuffer(this, size,
             InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
-            0, false)
+            0, 1)
         this.initializeGraphics();
     }
 

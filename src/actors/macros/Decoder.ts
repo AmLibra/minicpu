@@ -1,10 +1,10 @@
-import {InstructionBuffer} from "./InstructionBuffer";
+import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
 import {Queue} from "../../components/Queue";
 import {Instruction} from "../../components/Instruction";
-import {DataCellArray} from "./DataCellArray";
+import {DataCellArray} from "./primitives/DataCellArray";
 import {InstructionFetcher} from "./InstructionFetcher";
-import {ALU} from "./ALU";
+import {ALU} from "./primitives/ALU";
 import {IOInterface} from "./IOInterface";
 import {SISDProcessor} from "../SISDProcessor";
 
@@ -34,7 +34,7 @@ export class Decoder extends InstructionBuffer {
      */
     constructor(parent: ComputerChip, registers: DataCellArray, fetcher: InstructionFetcher, alu: ALU, io: IOInterface,
                 xOffset: number = 0, yOffset: number = 0, bufferWidth: number = Decoder.BUFFER_BASE_WIDTH, horizontal: boolean = false) {
-        super(parent, 1, xOffset, yOffset, true, false, horizontal, bufferWidth, 0);
+        super(parent, 1, xOffset, yOffset, 0, false, horizontal, bufferWidth, 0);
         this.registers = registers;
         this.fetcher = fetcher;
         this.alu = alu;

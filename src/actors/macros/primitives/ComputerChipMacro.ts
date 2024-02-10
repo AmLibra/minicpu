@@ -1,7 +1,7 @@
 import {Mesh, MeshBasicMaterial, Scene} from "three";
-import {ComputerChip} from "../ComputerChip";
-import {DrawUtils} from "../../DrawUtils";
-import {Instruction} from "../../components/Instruction";
+import {ComputerChip} from "../../ComputerChip";
+import {DrawUtils} from "../../../DrawUtils";
+import {Instruction} from "../../../components/Instruction";
 
 /**
  * An abstract class representing a macro component of a computer chip within a simulation.

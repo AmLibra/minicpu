@@ -1,6 +1,6 @@
 import {ComputerChip, Side} from "./ComputerChip";
 import {Scene} from "three";
-import {DataCellArray} from "./macros/DataCellArray";
+import {DataCellArray} from "./macros/primitives/DataCellArray";
 import {DrawUtils} from "../DrawUtils";
 
 /**

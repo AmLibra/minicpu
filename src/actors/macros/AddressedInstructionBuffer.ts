@@ -1,6 +1,6 @@
-import {InstructionBuffer} from "./InstructionBuffer";
+import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Mesh, MeshBasicMaterial} from "three";
-import {ComputerChipMacro} from "./ComputerChipMacro";
+import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {DrawUtils} from "../../DrawUtils";
 import {InstructionMemory} from "../InstructionMemory";
 import {Instruction} from "../../components/Instruction";
@@ -48,7 +48,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param address the address of the first instruction to fetch
      */
     public askForInstructionsAt(chip: ComputerChip, n: number, address: number) {
-        if (this.noDelay)
+        if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
         const localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)
@@ -71,7 +71,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param address the address of the instruction to fetch
      */
     public fetchInstructionAt(address: number): Instruction {
-        if (!this.noDelay && !this.isReadyToBeRead())
+        if (this.delay != 0 && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
 
         if (this.jumpAddressQueue.peek() == address && !this.iterateMode)
@@ -112,7 +112,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
     write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
         super.write(instructions, writeCount);
-        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer) + 1;
+        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer);
         if (jumpInstructionAddress && this.storedInstructions.size() > this.toLocalAddress(jumpInstructionAddress))
             this.updateJumpInstructionGraphics(this.toHighlightJumpPointer++);
     }
