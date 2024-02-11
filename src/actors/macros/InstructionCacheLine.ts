@@ -24,14 +24,14 @@ export class InstructionCacheLine extends ComputerChipMacro {
      * @param {number} width The width of the instruction cache line.
      * @param delay The fetching delay of the instruction buffer.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.9, delay: number) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = 0.9) {
         super(parent, xOffset, yOffset);
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
         this.addressTag = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
         const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionCacheLine.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
-            xOffset + this.width / 2 - bufferWidth / 2, yOffset, delay, false,
+            xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
             false, bufferWidth)
     }
 
@@ -41,7 +41,7 @@ export class InstructionCacheLine extends ComputerChipMacro {
      * @returns {{width: number, height: number}} The width and height of the instruction cache line.
      */
     public static dimensions(): { width: number, height: number } {
-        return { width: 0.9, height: InstructionBuffer.BUFFER_HEIGHT };
+        return {width: 0.9, height: InstructionBuffer.BUFFER_HEIGHT};
     }
 
     /**
@@ -82,6 +82,7 @@ export class InstructionCacheLine extends ComputerChipMacro {
     public write(instruction: Instruction, address: number): void {
         this.valid = true;
         this.addressTag.set(address);
+        this.instructionBuffer.clear();
         this.instructionBuffer.write(Queue.of(instruction));
     }
 
@@ -90,6 +91,11 @@ export class InstructionCacheLine extends ComputerChipMacro {
      */
     public invalidate(): void {
         this.valid = false;
+    }
+
+    public clearHighlights(): void {
+        this.addressTag.clearHighlights();
+        this.instructionBuffer.clearHighlights();
     }
 
     initializeGraphics(): void {

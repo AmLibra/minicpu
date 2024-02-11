@@ -115,7 +115,7 @@ export abstract class ComputerChipMacro {
     /**
      * Clears all highlight meshes from the macro component and the scene.
      */
-    protected clearHighlights(): void {
+    clearHighlights(): void {
         this.highlightMeshes.forEach(mesh => {
             this.scene.remove(mesh);
             mesh.geometry.dispose();

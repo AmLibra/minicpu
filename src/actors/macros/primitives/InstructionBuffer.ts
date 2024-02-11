@@ -19,6 +19,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     private readonly spacing: number;
     private readonly rectangleSize: number;
     protected bufferMeshOffsets: number[] = [];
+    private highlightedBufferMeshes: number[] = [];
 
     public readonly size: number;
 
@@ -65,7 +66,10 @@ export class InstructionBuffer extends ComputerChipMacro {
             this.width, this.horizontal ? this.height : this.rectangleSize);
     }
 
-    public static dimensions(size: number, horizontal: boolean, spacing: number = InstructionBuffer.INNER_SPACING): { width: number, height: number } {
+    public static dimensions(size: number, horizontal: boolean, spacing: number = InstructionBuffer.INNER_SPACING): {
+        width: number,
+        height: number
+    } {
         const spaceNeeded = InstructionBuffer.BUFFER_HEIGHT * size + spacing * (size - 1);
         return {
             width: horizontal ? spaceNeeded : InstructionBuffer.BUFFER_BASE_WIDTH,
@@ -84,7 +88,10 @@ export class InstructionBuffer extends ComputerChipMacro {
      * Clears the instruction buffer.
      */
     public clear(): void {
-        this.read(this.size);
+        this.storedInstructions.clear();
+        this.shiftMeshesDown(1);
+        this.clearHighlights();
+        this.readyToBeRead = false;
     }
 
     /**
@@ -101,7 +108,8 @@ export class InstructionBuffer extends ComputerChipMacro {
      */
     public peek(): Instruction {
         this.clearHighlights();
-        this.highlightBuffer(0);
+        if (this.storedInstructions.peek())
+            this.highlightBuffer(0);
         return this.storedInstructions.peek();
     }
 
@@ -205,7 +213,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             const color = this.storedInstructions.get(index).isMemoryOperation() ?
                 ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
                     ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
-            return DrawUtils.buildTextMesh( (replaceString ? replaceString : this.storedInstructions.get(index).toString())
+            return DrawUtils.buildTextMesh((replaceString ? replaceString : this.storedInstructions.get(index).toString())
                 , xOffset, yOffset,
                 ComputerChipMacro.TEXT_SIZE, color, true, this.horizontal ? Math.PI / 2 : 0
             );
@@ -268,6 +276,17 @@ export class InstructionBuffer extends ComputerChipMacro {
         this.highlightMeshes.push(highlightMesh);
         this.scene.add(highlightMesh);
         this.liveMeshes[index].material = ComputerChipMacro.COMPONENT_MATERIAL;
+        if (this.storedInstructions.get(index))
+            this.highlightedBufferMeshes.push(index);
+    }
+
+    clearHighlights() {
+        super.clearHighlights();
+        this.highlightedBufferMeshes.forEach(index => {
+            if (!this.storedInstructions.get(index)) return;
+            this.liveMeshes[index].material = this.instructionMaterial(this.storedInstructions.get(index));
+        });
+        this.highlightedBufferMeshes = [];
     }
 
     /**

@@ -16,7 +16,7 @@ export class InstructionFetcher extends ComputerChipMacro {
     private readonly instructionMemory: AddressedInstructionBuffer;
     private iCache: InstructionCache;
 
-    private readonly programCounter: AddressCounter;
+    private readonly pc: AddressCounter;
     private readonly instructionBuffer: InstructionBuffer;
     private fetchingAddress: number = -1;
 
@@ -39,7 +39,7 @@ export class InstructionFetcher extends ComputerChipMacro {
         this.iCache = iCache;
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
-        this.programCounter = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
+        this.pc = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
         const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionFetcher.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
             xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
@@ -62,7 +62,7 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {number} n The new value of the program counter.
      */
     public setProgramCounter(n: number): void {
-        this.programCounter.set(n);
+        this.pc.set(n);
         if (this.fetchingAddress != n) // clear the fetch buffer if the fetch address is different from the new PC
             this.instructionBuffer.read(1);
     }
@@ -71,7 +71,7 @@ export class InstructionFetcher extends ComputerChipMacro {
      * Notifies the instruction fetcher that a branch was skipped.
      */
     public notifyBranchSkipped(): void {
-        this.instructionMemory.clearJumpInstruction();
+        //this.instructionMemory.clearJumpInstruction();
     }
 
     /**
@@ -81,23 +81,58 @@ export class InstructionFetcher extends ComputerChipMacro {
         if (this.instructionBuffer.isFull())
             return;
 
-        if (!this.instructionMemory.isReadyToBeRead()) {
-            this.fetchingAddress = this.programCounter.get();
-            this.instructionMemory.askForInstructionsAt(this.parent, 1, this.programCounter.get());
+        if (!this.checkMemoryIsReady(this.pc.get())) {
+            this.fetchingAddress = this.pc.get();
+            this.askForInstructionsAt(this.pc.get());
             return;
         }
-        const instruction = this.instructionMemory.fetchInstructionAt(this.programCounter.get());
+        const instruction = this.fetchInstructionAt(this.pc.get());
         if (!instruction)
             return;
         const queue = new Queue<Instruction>(1);
         queue.enqueue(instruction)
         this.instructionBuffer.write(queue, 1);
-        this.programCounter.update();
+        this.pc.update();
+    }
+
+    /**
+     * Used to check if the next memory module is ready to be read.
+     */
+    private checkMemoryIsReady(address: number): boolean {
+        if (this.iCache)
+            return this.iCache.isReadyToBeRead(address);
+        else
+            return this.instructionMemory.isReadyToBeRead();
+    }
+
+    /**
+     * Asks the instruction memory for the instruction at the given address.
+     *
+     * @param {number} address The address of the instruction to be fetched.
+     */
+    private askForInstructionsAt(address: number): void {
+        if (this.iCache)
+            this.iCache.askForInstructionAt(address);
+        else
+            this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
+    }
+
+    /**
+     * Fetches the instruction at the given address from the instruction memory.
+     *
+     * @param {number} address The address of the instruction to be fetched.
+     * @returns {Instruction} The instruction at the given address.
+     */
+    private fetchInstructionAt(address: number): Instruction {
+        if (this.iCache)
+            return this.iCache.fetchInstructionAt(address);
+        else
+            return this.instructionMemory.fetchInstructionAt(address);
     }
 
     initializeGraphics(): void {
         this.instructionBuffer.initializeGraphics();
-        this.programCounter.initializeGraphics();
+        this.pc.initializeGraphics();
     }
 
     update(): void {

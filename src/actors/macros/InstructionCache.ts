@@ -10,7 +10,6 @@ import {Instruction} from "../../components/Instruction";
 export class InstructionCache extends ComputerChipMacro {
     private readonly cacheLines: InstructionCacheLine[];
     private readonly instructionMemory: AddressedInstructionBuffer;
-    private leastRecentlyUsed: number;
     private delay: number;
     private static readonly INNER_SPACING = 0.01;
 
@@ -29,11 +28,10 @@ export class InstructionCache extends ComputerChipMacro {
      * @param delay The fetching delay of the instruction buffer.
      */
     constructor(parent: ComputerChip, instructionMemory: AddressedInstructionBuffer,
-                xOffset: number = 0, yOffset: number = 0, size: number = 4, width: number = 0.9, delay: number = 3) {
+                xOffset: number = 0, yOffset: number = 0, size: number = 4, width: number = 0.9, delay: number = 1) {
         super(parent, xOffset, yOffset);
         this.delay = delay;
         this.instructionMemory = instructionMemory;
-        this.leastRecentlyUsed = 0;
         this.cacheLines = [];
         const cacheLineHeight = InstructionCacheLine.dimensions().height;
         const totalHeight = size * cacheLineHeight + (size - 1) * InstructionCache.INNER_SPACING;
@@ -42,7 +40,7 @@ export class InstructionCache extends ComputerChipMacro {
 
         for (let i = 0; i < size; i++) {
             this.cacheLines.push(new InstructionCacheLine(parent,
-                xOffset, startYOffset + i * (cacheLineHeight + InstructionCache.INNER_SPACING), width, delay));
+                xOffset, startYOffset + i * (cacheLineHeight + InstructionCache.INNER_SPACING), width));
         }
     }
 
@@ -55,9 +53,7 @@ export class InstructionCache extends ComputerChipMacro {
     public isReadyToBeRead(address: number): boolean {
         if (this.delay == 0)
             throw new Error("No delay instruction buffers are always ready to be read");
-        if (this.readyToBeRead)
-            return this.cacheLineContaining(address) != undefined;
-        return false;
+        return this.readyToBeRead && this.cacheLineContaining(address) != undefined;
     }
 
     /**
@@ -77,9 +73,10 @@ export class InstructionCache extends ComputerChipMacro {
         } else {
             if (!this.instructionMemory.isReadyToBeRead())
                 this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
-            else
-                this.cacheLines[this.leastRecentlyUsed]
-                    .write(this.instructionMemory.fetchInstructionAt(address), address);
+            else {
+                this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
+                this.cacheLines.push(this.cacheLines.shift());
+            }
         }
     }
 
@@ -95,6 +92,10 @@ export class InstructionCache extends ComputerChipMacro {
         const line = this.cacheLineContaining(address);
         if (line == undefined)
             throw new Error(`Address ${address} not found in cache`);
+
+        this.readyToBeRead = false;
+        this.cacheLines.forEach(line => line.clearHighlights());
+        this.cacheLines.push(this.cacheLines.splice(line, 1)[0]);
         return this.cacheLines[line].read();
     }
 
@@ -125,7 +126,6 @@ export class InstructionCache extends ComputerChipMacro {
             if (this.readTimeout <= 0) {
                 this.requestedAddress = -1;
                 this.readyToBeRead = true;
-                this.instructionMemory.askForInstructionsAt(this.parent, 1, this.requestedAddress);
             }
         }
     }

@@ -77,6 +77,9 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (this.jumpAddressQueue.peek() == address && !this.iterateMode)
             this.iterateMode = true;
 
+        if (this.iterateMode && this.jumpInstructionQueue.peek() == address - 1)
+            this.clearJumpInstruction();
+
         const localAddress = this.toLocalAddress(address);
         const instruction = this.storedInstructions.get(localAddress);
         if (!instruction)
@@ -168,21 +171,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             this.addressMeshes[i] = addressMesh;
             this.scene.add(addressMesh);
         }
-    }
-
-    highlightBuffer(index: number) {
-        super.highlightBuffer(index);
-        if (this.storedInstructions.get(index))
-            this.highlightedBufferMeshes.push(index);
-    }
-
-    clearHighlights() {
-        super.clearHighlights();
-        this.highlightedBufferMeshes.forEach(index => {
-            if (!this.storedInstructions.get(index)) return;
-            this.liveMeshes[index].material = this.instructionMaterial(this.storedInstructions.get(index));
-        });
-        this.highlightedBufferMeshes = [];
     }
 
     dispose() {

@@ -57,7 +57,6 @@ export class Decoder extends InstructionBuffer {
         if (conditionResult)
             this.fetcher.setProgramCounter(this.storedInstructions.dequeue().getAddress());
         else {
-            this.fetcher.notifyBranchSkipped();
             this.storedInstructions.dequeue();
         }
         if (this.parent instanceof SISDProcessor)

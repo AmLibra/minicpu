@@ -81,9 +81,9 @@ export class ALU extends ComputerChipMacro {
                     return op1 & op2;
                 case "OR":
                     return op1 | op2;
-                case "BEQ":
-                case "EQ":
-                    return op1 === op2 ? 1 : 0;
+                case "BGT":
+                case "GT":
+                    return op1 > op2 ? 1 : 0;
                 case "BLT":
                 case "LT":
                     return op1 < op2 ? 1 : 0;
@@ -102,7 +102,7 @@ export class ALU extends ComputerChipMacro {
 
         if (this.branchStalling){
             const result = computeALUResult(op1, op2, instruction.getOpcode());
-            decoder.takeBranch(result === 1);
+            decoder.takeBranch(result == 1);
             this.instruction = null;
             this.branchStalling = false;
             return;
@@ -195,9 +195,9 @@ export class ALU extends ComputerChipMacro {
                     return "&";
                 case "OR":
                     return "v";
-                case "BEQ":
-                case "EQ":
-                    return "=";
+                case "BGT":
+                case "GT":
+                    return ">";
                 case "BLT":
                 case "LT":
                     return "<";
