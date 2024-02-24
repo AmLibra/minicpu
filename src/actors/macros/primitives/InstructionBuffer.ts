@@ -19,7 +19,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     private readonly spacing: number;
     private readonly rectangleSize: number;
     protected bufferMeshOffsets: number[] = [];
-    private highlightedBufferMeshes: number[] = [];
+    highlightedBufferMeshes: number[] = [];
 
     public readonly size: number;
 

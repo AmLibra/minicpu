@@ -68,12 +68,14 @@ export class InstructionCache extends ComputerChipMacro {
             return; // no need to ask for instructions if they are already being fetched
 
         this.requestedAddress = address;
-        if (this.cacheLineContaining(address) != undefined) {
+
+        if (this.cacheLineContaining(address) != undefined) { // cache hit
             this.readTimeout = this.delay;
         } else {
             if (!this.instructionMemory.isReadyToBeRead())
                 this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
             else {
+                this.cacheLines.forEach(line => line.clearHighlights());
                 this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
                 this.cacheLines.push(this.cacheLines.shift());
             }

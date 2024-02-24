@@ -14,7 +14,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private addressMeshes: Mesh[] = [];
     private addressReached: number;
     private iterateMode: boolean = false;
-    private highlightedBufferMeshes: number[] = [];
 
     private jumpAddressQueue: Queue<number> = new Queue<number>();
     private jumpInstructionQueue: Queue<number> = new Queue<number>();

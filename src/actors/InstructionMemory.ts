@@ -60,7 +60,7 @@ export class InstructionMemory extends ComputerChip {
         this.instructionBuffer.update();
         this.updateInstructionStream();
 
-        if (Math.random() < 0.4)
+        if (Math.random() < 0.2)
             this.instructionBuffer.write(this.instructionStream, 1);
     }
 
