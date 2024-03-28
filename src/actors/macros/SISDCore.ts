@@ -5,7 +5,7 @@ import {ALU} from "./primitives/ALU";
 import {DataCellArray} from "./primitives/DataCellArray";
 import {Decoder} from "./Decoder";
 import {IOInterface} from "./IOInterface";
-import {ISA} from "../../components/ISA";
+import {ISA} from "../../dataStructures/ISA";
 import {InstructionMemory} from "../InstructionMemory";
 import {WorkingMemory} from "../WorkingMemory";
 import {InstructionCache} from "./InstructionCache";

@@ -213,12 +213,13 @@ export abstract class ComputerChip {
      * @protected
      */
     protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y'): void {
-        const halfwayPoint = this.findClosestPinToCentralPin(thisSide, other, otherSide, dimension);
+        const halfwayPoint = this.findClosestPinToCentralPin(thisSide, other, otherSide, dimension) + 1;
         const size = other.pinPositions.get(otherSide).length;
         const traces = new Group();
         for (let i = 0; i < size; ++i) {
             const offset = i < halfwayPoint ? baseOffset + (pinSpacing * i) :
-                baseOffset + (pinSpacing * (halfwayPoint + 1)) - (pinSpacing * (i - halfwayPoint));
+                baseOffset + (pinSpacing * (2 * halfwayPoint - i));
+
             const trace = this.buildTrace(this.pinPositions.get(thisSide)[i], thisSide,
                 other.pinPositions.get(otherSide)[i], otherSide, offset);
             traces.add(trace);
@@ -326,6 +327,6 @@ export abstract class ComputerChip {
      * @returns {string} The formatted frequency string.
      */
     private static formatFrequency(frequency: number): string {
-        return frequency < 1000 ? `${frequency} KHz` : `${(frequency / 1000).toFixed(2)} MHz`;
+        return frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} KHz`;
     }
 }

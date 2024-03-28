@@ -85,7 +85,7 @@ export class DataCellArray extends ComputerChipMacro {
 
     /**
      * Computes the dimensions of the data cell array based on the number of words and the word size.
-     * This is useful for positioning the data cell array in the scene relative to other components.
+     * This is useful for positioning the data cell array in the scene relative to other dataStructures.
      *
      * @param numberOfWords The number of words in the data cell array.
      * @param wordSize The number of cells in each word.

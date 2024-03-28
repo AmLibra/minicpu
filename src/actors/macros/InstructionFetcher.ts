@@ -3,8 +3,8 @@ import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
 import {AddressCounter} from "./primitives/AddressCounter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
-import {Instruction} from "../../components/Instruction";
-import {Queue} from "../../components/Queue";
+import {Instruction} from "../../dataStructures/Instruction";
+import {Queue} from "../../dataStructures/Queue";
 import {InstructionCache} from "./InstructionCache";
 
 /**

@@ -74,7 +74,7 @@ export class App {
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
         this.camera.position.set(0, 0, 2);
-        this.camera.zoom = 0.6;
+        this.camera.zoom = 0.4;
         this.camera.updateProjectionMatrix();
     }
 
@@ -101,7 +101,7 @@ export class App {
     }
 
     /**
-     * Loads and initializes game components like the HUD and game actors.
+     * Loads and initializes game dataStructures like the HUD and game actors.
      */
     private loadGame(): void {
         this.addGameActors();
@@ -113,15 +113,12 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -1.7], this.scene, 3, 3, 4);
-        const instructionMemory = new InstructionMemory([1.7, 0], this.scene, workingMemory, 2, 32);
+        const workingMemory = new WorkingMemory([0, -2.8], this.scene, 3, 8, 4, 8);
+        const instructionMemory = new InstructionMemory([2.5, 0.1], this.scene, workingMemory, 2, 32);
         // instruction memory speed should be less than CPU speed / 4
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 5,
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 20,
             6);
-        // clock frequency is actually double due to pipelining
-
         this.cpu = cpu;
-        this.cpu.setPipelined();
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }

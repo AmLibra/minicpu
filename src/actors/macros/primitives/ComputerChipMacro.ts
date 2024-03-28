@@ -1,11 +1,11 @@
 import {Mesh, MeshBasicMaterial, Scene} from "three";
 import {ComputerChip} from "../../ComputerChip";
 import {DrawUtils} from "../../../DrawUtils";
-import {Instruction} from "../../../components/Instruction";
+import {Instruction} from "../../../dataStructures/Instruction";
 
 /**
  * An abstract class representing a macro component of a computer chip within a simulation.
- * This class provides a common structure and functionality for various macro components
+ * This class provides a common structure and functionality for various macro dataStructures
  * like ALUs, memory cells, and others within the chip simulation.
  */
 export abstract class ComputerChipMacro {
@@ -31,7 +31,7 @@ export abstract class ComputerChipMacro {
     /** Meshes used to highlight parts of the component during certain operations. */
     protected highlightMeshes: Mesh[] = [];
 
-    /** Materials used for different parts of the macro components. */
+    /** Materials used for different parts of the macro dataStructures. */
     protected static readonly BODY_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
     protected static readonly COMPONENT_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARKER")});
     protected static readonly TEXT_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")});

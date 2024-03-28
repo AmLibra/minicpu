@@ -161,7 +161,7 @@ export class DrawUtils {
         const gridHelper = new GridHelper(size, divisions, gridColor, gridColor);
         gridHelper.rotateX(Math.PI / 2);  // Rotate to lay flat on the ground.
         gridHelper.material.depthWrite = false;  // Prevent grid lines from interfering with depth calculations.
-        gridHelper.position.set(0, 0, -0.01);  // Slightly below y=0 to avoid z-fighting with other ground elements.
+        gridHelper.position.set(0, 0, -0.2);  // Slightly below y=0 to avoid z-fighting with other ground elements.
         scene.add(gridHelper);
     }
 

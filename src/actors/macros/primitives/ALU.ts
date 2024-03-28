@@ -3,10 +3,11 @@ import {ComputerChip} from "../../ComputerChip";
 import {Mesh, PlaneGeometry} from "three";
 import {InstructionBuffer} from "./InstructionBuffer";
 import {DrawUtils} from "../../../DrawUtils";
-import {Instruction} from "../../../components/Instruction";
+import {Instruction} from "../../../dataStructures/Instruction";
 import {DataCellArray} from "./DataCellArray";
 import {SISDProcessor} from "../../SISDProcessor";
 import {Decoder} from "../Decoder";
+import {ISA} from "../../../dataStructures/ISA";
 
 /**
  * Represents the Arithmetic Logic Unit (ALU) of a computer chip, performing arithmetic and logical operations.
@@ -17,7 +18,6 @@ export class ALU extends ComputerChipMacro {
     width: number = 0.2;
     textSize: number = 0.03;
 
-    private static readonly MAX_BYTE_VALUE = 8;
     private static readonly DISTANCE_TO_CENTER = 0.07;
     private static readonly OP_Y_OFFSET = -0.03;
     private static readonly RES_Y_OFFSET = 0.02;
@@ -224,7 +224,7 @@ export class ALU extends ComputerChipMacro {
      * @private
      */
     private preventOverflow(n: number): number {
-        const result = n % ALU.MAX_BYTE_VALUE;
-        return result >= 0 ? result : result + ALU.MAX_BYTE_VALUE;
+        const result = n % ISA.MAX_BYTE_VALUE;
+        return result >= 0 ? result : result + ISA.MAX_BYTE_VALUE;
     }
 }

@@ -2,7 +2,7 @@ import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {ComputerChip} from "../ComputerChip";
 import {InstructionCacheLine} from "./InstructionCacheLine";
 import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
-import {Instruction} from "../../components/Instruction";
+import {Instruction} from "../../dataStructures/Instruction";
 
 /**
  * Represents the instruction cache of a computer chip, handling the caching of instructions.

@@ -1,7 +1,7 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {Mesh, PlaneGeometry} from "three";
-import {Queue} from "../../../components/Queue";
-import {Instruction} from "../../../components/Instruction";
+import {Queue} from "../../../dataStructures/Queue";
+import {Instruction} from "../../../dataStructures/Instruction";
 import {ComputerChip} from "../../ComputerChip";
 import {DrawUtils} from "../../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils.js";

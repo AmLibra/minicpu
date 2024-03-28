@@ -24,13 +24,13 @@ export class HUD {
     /** The factor to zoom in or out by. */
     private static readonly ZOOM_FACTOR: number = 0.0001;
     /** The maximum zoom level. */
-    private static readonly MAX_ZOOM: number = 0.5;
+    private static readonly MAX_ZOOM: number = 0.2;
     /** The minimum zoom level. */
     private static readonly MIN_ZOOM: number = 1;
     /** The maximum camera position on the x-axis. */
-    private static readonly MAX_CAMERA_POSITION_X = 2;
+    private static readonly MAX_CAMERA_POSITION_X = 4;
     /** The maximum camera position on the y-axis. */
-    private static readonly MAX_CAMERA_POSITION_Y = 2;
+    private static readonly MAX_CAMERA_POSITION_Y = 4;
     /** The speed at which the camera scrolls. */
     private static SCROLL_SPEED: number = 2;
 
@@ -61,6 +61,7 @@ export class HUD {
     private menuMesh: Mesh; // Menu mesh
     private menuTitleMesh: Mesh; // Menu title mesh
     private menuCloseMesh: Mesh; // Menu close mesh
+    private menuCloseHitBox: Mesh; // Menu close hit box
 
     /** The HUD scene and camera. */
     private readonly hudScene: Scene;
@@ -81,14 +82,7 @@ export class HUD {
         this.hudCamera.position.set(0, 0, 2);
 
         this.addMouseClickEvents();
-
-        document.addEventListener('click', this.onMouseClick.bind(this), false);
-        document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
-        document.addEventListener('mousedown', this.onMouseDown);
-        document.addEventListener('mousemove', this.onMouseDrag);
-        document.addEventListener('mouseup', this.onMouseUp);
-        document.addEventListener('wheel', this.onMouseWheel);
-        window.addEventListener('resize', () => this.onWindowResize());
+        this.addEventListeners();
         this.initialize();
     }
 
@@ -112,8 +106,8 @@ export class HUD {
     private initialize(): HUD {
         this.drawStats();
         this.drawMenu();
-        this.hudScene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh, this.menuMesh, this.menuTitleMesh,
-            this.menuCloseMesh);
+        this.hudScene.add(this.totalExecutedInstructions, this.IPCMesh, this.IPSMesh, this.menuMesh,
+            this.menuTitleMesh, this.menuCloseMesh, this.menuCloseHitBox);
         this.drawPauseButton();
 
         this.addMouseHoverEvents();
@@ -188,27 +182,18 @@ export class HUD {
         this.menuTitleMesh.geometry.center();
         this.menuTitleMesh.visible = false;
 
-        let closeMesh = this.menuCloseMesh;
-        DrawUtils.buildImageMesh("res/close.png", 0.2, 0.2,
-            (mesh: Mesh) => this.buildCloseMesh(mesh));
-        this.menuCloseMesh = closeMesh;
-    }
+        let closeX = this.hudCamera.right - 0.2;
+        let closeY = this.hudCamera.bottom + 0.53;
 
-    /**
-     * Builds the close mesh for the menu.
-     * @param mesh The mesh to build.
-     * @private
-     */
-    private buildCloseMesh(mesh: Mesh): void {
-        mesh.position.set(this.hudCamera.right - 0.2, this.hudCamera.bottom + 0.55, HUD.MENU_LAYER);
-        mesh.geometry.center();
-        mesh.visible = false;
-        this.menuCloseMesh = mesh;
-        this.hudScene.add(mesh);
-        this.hudMouseClickEvents.set(
-            () => this.raycaster.intersectObject(this.menuCloseMesh).length > 0,
-            () => this.hideMenu()
-        );
+        this.menuCloseMesh = DrawUtils.buildTextMesh("[X]", closeX,
+            closeY, HUD.TEXT_SIZE, HUD.HOVER_COLOR, false);
+        this.menuCloseMesh.geometry.center();
+        this.menuCloseMesh.visible = false;
+        this.menuCloseHitBox = DrawUtils.buildQuadrilateralMesh(0.1, 0.1, HUD.BASE_COLOR,
+            new Vector2(closeX, closeY));
+        this.menuCloseHitBox.geometry.center();
+        this.menuCloseHitBox.visible = false;
+        this.menuCloseHitBox.position.z = 1;
     }
 
     /**
@@ -236,8 +221,18 @@ export class HUD {
      */
     private addMouseClickEvents(): void {
         this.hudMouseClickEvents.set(
-            () => this.raycaster.intersectObject(this.pauseButtonMesh).concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
+            () => this.raycaster.intersectObject(this.pauseButtonMesh)
+                .concat(this.raycaster.intersectObject(this.playButtonMesh)).length > 0,
             () => this.togglePauseState()
+        );
+
+        this.hudMouseClickEvents.set(
+            () => this.raycaster.intersectObject(this.menuCloseHitBox).length > 0,
+            () => {
+                if (this.selectedActor)
+                    this.selectedActor = this.selectedActor.deselect();
+                this.hideMenu();
+            }
         );
 
         this.app.gameActors.forEach(actor => {
@@ -320,7 +315,6 @@ export class HUD {
         this.app.camera.position.y += deltaY * scaleY;
         this.app.camera.position.y = Math.max(-HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
         this.app.camera.position.y = Math.min(HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
-
         this.initialMousePosition.set(event.clientX, event.clientY);
     }
 
@@ -428,5 +422,15 @@ export class HUD {
     private static changeMeshAppearance(mesh: Mesh, color: MeshBasicMaterial, scale?: number): void {
         mesh.material = color;
         if (scale) mesh.scale.set(scale, scale, scale);
+    }
+
+    private addEventListeners(): void {
+        document.addEventListener('click', this.onMouseClick.bind(this), false);
+        document.addEventListener('mousemove', this.onMouseMove.bind(this), false);
+        document.addEventListener('mousedown', this.onMouseDown);
+        document.addEventListener('mousemove', this.onMouseDrag);
+        document.addEventListener('mouseup', this.onMouseUp);
+        document.addEventListener('wheel', this.onMouseWheel);
+        window.addEventListener('resize', () => this.onWindowResize());
     }
 }

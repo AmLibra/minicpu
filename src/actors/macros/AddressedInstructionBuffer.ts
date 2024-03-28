@@ -3,9 +3,9 @@ import {Mesh, MeshBasicMaterial} from "three";
 import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {DrawUtils} from "../../DrawUtils";
 import {InstructionMemory} from "../InstructionMemory";
-import {Instruction} from "../../components/Instruction";
+import {Instruction} from "../../dataStructures/Instruction";
 import {ComputerChip} from "../ComputerChip";
-import {Queue} from "../../components/Queue";
+import {Queue} from "../../dataStructures/Queue";
 
 /**
  * Represents an addressed version of the instruction buffer in a computer chip.
@@ -49,6 +49,9 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     public askForInstructionsAt(chip: ComputerChip, n: number, address: number) {
         if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
+        if (chip.getClockFrequency() < this.parent.getClockFrequency() * 3)
+            throw new Error("The clock frequency of the chip must be at least 3 times the clock frequency of the parent");
+
         const localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)
             return; // no need to ask for instructions if they are already being fetched

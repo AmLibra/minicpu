@@ -9,7 +9,7 @@ import {DrawUtils} from "../DrawUtils";
 export class WorkingMemory extends ComputerChip {
     public readonly size: number;
     public readonly numberOfBanks: number;
-    private readonly numberOfWords: number;
+    readonly numberOfWords: number;
     private readonly wordSize: number;
 
     private dataBanks: DataCellArray[] = [];
@@ -106,7 +106,7 @@ export class WorkingMemory extends ComputerChip {
         }
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawPins(this.bodyMesh, Side.TOP, this.size);
+        this.drawPins(this.bodyMesh, Side.TOP, this.numberOfBanks * this.numberOfWords);
     }
 
     /**

@@ -1,10 +1,11 @@
 import {Scene} from "three";
-import {Instruction} from "../components/Instruction";
+import {Instruction} from "../dataStructures/Instruction";
 import {ComputerChip, Side} from "./ComputerChip";
 import {WorkingMemory} from "./WorkingMemory";
-import {Queue} from "../components/Queue";
+import {Queue} from "../dataStructures/Queue";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
-import {ISA} from "../components/ISA";
+import {ISA} from "../dataStructures/ISA";
+import {DrawUtils} from "../DrawUtils";
 
 /**
  * The InstructionMemory class represents the instruction memory of the computer.
@@ -13,7 +14,10 @@ export class InstructionMemory extends ComputerChip {
     public static readonly ADDRESS_MARGIN: number = 0.2;
 
     public static readonly MIN_LOOP_SIZE: number = 4;
-    public static readonly MAX_LOOP_SIZE: number = 7;
+    public static readonly MAX_LOOP_SIZE: number = 10;
+
+    public static readonly MIN_BRANCH_SIZE: number = 4;
+    public static readonly MAX_BRANCH_SIZE: number = 8;
 
     public static readonly MIN_SEQUENCE_SIZE: number = 4;
     public static readonly MAX_SEQUENCE_SIZE: number = 8;
@@ -23,7 +27,9 @@ export class InstructionMemory extends ComputerChip {
     private readonly instructionStream: Queue<Instruction>;
     private readonly workingMemory: WorkingMemory;
 
-    private forLoopProbability: number = 0.6;
+    private forLoopProbability: number = 0.3;
+    private branchProbability: number = -1;
+    private initializeRegistersProbability: number = 0.7;
 
     /**
      * Creates a new instruction memory.
@@ -85,9 +91,19 @@ export class InstructionMemory extends ComputerChip {
         let addedInstructions = 0;
         while (this.instructionStream.size() < this.size * 2) {
             if (Math.random() < this.forLoopProbability) {
+                if (Math.random() < this.initializeRegistersProbability) {
+                    const n = ISA.REGISTER_SIZE - 1;
+                    this.initializeRegistersWorkload(n).moveTo(this.instructionStream);
+                    addedInstructions += n;
+                }
                 const n = InstructionMemory.MIN_LOOP_SIZE + Math.floor(Math.random() *
                     (InstructionMemory.MAX_LOOP_SIZE - InstructionMemory.MIN_LOOP_SIZE));
                 this.typicalForLoop(addedInstructions, n).moveTo(this.instructionStream);
+                addedInstructions += n;
+            } else if (Math.random() < this.branchProbability) {
+                const n = InstructionMemory.MIN_BRANCH_SIZE + Math.floor(Math.random() *
+                    (InstructionMemory.MAX_BRANCH_SIZE - InstructionMemory.MIN_BRANCH_SIZE));
+                this.conditionalBranchWorkload(addedInstructions, n).moveTo(this.instructionStream);
                 addedInstructions += n;
             } else {
                 const n = InstructionMemory.MIN_SEQUENCE_SIZE + Math.floor(Math.random() *
@@ -104,10 +120,10 @@ export class InstructionMemory extends ComputerChip {
      * @param n The number of instructions to generate.
      * @private
      */
-    private typicalInstructionSequence(n: number): Queue<Instruction> {
+    private typicalInstructionSequence(n: number, excepted ?: number[]): Queue<Instruction> {
         const typicalWorkload = new Queue<Instruction>(n);
-        const loadedRegisters = this.loadConsecutiveAddresses(typicalWorkload, n);
-        const [resultRegisters, numberOfALUOperations] = this.computeOnGivenRegisters(typicalWorkload, n, loadedRegisters);
+        const loadedRegisters = this.loadConsecutiveAddresses(typicalWorkload, n, excepted);
+        const [resultRegisters, numberOfALUOperations] = this.computeOnGivenRegisters(typicalWorkload, n, loadedRegisters, excepted);
         this.storeResults(typicalWorkload, n - loadedRegisters.length - numberOfALUOperations, resultRegisters);
         return typicalWorkload;
     }
@@ -119,9 +135,9 @@ export class InstructionMemory extends ComputerChip {
      * @private
      * @returns The registers that were loaded.
      */
-    private loadConsecutiveAddresses(queue: Queue<Instruction>, n: number): number[] {
-        const numberOfLoadOperations = this.getRandom(Math.floor(n * 0.6), 1);
-        const loadedRegisters: number[] = this.randomConsecutiveRegs(numberOfLoadOperations);
+    private loadConsecutiveAddresses(queue: Queue<Instruction>, n: number, excepted ?: number[]): number[] {
+        const numberOfLoadOperations = this.getRandom(Math.floor(n * 0.6), 2);
+        const loadedRegisters: number[] = this.randomConsecutiveRegs(numberOfLoadOperations, excepted);
         const randomAddresses = this.randomConsecutiveAddresses(numberOfLoadOperations);
         for (let i = 0; i < numberOfLoadOperations; ++i)
             queue.enqueue(Instruction.memory("LOAD", loadedRegisters[i], randomAddresses[i]));
@@ -137,11 +153,11 @@ export class InstructionMemory extends ComputerChip {
      * @returns The registers that were computed on.
      * @returns The number of ALU operations added.
      */
-    private computeOnGivenRegisters(queue: Queue<Instruction>, n: number, loadedRegisters: number[]): [Set<number>, number] {
+    private computeOnGivenRegisters(queue: Queue<Instruction>, n: number, loadedRegisters: number[], excepted ?: number[]): [Set<number>, number] {
         const numberOfALUOperations = this.getRandom(Math.floor(n * 0.5), 1);
         let resultRegisters: Set<number> = new Set();
         for (let i = 0; i < numberOfALUOperations; ++i) {
-            const resultReg = this.randomReg();
+            const resultReg = this.randomReg(excepted);
             resultRegisters.add(resultReg);
             queue.enqueue(Instruction.alu(this.randomFrom(ISA.ALU_OPCODES), resultReg,
                 this.randomFrom(loadedRegisters), this.randomFrom(loadedRegisters)));
@@ -179,17 +195,64 @@ export class InstructionMemory extends ComputerChip {
         const it = this.randomReg();
         const comparedTo = this.randomReg([it]);
         typicalWorkload.enqueue(Instruction.aluImm("ADDI", it, it, 0));
-        for (let i = 0; i < n - 3; ++i)
-            typicalWorkload.enqueue(Instruction.alu(this.randomFrom(ISA.ALU_OPCODES),
-                this.randomReg([it, comparedTo]), this.randomReg(), this.randomReg()));
+
+        const loopBodySize = n - 3;
+        if (loopBodySize > InstructionMemory.MIN_SEQUENCE_SIZE) {
+            this.typicalInstructionSequence(loopBodySize, [it, comparedTo]).moveTo(typicalWorkload);
+        } else {
+            for (let i = 0; i < loopBodySize; ++i)
+                typicalWorkload.enqueue(Instruction.alu(this.randomFrom(ISA.ALU_OPCODES),
+                    this.randomReg([it, comparedTo]), this.randomReg(), this.randomReg()));
+        }
+
         typicalWorkload.enqueue(Instruction.aluImm("ADDI", it, it, 1));
-
         const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions + 1;
-
         typicalWorkload.enqueue(Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), it, comparedTo, branchTarget));
         this.instructionBuffer.setJumpAddress(branchTarget, branchTarget + n - 2);
 
         return typicalWorkload;
+    }
+
+    /**
+     * Generates a conditional branch instruction workload of n instructions.
+     *
+     * @param nPreviouslyAddedInstructions The number of instructions previously added to the instruction stream.
+     * @param n The number of instructions to generate.
+     * @private
+     */
+    private conditionalBranchWorkload(nPreviouslyAddedInstructions: number, n: number) {
+        const workload = new Queue<Instruction>(n);
+        const cmpReg = this.randomReg();
+        const branchInstructionAddress = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions;
+        const branchTarget = branchInstructionAddress + n - 1;
+        workload.enqueue(Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), cmpReg, this.randomReg([cmpReg]), branchTarget));
+
+        const loopBodySize = n - 1;
+        if (loopBodySize > InstructionMemory.MIN_SEQUENCE_SIZE) {
+            this.typicalInstructionSequence(loopBodySize).moveTo(workload);
+        } else {
+            for (let i = 0; i < loopBodySize; ++i)
+                workload.enqueue(Instruction.alu(this.randomFrom(ISA.ALU_OPCODES),
+                    this.randomReg(), this.randomReg(), this.randomReg()));
+        }
+
+        this.instructionBuffer.setJumpAddress(branchInstructionAddress, branchTarget); // swapped for hacky solution
+        console.log("Branch target: " + DrawUtils.toHex(branchTarget) + " Branch instruction address: " + DrawUtils.toHex(branchInstructionAddress));
+        return workload;
+    }
+
+    /**
+     * Generates a workload of instructions that initialize registers.
+     *
+     * @param n The number of instructions to generate.
+     * @private
+     */
+    private initializeRegistersWorkload(n: number) {
+        const workload = new Queue<Instruction>(n);
+        const registers = this.randomConsecutiveRegs(n);
+        for (let i = 0; i < n; ++i)
+            workload.enqueue(Instruction.aluImm("ADDI", registers[i], 0, this.getRandom(ISA.MAX_BYTE_VALUE, 1)));
+        return workload;
     }
 
     /**
@@ -222,30 +285,46 @@ export class InstructionMemory extends ComputerChip {
     }
 
     /**
-     * Returns a random register number that is not in the given array.
+     * Returns a random register number that is not in the given array, with a safety limit on iterations.
      *
      * @param excepted The register numbers to avoid.
      * @private
      */
     private randomReg(excepted ?: number[]): number {
-        let randomRegisterNumber;
+        let randomRegisterNumber: number;
+        let attempts = 0;
+        const maxAttempts = 100; // Maximum number of attempts to find a non-excepted register
+
         do {
-            randomRegisterNumber = this.getRandom(ISA.REGISTER_SIZE, 1) // 0 is reserved for the zero register.
+            if (attempts++ >= maxAttempts) throw new Error('Max attempts reached in randomReg');
+            randomRegisterNumber = this.getRandom(ISA.REGISTER_SIZE, 1); // 0 is reserved for the zero register.
         } while (excepted && excepted.includes(randomRegisterNumber));
+
         return randomRegisterNumber;
     }
 
     /**
-     * Returns n random consecutive register numbers.
+     * Returns n random consecutive register numbers, skipping the excepted ones.
      *
      * @param n The number of consecutive register numbers to return.
+     * @param excepted The register numbers to avoid.
      * @private
      */
-    private randomConsecutiveRegs(n: number): number[] {
-        const randomRegisterNumber = this.randomReg();
-        const randomRegisterNumbers: number[] = [];
-        for (let i = 0; i < n; ++i)
-            randomRegisterNumbers.push((randomRegisterNumber + i) % ISA.REGISTER_SIZE);
+    private randomConsecutiveRegs(n: number, excepted ?: number[]): number[] {
+        let randomRegisterNumber = this.randomReg(excepted);
+        let randomRegisterNumbers: number[] = [];
+        let count = 0;
+
+        while (count < n) {
+            // If the current register number is not in the excepted list, add it to the result
+            if (!(excepted && excepted.includes(randomRegisterNumber))) {
+                randomRegisterNumbers.push(randomRegisterNumber);
+                count++;
+            }
+            // Move to the next register, wrap around if necessary
+            randomRegisterNumber = (randomRegisterNumber + 1) % ISA.REGISTER_SIZE;
+        }
+
         return randomRegisterNumbers;
     }
 
@@ -270,7 +349,7 @@ export class InstructionMemory extends ComputerChip {
      * @param min The minimum value.
      * @private
      */
-    private getRandom(max, min = 0) {
+    private getRandom(max: number, min = 0) {
         return min + Math.floor(Math.random() * (max - min));
     }
 }

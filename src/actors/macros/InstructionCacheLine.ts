@@ -1,9 +1,9 @@
 import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
-import {Instruction} from "../../components/Instruction";
+import {Instruction} from "../../dataStructures/Instruction";
 import {ComputerChip} from "../ComputerChip";
 import {AddressCounter} from "./primitives/AddressCounter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
-import {Queue} from "../../components/Queue";
+import {Queue} from "../../dataStructures/Queue";
 
 /**
  * Represents a line in the instruction cache of a computer chip.

@@ -2,7 +2,7 @@ import {Scene} from "three";
 import {ComputerChip, Side} from "./ComputerChip";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
-import {Queue} from "../components/Queue";
+import {Queue} from "../dataStructures/Queue";
 import {SISDCore} from "./macros/SISDCore";
 import {InstructionCache} from "./macros/InstructionCache";
 
@@ -54,8 +54,8 @@ export class SISDProcessor extends ComputerChip {
             this.core = new SISDCore(this, 0, 0, rom, workingMemory);
 
         this.initializeGraphics();
-        this.drawTraces(Side.BOTTOM, this.workingMemory, Side.TOP, 0.05, 0.02, 'x');
-        this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, 0.2, 0.02, 'y');
+        this.drawTraces(Side.BOTTOM, this.workingMemory, Side.TOP, 1.25, 0.02, 'x');
+        this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, 0.5, 0.02, 'y');
     }
 
     /**
@@ -118,7 +118,7 @@ export class SISDProcessor extends ComputerChip {
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
         this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);
-        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.size);
+        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.numberOfBanks * this.workingMemory.numberOfWords);
     }
 
     /**
