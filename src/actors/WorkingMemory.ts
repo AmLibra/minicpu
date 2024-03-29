@@ -99,7 +99,7 @@ export class WorkingMemory extends ComputerChip {
             const dataBank = new DataCellArray(this,
                 startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
                 (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2,
-                 this.numberOfWords, this.wordSize,
+                this.numberOfWords, this.wordSize,
                 false, undefined, cellNames, `Bank ${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;

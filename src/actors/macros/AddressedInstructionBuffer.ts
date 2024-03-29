@@ -129,8 +129,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         for (let i = 0; i < this.size; i++) {
             const addressMesh = DrawUtils.buildTextMesh(DrawUtils.toHex(i),
                 this.position.x - this.width / 2 - InstructionMemory.ADDRESS_MARGIN * 0.6,
-                    this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
-                    ComputerChipMacro.TEXT_MATERIAL, true)
+                this.bufferMeshOffsets[i], ComputerChipMacro.TEXT_SIZE * 0.8,
+                ComputerChipMacro.TEXT_MATERIAL, true)
             this.addressMeshes[i] = addressMesh;
             this.scene.add(addressMesh);
         }

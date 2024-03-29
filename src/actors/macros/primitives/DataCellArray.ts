@@ -360,7 +360,7 @@ export class DataCellArray extends ComputerChipMacro {
     private createNameGeometry(registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, rowIndex: number, columnIndex: number, xOffset: number, yOffset: number): void {
         const registerName = registerNames ? registerNames[rowIndex * this.numberOfWords + columnIndex] : DrawUtils.toHex(rowIndex * this.numberOfWords + columnIndex);
         const registerNameGeometry = DrawUtils.buildTextMesh(registerName, 0, 0, DataCellArray.TEXT_SIZE / 2, DataCellArray.BODY_MATERIAL).geometry.center()
-            .translate(xOffset, yOffset + DataCellArray.REGISTER_SIDE_LENGTH / 2 - DrawUtils.baseTextHeight / 4, 0);
+                                              .translate(xOffset, yOffset + DataCellArray.REGISTER_SIDE_LENGTH / 2 - DrawUtils.baseTextHeight / 4, 0);
         registerNamesGeometries.push(registerNameGeometry);
     }
 

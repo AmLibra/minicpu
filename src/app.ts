@@ -27,7 +27,7 @@ export class App {
     paused: boolean = false;
 
     /** Central Processing Unit (CPU) simulation. */
-    cpu: SISDProcessor;
+    cpus: SISDProcessor[] = [];
 
     /** Collection of all computer chip actors within the simulation. */
     gameActors: ComputerChip[] = [];
@@ -97,7 +97,7 @@ export class App {
             if (this.paused) return;
             this.gameActors.forEach(actor => actor.update());
             this.hud.update();
-        }, App.ONE_SECOND / this.cpu.getClockFrequency());
+        }, App.ONE_SECOND / this.cpus[0].getClockFrequency());
     }
 
     /**
@@ -105,6 +105,8 @@ export class App {
      */
     private loadGame(): void {
         this.addGameActors();
+        if (this.cpus.length === 0)
+            throw new Error("No CPUs found in the simulation.");
         this.hud = new HUD(this);
         DrawUtils.drawGrid(this.scene)
     }
@@ -114,11 +116,10 @@ export class App {
      */
     private addGameActors(): void {
         const workingMemory = new WorkingMemory([0, -2.8], this.scene, 3, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.5, 0.1], this.scene, workingMemory, 2, 32);
-        // instruction memory speed should be less than CPU speed / 4
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 20,
+        const instructionMemory = new InstructionMemory([2.5, 0.1], this.scene, workingMemory, 7, 32);
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 21,
             6);
-        this.cpu = cpu;
+        this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }
 }

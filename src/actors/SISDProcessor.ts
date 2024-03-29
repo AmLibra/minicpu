@@ -77,15 +77,15 @@ export class SISDProcessor extends ComputerChip {
     /**
      * Sets the clock frequency of the processor.
      */
-    public getIPC(): string {
-        return (this.calculateAverageInstructionCount()).toFixed(2);
+    public getIPC(): number {
+        return this.calculateAverageInstructionCount();
     }
 
     /**
      * Gets the instructions per second (IPS) of the processor.
      */
-    public getIPS(): string {
-        return (this.calculateAverageInstructionCount() * this.getClockFrequency()).toFixed(2);
+    public getIPS(): number {
+        return this.calculateAverageInstructionCount() * this.getClockFrequency();
     }
 
     /**

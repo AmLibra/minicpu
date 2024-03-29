@@ -252,8 +252,8 @@ export class InstructionBuffer extends ComputerChipMacro {
         // Fill the empty spaces with noOpMesh
         for (let i = this.size - 1; i > this.size - nPositions - 1; --i) {
             this.liveMeshes[i] = this.noOpMesh.clone()
-                .translateX(this.horizontal ? this.bufferMeshOffsets[i] : this.position.x)
-                .translateY(this.horizontal ? this.position.y : this.bufferMeshOffsets[i]);
+                                     .translateX(this.horizontal ? this.bufferMeshOffsets[i] : this.position.x)
+                                     .translateY(this.horizontal ? this.position.y : this.bufferMeshOffsets[i]);
             this.scene.add(this.liveMeshes[i]);
         }
     }

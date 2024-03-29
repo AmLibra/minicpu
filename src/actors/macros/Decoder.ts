@@ -60,7 +60,7 @@ export class Decoder extends InstructionBuffer {
             this.storedInstructions.dequeue();
         }
         if (this.parent instanceof SISDProcessor)
-                (this.parent as SISDProcessor).notifyInstructionRetired();
+            (this.parent as SISDProcessor).notifyInstructionRetired();
     }
 
 
@@ -118,7 +118,7 @@ export class Decoder extends InstructionBuffer {
     }
 
     update() {
-        if (this.liveMeshes[0] && this.storedInstructions.isEmpty())  {
+        if (this.liveMeshes[0] && this.storedInstructions.isEmpty()) {
             this.scene.remove(this.liveMeshes[0]);
             this.liveMeshes[0].geometry.dispose();
             this.liveMeshes[0] = this.buildBufferTextMesh(0);

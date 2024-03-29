@@ -41,14 +41,14 @@ export class ALU extends ComputerChipMacro {
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} width The width of the ALU.
      */
-    constructor(parent: ComputerChip, registers: DataCellArray,xOffset: number = 0, yOffset: number = 0) {
+    constructor(parent: ComputerChip, registers: DataCellArray, xOffset: number = 0, yOffset: number = 0) {
         super(parent, xOffset, yOffset);
         this.registers = registers;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
     }
 
     public static dimensions(): { width: number, height: number } {
-        return { width: ALU.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT };
+        return {width: ALU.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT};
     }
 
     /**
@@ -65,7 +65,7 @@ export class ALU extends ComputerChipMacro {
      *
      * @param {Instruction} instruction The instruction to process.
      */
-    public compute(decoder:Decoder, instruction: Instruction): void {
+    public compute(decoder: Decoder, instruction: Instruction): void {
         function computeALUResult(op1: number, op2: number, opcode: string): number {
             switch (opcode) {
                 case "ADDI":
@@ -100,7 +100,7 @@ export class ALU extends ComputerChipMacro {
         const op2 = (instruction.isImmediate() ? instruction.getImmediate() :
             this.registers.read(instruction.getOp2Reg()));
 
-        if (this.branchStalling){
+        if (this.branchStalling) {
             const result = computeALUResult(op1, op2, instruction.getOpcode());
             decoder.takeBranch(result == 1);
             this.instruction = null;
