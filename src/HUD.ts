@@ -150,13 +150,6 @@ export class HUD {
     }
 
     /**
-     * Computes the position of the selected actor menu.
-     */
-    private menuPosition(): Vector2 {
-        return new Vector2(this.hudCamera.position.x, this.hudCamera.position.y - this.hudCamera.top * 0.8);
-    }
-
-    /**
      * Computes the position of the stats text.
      */
     private statsPosition(): Vector2 {

@@ -46,7 +46,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param n the number of instructions to fetch
      * @param address the address of the first instruction to fetch
      */
-    public askForInstructionsAt(chip: ComputerChip, n: number, address: number) {
+    public askForInstructionsAt(chip: ComputerChip, n: number, address: number): [number, MeshBasicMaterial] {
         if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
         if (chip.getClockFrequency() < this.parent.getClockFrequency() * 3)
@@ -54,10 +54,10 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
         const localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)
-            return; // no need to ask for instructions if they are already being fetched
+            return [-1, null];
 
         if (!this.storedInstructions.get(localAddress))
-            return; // no need to ask for instructions if there is no instruction at the address
+            return [-1, null];
 
         this.requestedInstructionAddress = address;
         for (let i = localAddress; i < localAddress + n; ++i)
@@ -65,6 +65,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
                 this.highlightBuffer(i);
 
         this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
+        return [localAddress,  this.instructionMaterial(this.storedInstructions.get(localAddress))];
     }
 
     /**
@@ -279,7 +280,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         }
     }
 
-    askForInstructions(chip: ComputerChip, n: number) {
+    askForInstructions(_chip: ComputerChip, _n: number) {
         throw new Error("Method not implemented for AddressedInstructionBuffer, use askForInstructionsAt instead");
     }
 }

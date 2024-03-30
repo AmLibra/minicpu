@@ -3,6 +3,7 @@ import {ComputerChip} from "../ComputerChip";
 import {InstructionCacheLine} from "./InstructionCacheLine";
 import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 import {Instruction} from "../../dataStructures/Instruction";
+import {MeshBasicMaterial} from "three";
 
 /**
  * Represents the instruction cache of a computer chip, handling the caching of instructions.
@@ -61,25 +62,24 @@ export class InstructionCache extends ComputerChipMacro {
      *
      * @param {number} address The address of the instruction to be fetched.
      */
-    public askForInstructionAt(address: number): void {
+    public askForInstructionAt(address: number): [number, MeshBasicMaterial] {
         if (this.delay == 0)
             throw new Error("No delay instruction buffers are always ready to be read");
         if (address == this.requestedAddress && this.readTimeout > 0)
-            return; // no need to ask for instructions if they are already being fetched
+            return [-1, null]; // no need to ask for instructions if they are already being fetched
 
         this.requestedAddress = address;
 
         if (this.cacheLineContaining(address) != undefined) { // cache hit
             this.readTimeout = this.delay;
+        } else if (!this.instructionMemory.isReadyToBeRead()) {
+            return this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
         } else {
-            if (!this.instructionMemory.isReadyToBeRead())
-                this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
-            else {
-                this.cacheLines.forEach(line => line.clearHighlights());
-                this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
-                this.cacheLines.push(this.cacheLines.shift());
-            }
+            this.cacheLines.forEach(line => line.clearHighlights());
+            this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
+            this.cacheLines.push(this.cacheLines.shift());
         }
+        return [-1, null];
     }
 
     /**

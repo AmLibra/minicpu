@@ -35,6 +35,7 @@ export class SISDCore extends ComputerChipMacro {
      * @param yOffset The y-offset from the parent's position to place this component.
      * @param rom The instruction memory for the SISDCore.
      * @param workingMemory The working memory for the SISDCore.
+     * @param instructionCache The instruction cache for the SISDCore.
      */
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, rom: InstructionMemory,
                 workingMemory: WorkingMemory, instructionCache?: InstructionCache) {
@@ -87,7 +88,7 @@ export class SISDCore extends ComputerChipMacro {
             this.position.y - this.height / 2 + aluDims.height / 2,
             this.instructionMemory.getInstructionBuffer(), this.width, this.iCache);
 
-        this.decoder = new Decoder(this.parent, this.registers, this.instructionFetcher, this.alu, this.IOInterface,
+        this.decoder = new Decoder(this.parent, this.instructionFetcher, this.alu, this.IOInterface,
             this.position.x, this.position.y, this.width);
 
         this.instructionFetcher.initializeGraphics();

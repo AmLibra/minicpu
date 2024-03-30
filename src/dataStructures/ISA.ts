@@ -15,5 +15,5 @@ export class ISA {
     /** The index of the zero register. */
     public static readonly ZERO_REGISTER = 0;
     /** The largest value that can be stored in a byte. */
-    public static readonly MAX_BYTE_VALUE = 8;
+    public static readonly MAX_BYTE_VALUE = 32;
 }

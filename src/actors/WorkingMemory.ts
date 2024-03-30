@@ -9,8 +9,8 @@ import {DrawUtils} from "../DrawUtils";
 export class WorkingMemory extends ComputerChip {
     public readonly size: number;
     public readonly numberOfBanks: number;
-    readonly numberOfWords: number;
-    private readonly wordSize: number;
+    public readonly numberOfWords: number;
+    public readonly wordSize: number;
 
     private dataBanks: DataCellArray[] = [];
     private static readonly BANK_SPACING: number = 0.04;
@@ -100,13 +100,13 @@ export class WorkingMemory extends ComputerChip {
                 startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
                 (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2,
                 this.numberOfWords, this.wordSize,
-                false, undefined, cellNames, `Bank ${i}`);
+                false, undefined, cellNames, `B${DrawUtils.toHex(i)}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawPins(this.bodyMesh, Side.TOP, this.numberOfBanks * this.numberOfWords);
+        this.drawPins(this.bodyMesh, Side.BOTTOM, this.numberOfBanks * this.numberOfWords);
     }
 
     /**

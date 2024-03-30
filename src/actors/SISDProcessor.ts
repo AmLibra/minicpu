@@ -1,4 +1,4 @@
-import {Scene} from "three";
+import {Group, Mesh, MeshBasicMaterial, Scene} from "three";
 import {ComputerChip, Side} from "./ComputerChip";
 import {InstructionMemory} from "./InstructionMemory";
 import {WorkingMemory} from "./WorkingMemory";
@@ -10,6 +10,13 @@ import {InstructionCache} from "./macros/InstructionCache";
  * A Single Instruction, Single Data (SISD) processor.
  */
 export class SISDProcessor extends ComputerChip {
+    /** Trace constants */
+    private static readonly MEMORY_TRACE_OFFSET = 0.1;
+    private static readonly MEMORY_TRACE_SPACING = 0.03;
+
+    private static readonly INSTRUCTION_MEMORY_TRACE_OFFSET = 0.1;
+    private static readonly INSTRUCTION_MEMORY_TRACE_SPACING = 0.03;
+
     private static readonly COMPONENT_SPACING = 0.05;
     private core: SISDCore;
     private iCache: InstructionCache;
@@ -23,6 +30,9 @@ export class SISDProcessor extends ComputerChip {
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(30);
     private retiredInstructionCount: number = 0;
     private accumulatedInstructionCount: number = 0;
+
+    private highlightedTraces: Group[] = [];
+    private highlightedPins: Mesh[] = [];
 
     /**
      * Constructs a new SISDProcessor instance.
@@ -54,8 +64,8 @@ export class SISDProcessor extends ComputerChip {
             this.core = new SISDCore(this, 0, 0, rom, workingMemory);
 
         this.initializeGraphics();
-        this.drawTraces(Side.BOTTOM, this.workingMemory, Side.TOP, 1.25, 0.02, 'x');
-        this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, 0.5, 0.02, 'y');
+        this.drawTraces(Side.TOP, this.workingMemory, Side.BOTTOM, SISDProcessor.MEMORY_TRACE_OFFSET, SISDProcessor.MEMORY_TRACE_SPACING, 'x', true);
+        this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, SISDProcessor.INSTRUCTION_MEMORY_TRACE_OFFSET, SISDProcessor.INSTRUCTION_MEMORY_TRACE_SPACING, 'y');
     }
 
     /**
@@ -63,6 +73,40 @@ export class SISDProcessor extends ComputerChip {
      */
     public notifyInstructionRetired(): void {
         this.retiredInstructionCount++;
+    }
+
+    public highlightMainMemoryTrace(index: number, color: MeshBasicMaterial): void {
+        this.highlightedTraces.push(new Group().add(
+            new Mesh(this.pinGeometries.get(Side.TOP)[index], color),
+            new Mesh(this.workingMemory.pinGeometries.get(Side.BOTTOM)[index], color),
+            this.drawTrace(index, color, Side.TOP, this.workingMemory, Side.BOTTOM,
+                SISDProcessor.MEMORY_TRACE_OFFSET, SISDProcessor.MEMORY_TRACE_SPACING, 'x', true)
+        ));
+        this.highlightedTraces.forEach(trace => this.scene.add(trace));
+    }
+
+    /**
+     * Used to highlight a given trace with a specific color.
+     *
+     * @param index The index of the trace to highlight.
+     * @param color The color to highlight the trace with.
+     */
+    public highlightInstructionMemoryTrace(index: number, color: MeshBasicMaterial): void {
+        this.highlightedTraces.push(new Group().add(
+            new Mesh(this.pinGeometries.get(Side.RIGHT)[index], color),
+            new Mesh(this.instructionMemory.pinGeometries.get(Side.LEFT)[index], color),
+            this.drawTrace(index, color, Side.RIGHT, this.instructionMemory, Side.LEFT,
+                SISDProcessor.INSTRUCTION_MEMORY_TRACE_OFFSET, SISDProcessor.INSTRUCTION_MEMORY_TRACE_SPACING, 'y'))
+        );
+        this.highlightedTraces.forEach(mesh => this.scene.add(mesh));
+    }
+
+    /**
+     * Used to clear all highlighted traces.
+     */
+    public clearHighlightedTraces(): void {
+        this.highlightedTraces.forEach(trace => this.scene.remove(trace));
+        this.highlightedTraces = [];
     }
 
     /**
@@ -118,7 +162,7 @@ export class SISDProcessor extends ComputerChip {
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
         this.drawPins(this.bodyMesh, Side.RIGHT, this.instructionMemory.size);
-        this.drawPins(this.bodyMesh, Side.BOTTOM, this.workingMemory.numberOfBanks * this.workingMemory.numberOfWords);
+        this.drawPins(this.bodyMesh, Side.TOP, this.workingMemory.numberOfBanks * this.workingMemory.numberOfWords);
     }
 
     /**

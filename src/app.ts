@@ -73,7 +73,7 @@ export class App {
     private setupCamera(): void {
         const aspect = window.innerWidth / window.innerHeight;
         this.camera = new OrthographicCamera(-aspect, aspect, 1, -1, 1, 3);
-        this.camera.position.set(0, 0, 2);
+        this.camera.position.set(0, 0.8, 2);
         this.camera.zoom = 0.4;
         this.camera.updateProjectionMatrix();
     }
@@ -115,10 +115,10 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([0, -2.8], this.scene, 3, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.5, 0.1], this.scene, workingMemory, 7, 32);
+        const workingMemory = new WorkingMemory([-1.405, 2.75], this.scene, 3, 8, 4, 8);
+        const instructionMemory = new InstructionMemory([2.34, 2.8], this.scene, workingMemory, 7, 32);
         const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 21,
-            6);
+            10);
         this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }

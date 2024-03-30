@@ -2,7 +2,6 @@ import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
 import {Queue} from "../../dataStructures/Queue";
 import {Instruction} from "../../dataStructures/Instruction";
-import {DataCellArray} from "./primitives/DataCellArray";
 import {InstructionFetcher} from "./InstructionFetcher";
 import {ALU} from "./primitives/ALU";
 import {IOInterface} from "./IOInterface";
@@ -12,7 +11,6 @@ import {SISDProcessor} from "../SISDProcessor";
  * The Decoder class represents the decoder component of the computer chip.
  */
 export class Decoder extends InstructionBuffer {
-    private registers: DataCellArray;
     private fetcher: InstructionFetcher;
     private alu: ALU;
     private io: IOInterface;
@@ -23,7 +21,6 @@ export class Decoder extends InstructionBuffer {
      * Constructs a new Decoder instance.
      *
      * @param parent The parent ComputerChip instance.
-     * @param registers The register array of the computer chip.
      * @param fetcher The instruction fetcher of the computer chip.
      * @param alu The ALU of the computer chip.
      * @param io The I/O interface of the computer chip.
@@ -32,10 +29,9 @@ export class Decoder extends InstructionBuffer {
      * @param bufferWidth The width of the instruction buffer.
      * @param horizontal Whether the instruction buffer is oriented horizontally.
      */
-    constructor(parent: ComputerChip, registers: DataCellArray, fetcher: InstructionFetcher, alu: ALU, io: IOInterface,
+    constructor(parent: ComputerChip, fetcher: InstructionFetcher, alu: ALU, io: IOInterface,
                 xOffset: number = 0, yOffset: number = 0, bufferWidth: number = Decoder.BUFFER_BASE_WIDTH, horizontal: boolean = false) {
         super(parent, 1, xOffset, yOffset, 0, false, horizontal, bufferWidth, 0);
-        this.registers = registers;
         this.fetcher = fetcher;
         this.alu = alu;
         this.io = io;
@@ -126,7 +122,7 @@ export class Decoder extends InstructionBuffer {
         }
     }
 
-    read(readCount: number): Queue<Instruction> {
+    read(_readCount: number): Queue<Instruction> {
         throw new Error("Decoder should not be read from");
     }
 }

@@ -41,13 +41,10 @@ export abstract class ComputerChip {
     protected static readonly CONTENTS_MARGIN = 0.03;
     protected static readonly INNER_SPACING = 0.01;
 
-    // Colors
-    protected static readonly BODY_MATERIAL: MeshBasicMaterial =
-        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
-    protected static readonly HUD_TEXT_MATERIAL: MeshBasicMaterial =
-        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")});
-    protected static readonly PIN_MATERIAL: MeshBasicMaterial =
-        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
+    /** The color palette used for the computer chip */
+    protected static readonly BODY_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("DARK")});
+    protected static readonly HUD_TEXT_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")});
+    protected static readonly PIN_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
 
     // The basic meshes of a computer chip
     protected bodyMesh: Mesh;
@@ -56,6 +53,7 @@ export abstract class ComputerChip {
 
     // The positions of the pins on the chip per side
     public readonly pinPositions: Map<Side, Vector2[]>;
+    public readonly pinGeometries: Map<Side, BufferGeometry[]>;
 
     public readonly scene: Scene;
     readonly position: { x: number; y: number };
@@ -72,6 +70,7 @@ export abstract class ComputerChip {
         this.scene = scene;
         this.clockFrequency = clockFrequency;
         this.pinPositions = new Map<Side, Vector2[]>();
+        this.pinGeometries = new Map<Side, BufferGeometry[]>();
     }
 
     /**
@@ -144,26 +143,26 @@ export abstract class ComputerChip {
 
         const spaceToFill = horizontal ? width - 2 * ComputerChip.PIN_MARGIN : height - 2 * ComputerChip.PIN_MARGIN;
         const pinSpacing = (spaceToFill - pinCount * (2 * ComputerChip.PIN_WIDTH)) / (pinCount - 1);
-        const pinGeometries: BufferGeometry[] = [];
         this.pinPositions.set(side, []);
+        this.pinGeometries.set(side, []);
 
         for (let i = 0; i < pinCount; i++) {
             const offset = i * (2 * ComputerChip.PIN_WIDTH + pinSpacing);
-            const xOffset = horizontal ? this.position.x - width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_WIDTH + offset :
+            const xOffset = horizontal ?
+                this.position.x - width / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_WIDTH + offset :
                 (side === Side.LEFT ? this.position.x - width / 2 - ComputerChip.PIN_WIDTH - 0.01 : this.position.x + width / 2 + ComputerChip.PIN_WIDTH + 0.01);
-            const yOffset = horizontal ? (side === Side.TOP ? this.position.y + height / 2 + ComputerChip.PIN_WIDTH + 0.01 :
-                this.position.y - height / 2 - ComputerChip.PIN_WIDTH - 0.01) : this.position.y + height / 2 - ComputerChip.PIN_MARGIN - ComputerChip.PIN_WIDTH - offset;
+            const yOffset = horizontal ?
+                (side === Side.TOP ? this.position.y + height / 2 + ComputerChip.PIN_WIDTH + 0.01 : this.position.y - height / 2 - ComputerChip.PIN_WIDTH - 0.01)
+                : this.position.y - height / 2 + ComputerChip.PIN_MARGIN + ComputerChip.PIN_WIDTH + offset;
 
             const pinGeometry = new PlaneGeometry(ComputerChip.PIN_WIDTH, ComputerChip.PIN_WIDTH * 2);
             if (!horizontal) pinGeometry.rotateZ(Math.PI / 2); // Rotate for left/right sides
             pinGeometry.translate(xOffset, yOffset, 0);
-
-            pinGeometries.push(pinGeometry);
+            this.pinGeometries.get(side).push(pinGeometry);
             this.pinPositions.get(side).push(new Vector2(xOffset, yOffset));
         }
-
         // Merge pin geometries and add to the scene
-        const mergedGeometry = BufferGeometryUtils.mergeGeometries(pinGeometries);
+        const mergedGeometry = BufferGeometryUtils.mergeGeometries(this.pinGeometries.get(side));
         if (!mergedGeometry) throw new Error("Failed to merge geometries");
         this.scene.add(new Mesh(mergedGeometry, ComputerChip.PIN_MATERIAL));
     }
@@ -176,9 +175,10 @@ export abstract class ComputerChip {
      * @param pinPosition2 The position of the second pin
      * @param side2 The side of the second pin
      * @param offset The offset of the trace
+     * @param material The material of the trace, optional
      * @protected
      */
-    protected buildTrace(pinPosition1: Vector2, side1: Side, pinPosition2: Vector2, side2: Side, offset: number): Line {
+    protected buildTrace(pinPosition1: Vector2, side1: Side, pinPosition2: Vector2, side2: Side, offset: number, material ?: MeshBasicMaterial): Line {
         // Calculate extended start and end points
         const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
         const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, 0.02);
@@ -197,8 +197,45 @@ export abstract class ComputerChip {
         ];
 
         const geometry = new BufferGeometry().setFromPoints(points);
-        const material = new LineBasicMaterial({color: ComputerChip.PIN_MATERIAL.color});
-        return new Line(geometry, material);
+        const lineMaterial = new LineBasicMaterial({color: material ? material.color : ComputerChip.PIN_MATERIAL.color});
+        return new Line(geometry, lineMaterial);
+    }
+
+    /**
+     * Draws a trace between two pins
+     *
+     * @param index The index of the pin
+     * @param material The material of the trace
+     * @param thisSide The side of the current chip
+     * @param other The other chip
+     * @param otherSide The side of the other chip
+     * @param baseOffset The base offset for the trace
+     * @param pinSpacing The spacing between the pins
+     * @param dimension The dimension to draw the trace in
+     * @protected
+     */
+    protected drawTrace(index: number, material: MeshBasicMaterial, thisSide: Side, other: ComputerChip,
+                        otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y', inverted: boolean = false): Line {
+        const thisPins = this.pinPositions.get(thisSide);
+        const otherPins = other.pinPositions.get(otherSide);
+        let startIndexThisSide = 0;
+        let startIndexOtherSide = 0;
+
+        if (thisPins[startIndexThisSide][dimension] >= otherPins[startIndexOtherSide][dimension]) {
+            startIndexThisSide = thisPins.length - 1;
+        } else if (thisPins[startIndexThisSide][dimension] < otherPins[startIndexOtherSide][dimension]) {
+            startIndexOtherSide = otherPins.length - 1;
+        }
+
+        let adjustedIndexThisSide = index >= startIndexThisSide ? index : startIndexThisSide - (startIndexThisSide - index);
+        let adjustedIndexOtherSide = index >= startIndexOtherSide ? index : startIndexOtherSide - (startIndexOtherSide - index);
+        adjustedIndexThisSide = Math.min(adjustedIndexThisSide, thisPins.length - 1);
+        adjustedIndexOtherSide = Math.min(adjustedIndexOtherSide, otherPins.length - 1);
+        const offset = inverted ?
+            baseOffset + (pinSpacing * (thisPins.length - 1) - pinSpacing * Math.abs(adjustedIndexThisSide - startIndexThisSide))
+            : baseOffset + (pinSpacing * Math.abs(adjustedIndexThisSide - startIndexThisSide));
+
+        return this.buildTrace(thisPins[adjustedIndexThisSide], thisSide, otherPins[adjustedIndexOtherSide], otherSide, offset, material);
     }
 
     /**
@@ -212,47 +249,11 @@ export abstract class ComputerChip {
      * @param dimension The dimension to draw the traces in
      * @protected
      */
-    protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y'): void {
-        const halfwayPoint = this.findClosestPinToCentralPin(thisSide, other, otherSide, dimension) + 1;
-        const size = other.pinPositions.get(otherSide).length;
+    protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y', inverted: boolean = false): void {
         const traces = new Group();
-        for (let i = 0; i < size; ++i) {
-            const offset = i < halfwayPoint ? baseOffset + (pinSpacing * i) :
-                baseOffset + (pinSpacing * (2 * halfwayPoint - i));
-
-            const trace = this.buildTrace(this.pinPositions.get(thisSide)[i], thisSide,
-                other.pinPositions.get(otherSide)[i], otherSide, offset);
-            traces.add(trace);
-        }
+        for (let i = 0; i < this.pinPositions.get(thisSide).length; i++)
+            traces.add(this.drawTrace(i, ComputerChip.PIN_MATERIAL, thisSide, other, otherSide, baseOffset, pinSpacing, dimension, inverted));
         this.scene.add(traces);
-    }
-
-    /**
-     * Finds the closest pin to the central pin of the chip
-     *
-     * @param thisSide The side of the current chip
-     * @param other The other chip
-     * @param otherSide The side of the other chip
-     * @param dimension The dimension to find the closest pin in
-     * @protected
-     */
-    protected findClosestPinToCentralPin(thisSide: Side, other: ComputerChip, otherSide: Side, dimension: 'x' | 'y'): number {
-        const centralPinIndex = Math.floor(this.pinPositions.get(thisSide).length / 2);
-        const centralPinPosition = this.pinPositions.get(thisSide)[centralPinIndex][dimension];
-
-        let closestPinIndex = 0;
-        let smallestDistance = Number.MAX_VALUE;
-
-        const otherPins = other.pinPositions.get(otherSide);
-        for (let i = 0; i < otherPins.length; ++i) {
-            const distance = Math.abs(otherPins[i][dimension] - centralPinPosition);
-            if (distance < smallestDistance) {
-                smallestDistance = distance;
-                closestPinIndex = i;
-            }
-        }
-
-        return closestPinIndex - 1;
     }
 
     /**

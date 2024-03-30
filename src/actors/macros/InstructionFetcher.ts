@@ -6,6 +6,7 @@ import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Instruction} from "../../dataStructures/Instruction";
 import {Queue} from "../../dataStructures/Queue";
 import {InstructionCache} from "./InstructionCache";
+import {SISDProcessor} from "../SISDProcessor";
 
 /**
  * Represents the instruction fetcher of a computer chip, handling the fetching of instructions.
@@ -68,13 +69,6 @@ export class InstructionFetcher extends ComputerChipMacro {
     }
 
     /**
-     * Notifies the instruction fetcher that a branch was skipped.
-     */
-    public notifyBranchSkipped(): void {
-        //this.instructionMemory.clearJumpInstruction();
-    }
-
-    /**
      * Fetches the next instruction from the instruction memory.
      */
     public next(): void {
@@ -111,10 +105,11 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {number} address The address of the instruction to be fetched.
      */
     private askForInstructionsAt(address: number): void {
-        if (this.iCache)
-            this.iCache.askForInstructionAt(address);
-        else
-            this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
+        let [index, material] = this.iCache ? this.iCache.askForInstructionAt(address) : this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
+        if (index != -1 && this.parent instanceof SISDProcessor) {
+            const cpu = this.parent as SISDProcessor;
+            cpu.highlightInstructionMemoryTrace(index, material);
+        }
     }
 
     /**

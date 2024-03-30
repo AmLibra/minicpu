@@ -53,21 +53,35 @@ export class IOInterface extends InstructionBuffer {
         const storedInstruction = this.storedInstructions.peek();
         if (this.memory.isReady(storedInstruction.getAddress()))
             this.executeInstruction(storedInstruction);
-        else
+        else {
             this.memory.askForMemoryOperation(this.parent, storedInstruction.getAddress());
+            if (this.parent instanceof SISDProcessor) {
+                let cpu = this.parent as SISDProcessor;
+                console.log("Highlighting memory trace for address " + storedInstruction.getAddress());
+                console.log("Memory address: " + Math.floor(storedInstruction.getAddress() / this.memory.wordSize));
+                cpu.highlightMainMemoryTrace(
+                    Math.floor(storedInstruction.getAddress() / this.memory.wordSize),
+                    IOInterface.MEMORY_MATERIAL);
+            }
+        }
     }
 
     update() {
-        if (this.storedInstructions.isEmpty())
+        if (this.storedInstructions.isEmpty()) {
+            if (this.parent instanceof SISDProcessor) {
+                let cpu = this.parent as SISDProcessor;
+                cpu.clearHighlightedTraces();
+            }
             return;
+        }
         this.processIO(this.storedInstructions.peek());
     }
 
-    read(readCount: number): Queue<Instruction> {
+    read(_readCount: number): Queue<Instruction> {
         throw new Error("Decoder should not be read from.");
     }
 
-    write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
+    write(instructions: Queue<Instruction>, _writeCount: number = instructions.size()) {
         throw new Error("Decoder should not be written to, use processIO() instead.");
     }
 

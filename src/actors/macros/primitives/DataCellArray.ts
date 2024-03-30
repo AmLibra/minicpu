@@ -307,11 +307,11 @@ export class DataCellArray extends ComputerChipMacro {
      * @private
      */
     private generateGeometries(registerGeometries: BufferGeometry[], registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, startX: number, startY: number): void {
-        for (let i = 0; i < this.wordSize; i++) {
-            for (let j = 0; j < this.numberOfWords; j++) {
-                const [xOffset, yOffset] = this.calculateOffsets(startX, startY, i, j);
+        for (let i = 0; i < this.numberOfWords; i++) {
+            for (let j = 0; j < this.wordSize; j++) {
+                const [xOffset, yOffset] = this.calculateOffsets(startX, startY, j, i);
                 this.createCellGeometry(registerGeometries, xOffset, yOffset);
-                this.createNameGeometry(registerNamesGeometries, registerNames, i, j, xOffset, yOffset);
+                this.createNameGeometry(registerNamesGeometries, registerNames, j, i, xOffset, yOffset);
                 this.cellPositions.push([xOffset, yOffset]);
             }
         }
@@ -358,7 +358,9 @@ export class DataCellArray extends ComputerChipMacro {
      * @private
      */
     private createNameGeometry(registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, rowIndex: number, columnIndex: number, xOffset: number, yOffset: number): void {
-        const registerName = registerNames ? registerNames[rowIndex * this.numberOfWords + columnIndex] : DrawUtils.toHex(rowIndex * this.numberOfWords + columnIndex);
+        const registerName = registerNames ?
+            registerNames[columnIndex * this.wordSize + rowIndex]
+            : DrawUtils.toHex(rowIndex * this.numberOfWords + columnIndex);
         const registerNameGeometry = DrawUtils.buildTextMesh(registerName, 0, 0, DataCellArray.TEXT_SIZE / 2, DataCellArray.BODY_MATERIAL).geometry.center()
                                               .translate(xOffset, yOffset + DataCellArray.REGISTER_SIDE_LENGTH / 2 - DrawUtils.baseTextHeight / 4, 0);
         registerNamesGeometries.push(registerNameGeometry);
