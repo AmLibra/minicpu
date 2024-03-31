@@ -56,12 +56,8 @@ export class IOInterface extends InstructionBuffer {
         else {
             this.memory.askForMemoryOperation(this.parent, storedInstruction.getAddress());
             if (this.parent instanceof SISDProcessor) {
-                let cpu = this.parent as SISDProcessor;
-                console.log("Highlighting memory trace for address " + storedInstruction.getAddress());
-                console.log("Memory address: " + Math.floor(storedInstruction.getAddress() / this.memory.wordSize));
-                cpu.highlightMainMemoryTrace(
-                    Math.floor(storedInstruction.getAddress() / this.memory.wordSize),
-                    IOInterface.MEMORY_MATERIAL);
+                (this.parent as SISDProcessor).highlightMainMemoryTrace(
+                    Math.floor(storedInstruction.getAddress() / this.memory.wordSize), IOInterface.MEMORY_MATERIAL);
             }
         }
     }

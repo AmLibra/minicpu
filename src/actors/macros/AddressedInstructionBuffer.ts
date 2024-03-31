@@ -15,10 +15,10 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private addressReached: number;
     private iterateMode: boolean = false;
 
-    private jumpAddressQueue: Queue<number> = new Queue<number>();
-    private jumpInstructionQueue: Queue<number> = new Queue<number>();
     private requestedInstructionAddress: number = -1;
-    private toHighlightJumpPointer = 0;
+
+    private jumpInstructions: Map<number, Instruction> = new Map<number, Instruction>();
+    private highlightedJumpPCs: number[] = [];
 
     private flaggedBuffers: number[] = [];
     private flaggedBufferMeshes: Mesh[] = [];
@@ -31,13 +31,12 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     /**
-     * Used to set the jump address and the address of the instruction that caused the jump.
-     * @param jumpAddress the address to jump to
-     * @param jumpInstructionAddress the address of the instruction that caused the jump
+     * Updates the map used to keep track of jump instructions and display them graphically.
+     * @param pc the program counter of the instruction
+     * @param instruction the instruction to set as a jump instruction
      */
-    public setJumpAddress(jumpAddress: number, jumpInstructionAddress: number): void {
-        this.jumpAddressQueue.enqueue(jumpAddress);
-        this.jumpInstructionQueue.enqueue(jumpInstructionAddress);
+    public setJumpInstruction(pc: number, instruction: Instruction): void {
+        this.jumpInstructions.set(pc, instruction);
     }
 
     /**
@@ -65,7 +64,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
                 this.highlightBuffer(i);
 
         this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
-        return [localAddress,  this.instructionMaterial(this.storedInstructions.get(localAddress))];
+        return [localAddress, this.instructionMaterial(this.storedInstructions.get(localAddress))];
     }
 
     /**
@@ -77,21 +76,25 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         if (this.delay != 0 && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
 
-        if (this.jumpAddressQueue.peek() == address && !this.iterateMode)
-            this.iterateMode = true;
-
-        if (this.iterateMode && this.jumpInstructionQueue.peek() == address - 1)
-            this.clearJumpInstruction();
-
         const localAddress = this.toLocalAddress(address);
         const instruction = this.storedInstructions.get(localAddress);
+
+
         if (!instruction)
             return;
 
         this.clearHighlights();
+        this.updateJumpInstructionGraphics();
         if (!this.iterateMode) {
             this.storedInstructions.remove(localAddress);
             this.shiftMeshesDown(1)
+        }
+
+        if (!this.lowestAddressIsJumpTarget(address)) {
+            if (!this.iterateMode && localAddress > 0)
+                this.handleForwardBranch(address)
+            else
+                this.clearJumpInstruction();
         }
 
         this.readyToBeRead = false;
@@ -100,27 +103,30 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     }
 
     /**
+     * Handles a forward branch instruction by removing the instructions before the branch target.
+     * @param requestedAddress the address of the branch instruction
+     */
+    public handleForwardBranch(requestedAddress: number): void {
+        const offset = this.toLocalAddress(requestedAddress) + 1;
+        for (let i = 0; i < offset; ++i) this.storedInstructions.dequeue();
+        this.shiftMeshesDown(offset);
+    }
+
+    /**
      * Clears the jump instruction from the instruction buffer and resets the graphics.
      */
     public clearJumpInstruction(): void {
         if (!this.iterateMode)
             return;
-
         this.iterateMode = false;
-        const n = this.toLocalAddress(this.jumpInstructionQueue.dequeue()) - this.toLocalAddress(this.jumpAddressQueue.dequeue()) + 1;
-        for (let i = 0; i < n; ++i) this.storedInstructions.dequeue();
-
-        this.highlightMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[this.highlightedBufferMeshes[index] - n]));
-        this.highlightedBufferMeshes = this.highlightedBufferMeshes.map(index => index - n);
-        this.shiftMeshesDown(n);
-        this.toHighlightJumpPointer--;
+        const jumpPc = this.firstInstructionTargetingLowestAddress();
+        const offset = this.toLocalAddress(jumpPc) + 1;
+        for (let i = 0; i < offset; ++i) this.storedInstructions.dequeue();
+        this.shiftMeshesDown(offset);
     }
 
     write(instructions: Queue<Instruction>, writeCount: number = instructions.size()) {
         super.write(instructions, writeCount);
-        const jumpInstructionAddress = this.jumpInstructionQueue.get(this.toHighlightJumpPointer);
-        if (jumpInstructionAddress && this.storedInstructions.size() > this.toLocalAddress(jumpInstructionAddress))
-            this.updateJumpInstructionGraphics(this.toHighlightJumpPointer++);
     }
 
     initializeGraphics() {
@@ -146,7 +152,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             mesh.geometry.dispose();
         });
 
-        //this.addressMeshes.forEach((mesh, index) => mesh.position.setY(this.bufferMeshOffsets[index]));
         this.addressMeshes.forEach((mesh, index) =>
             mesh.translateY(this.bufferMeshOffsets[index] - this.bufferMeshOffsets[index + nPositions]));
 
@@ -226,31 +231,20 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
     /**
      * Updates the graphics of a given jump instruction and the intermediate addresses.
-     * @param index the index of the jump instruction
+     *
      * @private
      */
-    private updateJumpInstructionGraphics(index: number): void {
-        const jumpAddress = this.jumpAddressQueue.get(index);
-        const jumpInstructionAddress = this.jumpInstructionQueue.get(index);
-        if (!this.isValidAddress(jumpAddress) || !this.isValidAddress(jumpInstructionAddress)) return;
-
-        const localJumpAddress = this.toLocalAddress(jumpAddress);
-        const localInstructionAddress = this.toLocalAddress(jumpInstructionAddress);
-
-        if (this.isAddressInRange(localJumpAddress) && this.isAddressInRange(localInstructionAddress)) {
-            this.highlightJumpAddress(localJumpAddress);
-            this.highlightIntermediateAddresses(localJumpAddress, localInstructionAddress);
-        }
-    }
-
-    /**
-     * Checks if the given address is valid.
-     * @param address the address to check
-     * @returns {boolean} true if the address is valid, false otherwise
-     * @private
-     */
-    private isValidAddress(address: number): boolean {
-        return address !== undefined && address !== null;
+    private updateJumpInstructionGraphics(): void {
+        this.jumpInstructions.forEach((instruction, pc) => {
+            const localPc = this.toLocalAddress(pc);
+            const localInstructionAddress = this.toLocalAddress(instruction.getAddress());
+            if (!(this.highlightedJumpPCs.includes(pc)) &&
+                this.isAddressInRange(localPc) && this.isAddressInRange(localInstructionAddress)) {
+                this.highlightedJumpPCs.push(pc);
+                this.highlightJumpAddress(localInstructionAddress);
+                this.highlightIntermediateAddresses(localInstructionAddress, localPc);
+            }
+        });
     }
 
     /**
@@ -260,7 +254,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @private
      */
     private isAddressInRange(address: number): boolean {
-        return address < this.addressMeshes.length && address >= 0;
+        return address < this.addressMeshes.length && address >= 0 && address < this.storedInstructions.size();
     }
 
     /**
@@ -271,13 +265,43 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @private
      */
     private highlightIntermediateAddresses(start: number, end: number): void {
-        for (let i = start; i <= end; ++i) {
+        const actualStart = Math.min(start, end);
+        const actualEnd = Math.max(start, end);
+        for (let i = actualStart; i <= actualEnd; ++i) {
             if (!this.isAddressInRange(i)) continue;
 
             const isNotAlreadyFlagged = !this.flaggedBuffers.includes(i);
             if (isNotAlreadyFlagged)
                 this.highlightFlaggedBuffer(i);
         }
+    }
+
+    /**
+     * Checks if the lowest address in the instruction buffer is a jump target.
+     * @param fetchingPc the program counter of the instruction being fetched
+     * @returns {boolean} true if the lowest address is a jump target, false otherwise
+     * @private
+     */
+    private lowestAddressIsJumpTarget(fetchingPc: number): boolean {
+        const lowestAddress = this.addressReached - this.storedInstructions.maxSize;
+        for (const [pc, instruction] of this.jumpInstructions)
+            if ((fetchingPc <= pc) && (instruction.getAddress() === lowestAddress)) {
+                this.iterateMode = true;
+                return true;
+            }
+        return false;
+    }
+
+    /**
+     * Finds the first instruction that targets the lowest address in the instruction buffer.
+     * @private
+     */
+    private firstInstructionTargetingLowestAddress(): number {
+        const lowestAddress = this.addressReached - this.storedInstructions.maxSize;
+        for (const [pc, instruction] of this.jumpInstructions)
+            if (instruction.getAddress() === lowestAddress)
+                return pc;
+        throw new Error("No instruction targets the lowest address in the instruction buffer");
     }
 
     askForInstructions(_chip: ComputerChip, _n: number) {

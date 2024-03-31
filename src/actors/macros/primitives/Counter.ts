@@ -7,7 +7,7 @@ import {DrawUtils} from "../../../DrawUtils";
 /**
  * A counter component for use within a computer chip.
  */
-export class AddressCounter extends ComputerChipMacro {
+export class Counter extends ComputerChipMacro {
     private static readonly WIDTH = 0.3;
     private count = 0;
     height: number = InstructionBuffer.BUFFER_HEIGHT;
@@ -23,7 +23,7 @@ export class AddressCounter extends ComputerChipMacro {
      * @param yOffset The y-offset from the parent's position to place this component.
      * @param width The width of the counter component.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = AddressCounter.WIDTH) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = Counter.WIDTH) {
         super(parent, xOffset, yOffset);
         this.width = width;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
@@ -61,7 +61,7 @@ export class AddressCounter extends ComputerChipMacro {
     }
 
     initializeGraphics(): void {
-        const bodyMesh = new Mesh(this.highlightGeometry, AddressCounter.COMPONENT_MATERIAL);
+        const bodyMesh = new Mesh(this.highlightGeometry, Counter.COMPONENT_MATERIAL);
         bodyMesh.position.set(this.position.x, this.position.y, 0);
         this.addStaticMesh(bodyMesh);
         this.liveMeshes.push(DrawUtils.buildTextMesh(DrawUtils.toHex(this.count), this.position.x, this.position.y,

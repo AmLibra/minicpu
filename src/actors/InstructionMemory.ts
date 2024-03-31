@@ -5,7 +5,6 @@ import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../dataStructures/Queue";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
 import {ISA} from "../dataStructures/ISA";
-import {DrawUtils} from "../DrawUtils";
 
 /**
  * The InstructionMemory class represents the instruction memory of the computer.
@@ -13,14 +12,17 @@ import {DrawUtils} from "../DrawUtils";
 export class InstructionMemory extends ComputerChip {
     public static readonly ADDRESS_MARGIN: number = 0.2;
 
+    public static readonly MIN_DOUBLED_LOOP_SIZE: number = 7;
+    public static readonly MAX_DOUBLED_LOOP_SIZE: number = 9;
+
     public static readonly MIN_LOOP_SIZE: number = 4;
-    public static readonly MAX_LOOP_SIZE: number = 10;
+    public static readonly MAX_LOOP_SIZE: number = 6;
 
     public static readonly MIN_BRANCH_SIZE: number = 4;
     public static readonly MAX_BRANCH_SIZE: number = 8;
 
     public static readonly MIN_SEQUENCE_SIZE: number = 4;
-    public static readonly MAX_SEQUENCE_SIZE: number = 8;
+    public static readonly MAX_SEQUENCE_SIZE: number = 7;
 
     public readonly size: number;
     private readonly instructionBuffer: AddressedInstructionBuffer;
@@ -28,8 +30,9 @@ export class InstructionMemory extends ComputerChip {
     private readonly workingMemory: WorkingMemory;
 
     private forLoopProbability: number = 0.3;
-    private branchProbability: number = -1;
-    private initializeRegistersProbability: number = 0.7;
+    private branchProbability: number = 0.2;
+    private doubleForLoopProbability: number = 0.1;
+    private initializeRegistersProbability: number = 0.3;
 
     /**
      * Creates a new instruction memory.
@@ -90,6 +93,12 @@ export class InstructionMemory extends ComputerChip {
             return;
         let addedInstructions = 0;
         while (this.instructionStream.size() < this.size * 2) {
+            if (Math.random() < this.doubleForLoopProbability) {
+                const n = InstructionMemory.MIN_DOUBLED_LOOP_SIZE + Math.floor(Math.random() *
+                    (InstructionMemory.MAX_DOUBLED_LOOP_SIZE - InstructionMemory.MIN_DOUBLED_LOOP_SIZE));
+                this.doubleForLoop(addedInstructions, n).moveTo(this.instructionStream);
+                addedInstructions += n;
+            }
             if (Math.random() < this.forLoopProbability) {
                 if (Math.random() < this.initializeRegistersProbability) {
                     const n = ISA.REGISTER_SIZE - 1;
@@ -118,6 +127,7 @@ export class InstructionMemory extends ComputerChip {
      * Generates a typical instruction workload of n instructions.
      *
      * @param n The number of instructions to generate.
+     * @param excepted The registers to avoid.
      * @private
      */
     private typicalInstructionSequence(n: number, excepted ?: number[]): Queue<Instruction> {
@@ -132,6 +142,7 @@ export class InstructionMemory extends ComputerChip {
      * Generates a sequence of load operations
      * @param queue The queue to which the instructions will be added.
      * @param n The number of instructions to generate.
+     * @param excepted The registers to avoid.
      * @private
      * @returns The registers that were loaded.
      */
@@ -149,6 +160,7 @@ export class InstructionMemory extends ComputerChip {
      * @param queue The queue to which the instructions will be added.
      * @param n The number of instructions to generate.
      * @param loadedRegisters The registers that were loaded.
+     * @param excepted The registers to avoid.
      * @private
      * @returns The registers that were computed on.
      * @returns The number of ALU operations added.
@@ -207,8 +219,10 @@ export class InstructionMemory extends ComputerChip {
 
         typicalWorkload.enqueue(Instruction.aluImm("ADDI", it, it, 1));
         const branchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions + 1;
-        typicalWorkload.enqueue(Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), it, comparedTo, branchTarget));
-        this.instructionBuffer.setJumpAddress(branchTarget, branchTarget + n - 2);
+        const jumpInstruction = Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), it, comparedTo, branchTarget);
+        typicalWorkload.enqueue(jumpInstruction);
+
+        this.instructionBuffer.setJumpInstruction(branchTarget + n - 2, jumpInstruction);
 
         return typicalWorkload;
     }
@@ -225,7 +239,8 @@ export class InstructionMemory extends ComputerChip {
         const cmpReg = this.randomReg();
         const branchInstructionAddress = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions;
         const branchTarget = branchInstructionAddress + n - 1;
-        workload.enqueue(Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), cmpReg, this.randomReg([cmpReg]), branchTarget));
+        const branchInstruction = Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), cmpReg, this.randomReg([cmpReg]), branchTarget);
+        workload.enqueue(branchInstruction);
 
         const loopBodySize = n - 1;
         if (loopBodySize > InstructionMemory.MIN_SEQUENCE_SIZE) {
@@ -236,10 +251,48 @@ export class InstructionMemory extends ComputerChip {
                     this.randomReg(), this.randomReg(), this.randomReg()));
         }
 
-        this.instructionBuffer.setJumpAddress(branchInstructionAddress, branchTarget); // swapped for hacky solution
-        console.log("Branch target: " + DrawUtils.toHex(branchTarget) + " Branch instruction address: " + DrawUtils.toHex(branchInstructionAddress));
+        this.instructionBuffer.setJumpInstruction(this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions, branchInstruction);
         return workload;
     }
+
+    /** Generates a double for loop instruction workload of n instructions.
+     *
+     * @param nPreviouslyAddedInstructions The number of instructions previously added to the instruction stream.
+     * @param n The number of instructions to generate.
+     * @private
+     */
+    private doubleForLoop(nPreviouslyAddedInstructions: number, n: number): Queue<Instruction> {
+        const workload = new Queue<Instruction>(n);
+
+        const insideIt = this.randomReg();
+        const insideComparedTo = this.randomReg([insideIt]);
+        const outsideIt = this.randomReg([insideIt, insideComparedTo]);
+        const outsideComparedTo = this.randomReg([insideIt, insideComparedTo, outsideIt]);
+
+        workload.enqueue(Instruction.aluImm("ADDI", outsideIt, outsideIt, 0));
+        workload.enqueue(Instruction.aluImm("ADDI", insideIt, insideIt, 0));
+        const insideLoopSize = n - 6;
+
+        const outsideBranchTarget = this.instructionBuffer.highestInstructionAddress() + nPreviouslyAddedInstructions + 1;
+        const insideBranchTarget = outsideBranchTarget + 1
+
+        for (let i = 0; i < insideLoopSize; ++i)
+            workload.enqueue(Instruction.alu(this.randomFrom(ISA.ALU_OPCODES), this.randomReg([insideIt, outsideIt]), this.randomReg(), this.randomReg()));
+
+
+        workload.enqueue(Instruction.aluImm("ADDI", insideIt, insideIt, 1));
+        const insideJumpInstruction = Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), insideIt, insideComparedTo, insideBranchTarget);
+        workload.enqueue(insideJumpInstruction);
+        this.instructionBuffer.setJumpInstruction(insideBranchTarget + insideLoopSize + 1, insideJumpInstruction);
+
+        workload.enqueue(Instruction.aluImm("ADDI", outsideIt, outsideIt, 1));
+        const outsideJumpInstruction = Instruction.branch(this.randomFrom(ISA.BRANCH_OPCODES), outsideIt, outsideComparedTo, outsideBranchTarget);
+        workload.enqueue(outsideJumpInstruction);
+        this.instructionBuffer.setJumpInstruction(outsideBranchTarget + insideLoopSize + 4, outsideJumpInstruction);
+
+        return workload;
+    }
+
 
     /**
      * Generates a workload of instructions that initialize registers.

@@ -12,6 +12,7 @@ export class Queue<T> {
      * Constructs a new instance of Queue.
      *
      * @param {number} [maxSize=Infinity] - The maximum number of items that the queue can hold.
+     * @param items - The items to initialize the queue with.
      */
     constructor(maxSize: number = Infinity, ...items: T[]) {
         this.items = items;
@@ -21,11 +22,19 @@ export class Queue<T> {
     /**
      * Constructs a new instance of Queue with the specified items and maximum size.
      *
-     * @param {number} maxSize - The maximum number of items that the queue can hold.
      * @param {T[]} items - The items to initialize the queue with.
      */
     static of<U>(...items: U[]): Queue<U> {
         return new Queue<U>(Infinity, ...items);
+    }
+
+    /**
+     * Converts this queue to an array.
+     *
+     * @returns {T[]} An array containing the items in the queue.
+     */
+    toArray(): T[] {
+        return this.items.slice();
     }
 
     /**
@@ -131,6 +140,69 @@ export class Queue<T> {
             to.enqueue(this.dequeue());
         }
     }
+
+    /**
+     * Checks if the queue contains the specified item.
+     *
+     * @param {T} item - The item to search for.
+     * @returns {boolean} True if the item is found, false otherwise.
+     */
+    contains(item: T): boolean {
+        return this.items.includes(item);
+    }
+
+    /**
+     * Checks if any item in the queue satisfies the provided predicate.
+     *
+     * @param {function(T): boolean} predicate - The predicate function to apply to each item.
+     * @returns {boolean} True if the predicate is satisfied by any item, false otherwise.
+     */
+    some(predicate: (item: T) => boolean): boolean {
+        return this.items.some(predicate);
+    }
+
+    /**
+     * Checks if all items in the queue satisfy the provided predicate.
+     *
+     * @param {function(T): boolean} predicate - The predicate function to apply to each item.
+     * @returns {boolean} True if the predicate is satisfied by all items, false otherwise.
+     */
+    every(predicate: (item: T) => boolean): boolean {
+        return this.items.every(predicate);
+    }
+
+    /**
+     * Returns a new queue containing only the items that satisfy the provided predicate.
+     *
+     * @param {function(T): boolean} predicate - The predicate function to apply to each item.
+     * @returns {Queue<T>} A new queue containing only the items that satisfy the predicate.
+     */
+    filter(predicate: (item: T) => boolean): Queue<T> {
+        return new Queue<T>(this.maxSize, ...this.items.filter(predicate));
+    }
+
+    /**
+     * Returns a slice of the queue as a new queue.
+     *
+     * @param {number} [start=0] - The index at which to begin the slice.
+     * @param {number} [end=this.size()] - The index at which to end the slice.
+     * @returns {Queue<T>} A new queue containing the specified slice of items.
+     * @throws {Error} If the start or end index is out of bounds.
+     * @throws {Error} If the start index is greater than the end index.
+     */
+    slice(start: number = 0, end: number = this.size()): Queue<T> {
+        if (this.size() == 0) {
+            return new Queue<T>(this.maxSize);
+        }
+        if (start < 0 || start >= this.size() || end < 0 || end > this.size()) {
+            throw new Error("Index out of bounds error: attempting to slice queue outside of bounds.");
+        }
+        if (start > end) {
+            throw new Error("Invalid index error: start index must be less than or equal to end index.");
+        }
+        return new Queue<T>(this.maxSize, ...this.items.slice(start, end));
+    }
+
 
     /**
      * Creates an iterator for the queue, allowing it to be used in for...of loops.

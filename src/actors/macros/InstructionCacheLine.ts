@@ -1,7 +1,7 @@
 import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {Instruction} from "../../dataStructures/Instruction";
 import {ComputerChip} from "../ComputerChip";
-import {AddressCounter} from "./primitives/AddressCounter";
+import {Counter} from "./primitives/Counter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Queue} from "../../dataStructures/Queue";
 
@@ -12,7 +12,7 @@ export class InstructionCacheLine extends ComputerChipMacro {
     private static readonly WIDTH = 0.9;
     private static readonly SPACING = 0.01;
     private valid: boolean = false;
-    private addressTag: AddressCounter;
+    private addressTag: Counter;
     private instructionBuffer: InstructionBuffer;
 
     /**
@@ -28,8 +28,8 @@ export class InstructionCacheLine extends ComputerChipMacro {
         super(parent, xOffset, yOffset);
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
-        this.addressTag = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
-        const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionCacheLine.SPACING;
+        this.addressTag = new Counter(parent, xOffset - this.width / 2 + Counter.dimensions().width / 2, yOffset);
+        const bufferWidth = this.width - Counter.dimensions().width - InstructionCacheLine.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
             xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
             false, bufferWidth)

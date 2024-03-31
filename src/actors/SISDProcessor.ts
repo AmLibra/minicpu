@@ -32,7 +32,6 @@ export class SISDProcessor extends ComputerChip {
     private accumulatedInstructionCount: number = 0;
 
     private highlightedTraces: Group[] = [];
-    private highlightedPins: Mesh[] = [];
 
     /**
      * Constructs a new SISDProcessor instance.

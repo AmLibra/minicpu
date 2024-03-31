@@ -1,7 +1,7 @@
 import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
 import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
-import {AddressCounter} from "./primitives/AddressCounter";
+import {Counter} from "./primitives/Counter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
 import {Instruction} from "../../dataStructures/Instruction";
 import {Queue} from "../../dataStructures/Queue";
@@ -17,7 +17,7 @@ export class InstructionFetcher extends ComputerChipMacro {
     private readonly instructionMemory: AddressedInstructionBuffer;
     private iCache: InstructionCache;
 
-    private readonly pc: AddressCounter;
+    private readonly pc: Counter;
     private readonly instructionBuffer: InstructionBuffer;
     private fetchingAddress: number = -1;
 
@@ -40,8 +40,8 @@ export class InstructionFetcher extends ComputerChipMacro {
         this.iCache = iCache;
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
-        this.pc = new AddressCounter(parent, xOffset - this.width / 2 + AddressCounter.dimensions().width / 2, yOffset);
-        const bufferWidth = this.width - AddressCounter.dimensions().width - InstructionFetcher.SPACING;
+        this.pc = new Counter(parent, xOffset - this.width / 2 + Counter.dimensions().width / 2, yOffset);
+        const bufferWidth = this.width - Counter.dimensions().width - InstructionFetcher.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
             xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
             false, bufferWidth)
