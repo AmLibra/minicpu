@@ -38,4 +38,8 @@ export class TextButton extends AbstractButton {
     public getHitbox(): Mesh {
         return this.hitbox;
     }
+
+    public dispose(): void {
+        this.scene.remove(this.mesh, this.hitbox);
+    }
 }

@@ -12,6 +12,7 @@ import {
 } from "three";
 import {DrawUtils} from "../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
+import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
 
 /**
  * Enumeration for the sides of a computer chip
@@ -49,7 +50,6 @@ export abstract class ComputerChip {
     // The basic meshes of a computer chip
     protected bodyMesh: Mesh;
     protected selectedMesh: Mesh;
-    protected clockMesh: Mesh;
 
     // The positions of the pins on the chip per side
     public readonly pinPositions: Map<Side, Vector2[]>;
@@ -58,6 +58,7 @@ export abstract class ComputerChip {
     public readonly scene: Scene;
     readonly position: { x: number; y: number };
     private clockFrequency: number = 1;
+    protected chipMenuOptions: ChipMenuOptions;
 
     /**
      * @constructor
@@ -77,6 +78,7 @@ export abstract class ComputerChip {
      * Returns the display name of the chip
      *
      * @returns {string} The display name
+     * @protected
      */
     abstract displayName(): string;
 
@@ -94,6 +96,14 @@ export abstract class ComputerChip {
      * @protected
      */
     abstract initializeGraphics(): void;
+
+    /**
+     * Returns the chip menu options
+     *
+     * @returns {ChipMenuOptions} The menu options
+     * @protected
+     */
+    abstract getMenuOptions(): ChipMenuOptions;
 
     /**
      * Returns the clock frequency of the chip
@@ -116,7 +126,6 @@ export abstract class ComputerChip {
      */
     public select(): ComputerChip {
         this.scene.add(this.selectedMesh);
-        this.clockMesh.visible = true;
         return this;
     }
 
@@ -125,7 +134,6 @@ export abstract class ComputerChip {
      */
     public deselect(): undefined {
         this.scene.remove(this.selectedMesh);
-        this.clockMesh.visible = false;
         return undefined;
     }
 
@@ -212,6 +220,7 @@ export abstract class ComputerChip {
      * @param baseOffset The base offset for the trace
      * @param pinSpacing The spacing between the pins
      * @param dimension The dimension to draw the trace in
+     * @param inverted Whether the trace should be inverted
      * @protected
      */
     protected drawTrace(index: number, material: MeshBasicMaterial, thisSide: Side, other: ComputerChip,
@@ -247,6 +256,7 @@ export abstract class ComputerChip {
      * @param baseOffset The base offset for the traces
      * @param pinSpacing The spacing between the pins
      * @param dimension The dimension to draw the traces in
+     * @param inverted Whether the traces should be inverted
      * @protected
      */
     protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y', inverted: boolean = false): void {
@@ -288,13 +298,7 @@ export abstract class ComputerChip {
     protected buildBodyMesh(bodyWidth: number, bodyHeight: number): void {
         this.bodyMesh = new Mesh(new PlaneGeometry(bodyWidth, bodyHeight), ComputerChip.BODY_MATERIAL);
         this.bodyMesh.position.set(this.position.x, this.position.y, 0);
-
-        this.clockMesh = DrawUtils.buildTextMesh(ComputerChip.formatFrequency(this.clockFrequency),
-            this.position.x, this.position.y + bodyHeight / 2 + ComputerChip.TEXT_SIZE,
-            ComputerChip.TEXT_SIZE, ComputerChip.HUD_TEXT_MATERIAL);
-        this.clockMesh.visible = false;
-
-        this.scene.add(this.bodyMesh, this.clockMesh);
+        this.scene.add(this.bodyMesh);
         this.buildSelectedMesh();
     }
 
@@ -304,9 +308,9 @@ export abstract class ComputerChip {
      * @protected
      * @param {number} newValue The new clock frequency
      */
-    protected updateClock(newValue: number): void {
+    protected updateClock(newValue: number): number {
         this.clockFrequency = newValue;
-        DrawUtils.updateText(this.clockMesh, ComputerChip.formatFrequency(this.clockFrequency), false);
+        return this.clockFrequency;
     }
 
     /**
@@ -319,15 +323,5 @@ export abstract class ComputerChip {
         const bodyWidth = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.width : 0;
         this.selectedMesh = new Mesh(new PlaneGeometry(bodyWidth + 0.01, bodyHeight + 0.01), ComputerChip.HUD_TEXT_MATERIAL);
         this.selectedMesh.position.set(this.position.x, this.position.y, -0.01);
-    }
-
-    /**
-     * Formats a frequency value into a human-readable string.
-     *
-     * @param {number} frequency - The frequency value to format.
-     * @returns {string} The formatted frequency string.
-     */
-    private static formatFrequency(frequency: number): string {
-        return frequency < 1000 ? `${frequency} Hz` : `${(frequency / 1000).toFixed(2)} KHz`;
     }
 }

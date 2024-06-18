@@ -54,6 +54,9 @@ export class HUD {
     /** The currently selected and highlighted actor. */
     private selectedActor: ComputerChip;
 
+    /** Event handler for the HUD. */
+    private eventHandler: HUDEventHandler;
+
     /**
      * Initializes the HUD.
      *
@@ -61,7 +64,7 @@ export class HUD {
      */
     constructor(private readonly app: App) {
         this.initializeHUDScene();
-        new HUDEventHandler(this, this.app, this.hudCamera, this.buttons);
+        this.eventHandler = new HUDEventHandler(this, this.app, this.hudCamera, this.buttons);
     }
 
     /**
@@ -91,7 +94,10 @@ export class HUD {
      * @param actor The actor to select.
      */
     public selectActor(actor: ComputerChip): void {
-        this.selectedActor = this.selectedActor?.deselect();
+        if (this.selectedActor) {
+            this.selectedActor.deselect();
+            this.hideMenu();
+        }
         this.selectedActor = actor.select()
         this.showMenu();
     }
@@ -136,7 +142,8 @@ export class HUD {
      * @private
      */
     private showMenu(): void {
-        this.menu.showMenu(this.selectedActor ? this.selectedActor.displayName() : "undefined");
+        this.menu.showMenu(this.selectedActor);
+        this.eventHandler.chipMenuButtons = this.menu.getMenuButtons();
     }
 
     /**
@@ -147,6 +154,7 @@ export class HUD {
     private hideMenu(): void {
         this.menu.hideMenu();
         this.selectedActor = this.selectedActor?.deselect();
+        this.eventHandler.chipMenuButtons = [];
     }
 
     /**

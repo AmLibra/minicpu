@@ -5,6 +5,10 @@ import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../dataStructures/Queue";
 import {SISDCore} from "./macros/SISDCore";
 import {InstructionCache} from "./macros/InstructionCache";
+import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
+import {Stat} from "../dataStructures/Stat";
+import {UpgradeOption} from "../dataStructures/UpgradeOption";
+import {UpgradeOptionType} from "../dataStructures/UpgradeOption";
 
 /**
  * A Single Instruction, Single Data (SISD) processor.
@@ -19,7 +23,7 @@ export class SISDProcessor extends ComputerChip {
 
     private static readonly COMPONENT_SPACING = 0.05;
     private core: SISDCore;
-    private iCache: InstructionCache;
+    private readonly iCache: InstructionCache;
 
     private readonly instructionMemory: InstructionMemory;
     private readonly workingMemory: WorkingMemory;
@@ -44,7 +48,7 @@ export class SISDProcessor extends ComputerChip {
      * @param cacheSize The size of the cache memory of the processor.
      */
     constructor(position: [number, number], scene: Scene, rom: InstructionMemory, workingMemory: WorkingMemory, clockFrequency: number,
-                cacheSize: number = 0) {
+                private cacheSize: number = 0) {
         super(position, scene, clockFrequency)
         this.instructionMemory = rom
         this.workingMemory = workingMemory
@@ -65,6 +69,34 @@ export class SISDProcessor extends ComputerChip {
         this.initializeGraphics();
         this.drawTraces(Side.TOP, this.workingMemory, Side.BOTTOM, SISDProcessor.MEMORY_TRACE_OFFSET, SISDProcessor.MEMORY_TRACE_SPACING, 'x', true);
         this.drawTraces(Side.RIGHT, this.instructionMemory, Side.LEFT, SISDProcessor.INSTRUCTION_MEMORY_TRACE_OFFSET, SISDProcessor.INSTRUCTION_MEMORY_TRACE_SPACING, 'y');
+    }
+
+    /**
+     * Returns the menu options for this processor.
+     */
+    public getMenuOptions(): ChipMenuOptions {
+        if (!this.chipMenuOptions) {
+            const stats = [
+                //new Stat("Frequency", this.getClockFrequency(),  " Hz"),
+                //new Stat("Has Cache", null,  this.iCache !== undefined ? "Yes" : "No"),
+            ];
+            const upgradeOptions = [
+                UpgradeOption.createNumberSelection("Clock Frequency", 0,
+                    "The clock frequency of the processor.", this.getClockFrequency(),
+                    () => this.updateClock(this.getClockFrequency() + 1),
+                    () => this.updateClock(this.getClockFrequency() - 1)),
+
+                UpgradeOption.createNumberSelection("Cache Size", 0,
+                    "The size of the cache memory.", this.cacheSize,
+                    () => this.increaseCacheSize(),
+                    () => this.decreaseCacheSize()),
+
+                UpgradeOption.createSingleValueSelection("Pipelining", 0,
+                    "Enables pipelining for the processor.", this.isPipelined),
+            ];
+            this.chipMenuOptions = new ChipMenuOptions(stats, upgradeOptions);
+        }
+        return this.chipMenuOptions;
     }
 
     /**
@@ -191,5 +223,13 @@ export class SISDProcessor extends ComputerChip {
             sum += this.previousRetiredInstructionCounts.get(i);
 
         return sum / size;
+    }
+
+    private increaseCacheSize(): number {
+        return this.cacheSize;
+    }
+
+    private decreaseCacheSize(): number {
+        return this.cacheSize;
     }
 }

@@ -5,6 +5,8 @@ import {WorkingMemory} from "./WorkingMemory";
 import {Queue} from "../dataStructures/Queue";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
 import {ISA} from "../dataStructures/ISA";
+import { ChipMenuOptions } from "../dataStructures/ChipMenuOptions";
+import {UpgradeOption} from "../dataStructures/UpgradeOption";
 
 /**
  * The InstructionMemory class represents the instruction memory of the computer.
@@ -59,6 +61,20 @@ export class InstructionMemory extends ComputerChip {
      */
     public getInstructionBuffer(): AddressedInstructionBuffer {
         return this.instructionBuffer;
+    }
+
+    getMenuOptions(): ChipMenuOptions {
+        if (!this.chipMenuOptions) {
+            const stats = [];
+            const upgradeOptions = [
+                UpgradeOption.createNumberSelection("Clock Frequency", 0,
+                    "The clock frequency of the processor.", this.getClockFrequency(),
+                    () => this.updateClock(this.getClockFrequency() + 1),
+                    () => this.updateClock(this.getClockFrequency() - 1)),
+            ];
+            this.chipMenuOptions = new ChipMenuOptions(stats, upgradeOptions);
+        }
+        return this.chipMenuOptions;
     }
 
     displayName(): string {
@@ -292,7 +308,6 @@ export class InstructionMemory extends ComputerChip {
 
         return workload;
     }
-
 
     /**
      * Generates a workload of instructions that initialize registers.

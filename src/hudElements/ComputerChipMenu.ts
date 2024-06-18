@@ -2,6 +2,9 @@ import {DrawUtils} from "../DrawUtils";
 import {Mesh, MeshBasicMaterial, OrthographicCamera, Scene, Vector2} from "three";
 import {TextButton} from "./TextButton";
 import {HUD} from "../HUD";
+import {ComputerChip} from "../actors/ComputerChip";
+import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
+import {UpgradeOption, UpgradeOptionType} from "../dataStructures/UpgradeOption";
 
 /**
  * Represents the menu used to display information about a computer chip, as well as the buttons to interact with it.
@@ -14,6 +17,8 @@ export class ComputerChipMenu {
     private readonly title: Mesh;
     private readonly closeButton: TextButton;
     private buttons: TextButton[] = [];
+    private chipMenuMeshes: Mesh[] = [];
+    private chipMenuButtons: TextButton[] = [];
 
     /**
      * Initializes the ComputerChipMenu.
@@ -50,15 +55,23 @@ export class ComputerChipMenu {
     }
 
     /**
+     * Returns the menu buttons in this menu, so they can be taken care of by the event handler.
+     */
+    public getMenuButtons(): TextButton[] {
+        return this.chipMenuButtons;
+    }
+
+    /**
      * Used to show the menu.
      *
-     * @param title The title of the menu, typically the name of the computer chip.
+     * @param chip The chip to display information about.
      */
-    public showMenu(title: string): void {
-        DrawUtils.updateText(this.title, title, true);
+    public showMenu(chip: ComputerChip): void {
+        DrawUtils.updateText(this.title, chip ? "[" + chip.displayName() + "]" : "undefined", true);
         this.menuMesh.visible = true;
         this.title.visible = true;
         this.closeButton.mesh.visible = true;
+        this.renderChipMenu(chip.getMenuOptions());
     }
 
     /**
@@ -68,5 +81,113 @@ export class ComputerChipMenu {
         this.menuMesh.visible = false;
         this.title.visible = false;
         this.closeButton.mesh.visible = false;
+        this.clearMenu();
+    }
+
+    private renderChipMenu(chipMenu: ChipMenuOptions): void {
+        this.renderStats(chipMenu);
+        chipMenu.upgradeOptions.forEach(
+            (option, index) => this.renderUpgradeOption(option, index, chipMenu.upgradeOptions.length)
+        );
+    }
+
+    private clearMenu(): void {
+        this.chipMenuMeshes.forEach(mesh => this.scene.remove(mesh));
+        this.chipMenuMeshes = [];
+        this.chipMenuButtons.forEach(button => button.dispose());
+        this.chipMenuButtons = [];
+    }
+
+    private renderUpgradeOption(option: UpgradeOption, index: number, optionCount: number): void {
+        const [x, y] = this.renderOptionTitle(option, index, optionCount); // Returns the x and y position of the title
+        this.renderDescription(option.description, x, y);
+
+        switch (option.type) {
+            case UpgradeOptionType.NumberSelection:
+                this.renderNumberSelection(option, x, y);
+                break;
+            case UpgradeOptionType.SingleValueSelection:
+                this.renderSingleValueSelection(option, x, y);
+                break;
+            default:
+                throw new Error(`Unknown upgrade option type: ${option.type}`);
+        }
+    }
+
+    private renderStats(chipMenu: ChipMenuOptions): void {
+        chipMenu.stats.forEach((stat, index) => {
+            const text = `${stat.name}: ${stat.value ? stat.value : ""}${stat.unit}`;
+            const y = this.hudCamera.bottom + 0.40 - (index + 1) * 0.06;
+            const x = this.hudCamera.left + 0.15;
+            const mesh = DrawUtils.buildTextMesh(text, x, y, HUD.TEXT_SIZE / 2, HUD.HOVER_COLOR, false);
+            this.scene.add(mesh);
+            this.chipMenuMeshes.push(mesh);
+        });
+    }
+
+    private renderOptionTitle(option: UpgradeOption, index: number, optionCount: number): [number, number] {
+        const text = "[" + option.name + "]";
+        const canvasWidth = this.hudCamera.right - this.hudCamera.left;
+        const y = this.hudCamera.bottom + 0.40;
+
+        let x: number;
+        if (optionCount === 1) {
+            x = this.hudCamera.left + canvasWidth / 2; // Center if only one option
+        } else {
+            const spacing = canvasWidth * 0.4 / (optionCount - 1);
+            x = this.hudCamera.left + canvasWidth * 0.3 + index * spacing;
+        }
+
+        const mesh = DrawUtils.buildTextMesh(text, x, y, HUD.TEXT_SIZE / 2, HUD.HOVER_COLOR, false);
+        mesh.geometry.center();
+        this.scene.add(mesh);
+        this.chipMenuMeshes.push(mesh);
+
+        return [x, y];
+    }
+
+    private renderDescription(description: string, x: number, y: number): void {
+        // Split the description into multiple lines if it is too long, only split at spaces.
+        const maxLineLength = 20;
+        let lines = [];
+        for (let i = 0; i < description.length; i += maxLineLength) {
+            let line = description.substring(i, i + maxLineLength);
+            if (line.length === maxLineLength) {
+                let lastSpace = line.lastIndexOf(" ");
+                line = line.substring(0, lastSpace);
+                i -= (maxLineLength - lastSpace);
+            }
+            lines.push(line);
+        }
+
+        lines.forEach((line, i) => {
+            const y_line = y - 0.15 - (i + 1) * 0.035;
+            const mesh = DrawUtils.buildTextMesh(line, x, y_line, HUD.TEXT_SIZE / 2, HUD.HOVER_COLOR, false);
+            mesh.geometry.center();
+            this.scene.add(mesh);
+            this.chipMenuMeshes.push(mesh);
+        });
+    }
+
+    private renderNumberSelection(option: UpgradeOption, x: number, y: number): void {
+        const valueMesh = DrawUtils.buildTextMesh(option.currentValue.toString(), x, y - 0.1, HUD.TEXT_SIZE, HUD.HOVER_COLOR, false);
+        valueMesh.geometry.center();
+        this.scene.add(valueMesh);
+        this.chipMenuMeshes.push(valueMesh);
+        const plusButton = new TextButton(this.scene, "[+]", new Vector2(x + 0.1, y - 0.1),
+            () => {
+                option.currentValue = option.onIncrease();
+                DrawUtils.updateText(valueMesh, option.currentValue.toString(), true)
+            });
+        const minusButton = new TextButton(this.scene, "[-]", new Vector2(x - 0.1, y - 0.1),
+            () => {
+                option.currentValue = option.onDecrease();
+                DrawUtils.updateText(valueMesh, option.currentValue.toString(), true)
+            });
+        this.chipMenuButtons.push(plusButton, minusButton);
+    }
+
+    private renderSingleValueSelection(option: UpgradeOption, x: number, y: number): void {
+        return; // TODO: Implement this
     }
 }

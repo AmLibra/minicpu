@@ -2,6 +2,8 @@ import {ComputerChip, Side} from "./ComputerChip";
 import {Scene} from "three";
 import {DataCellArray} from "./macros/primitives/DataCellArray";
 import {DrawUtils} from "../DrawUtils";
+import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
+import {UpgradeOption} from "../dataStructures/UpgradeOption";
 
 /**
  * Represents the working memory of a computer chip, consisting of multiple data banks.
@@ -72,6 +74,20 @@ export class WorkingMemory extends ComputerChip {
      */
     public write(address: number, value: number): void {
         this.bankOf(address).write(address % this.bankOf(address).getSize(), value);
+    }
+
+    getMenuOptions(): ChipMenuOptions {
+        if (!this.chipMenuOptions) {
+            const stats = [];
+            const upgradeOptions = [
+                UpgradeOption.createNumberSelection("Clock Frequency", 0,
+                    "The clock frequency of the processor.", this.getClockFrequency(),
+                    () => this.updateClock(this.getClockFrequency() + 1),
+                    () => this.updateClock(this.getClockFrequency() - 1)),
+            ];
+            this.chipMenuOptions = new ChipMenuOptions(stats, upgradeOptions);
+        }
+        return this.chipMenuOptions;
     }
 
     displayName(): string {

@@ -48,8 +48,6 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     public askForInstructionsAt(chip: ComputerChip, n: number, address: number): [number, MeshBasicMaterial] {
         if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
-        if (chip.getClockFrequency() < this.parent.getClockFrequency() * 3)
-            throw new Error("The clock frequency of the chip must be at least 3 times the clock frequency of the parent");
 
         const localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)

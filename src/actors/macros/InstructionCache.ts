@@ -11,7 +11,7 @@ import {MeshBasicMaterial} from "three";
 export class InstructionCache extends ComputerChipMacro {
     private readonly cacheLines: InstructionCacheLine[];
     private readonly instructionMemory: AddressedInstructionBuffer;
-    private delay: number;
+    private readonly delay: number;
     private static readonly INNER_SPACING = 0.01;
 
     private readTimeout: number = 0;
@@ -22,6 +22,7 @@ export class InstructionCache extends ComputerChipMacro {
      * Creates an instance of the InstructionCache.
      *
      * @param {ComputerChip} parent The parent computer chip component.
+     * @param instructionMemory The instruction buffer to fetch instructions from.
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} size The number of lines in the cache.

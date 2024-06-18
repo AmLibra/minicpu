@@ -115,9 +115,9 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-1.405, 2.75], this.scene, 60, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.34, 2.8], this.scene, workingMemory, 30, 32);
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 90,
+        const workingMemory = new WorkingMemory([-1.405, 2.75], this.scene, 6, 8, 4, 8);
+        const instructionMemory = new InstructionMemory([2.34, 2.8], this.scene, workingMemory, 3, 32);
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 9,
             4);
         this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);

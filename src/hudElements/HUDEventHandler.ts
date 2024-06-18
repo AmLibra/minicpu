@@ -11,6 +11,7 @@ export class HUDEventHandler {
     private mouse = new Vector2(); // mouse coordinates
     private mouseDown = false;
     private initialMousePosition = new Vector2();
+    chipMenuButtons: AbstractButton[] = [];
 
     /**
      * Initializes the HUD event handler.
@@ -41,7 +42,6 @@ export class HUDEventHandler {
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     }
 
-
     /**
      * Handles the mouse click event.
      *
@@ -55,7 +55,7 @@ export class HUDEventHandler {
             if (this.raycaster.intersectObject(actor.getHitBoxMesh()).length > 0) this.hud.selectActor(actor);
         });
         this.raycaster.setFromCamera(this.mouse, this.hudCamera);
-        this.buttons.forEach(button => {
+        this.buttons.concat(this.chipMenuButtons).forEach(button => {
             if (!button.isClickable()) return;
             if (this.raycaster.intersectObject(button.getHitbox()).length > 0) button.onClick();
         });
@@ -128,7 +128,7 @@ export class HUDEventHandler {
      */
     private checkHoverState(): void {
         this.raycaster.setFromCamera(this.mouse, this.hudCamera);
-        this.buttons.forEach(button => {
+        this.buttons.concat(this.chipMenuButtons).forEach(button => {
             if (button.isHoverable()) {
                 const intersected = this.raycaster.intersectObject(button.getHitbox()).length > 0;
                 if (intersected) button.onHover();
