@@ -22,7 +22,6 @@ export class InstructionCacheLine extends ComputerChipMacro {
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} width The width of the instruction cache line.
-     * @param delay The fetching delay of the instruction buffer.
      */
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = InstructionCacheLine.WIDTH) {
         super(parent, xOffset, yOffset);
@@ -32,7 +31,7 @@ export class InstructionCacheLine extends ComputerChipMacro {
         const bufferWidth = this.width - Counter.dimensions().width - InstructionCacheLine.SPACING;
         this.instructionBuffer = new InstructionBuffer(parent, 1,
             xOffset + this.width / 2 - bufferWidth / 2, yOffset, 0, false,
-            false, bufferWidth)
+            false, bufferWidth);
     }
 
     /**

@@ -16,6 +16,7 @@ export class WorkingMemory extends ComputerChip {
 
     private dataBanks: DataCellArray[] = [];
     private static readonly BANK_SPACING: number = 0.04;
+    private connectedChip: ComputerChip;
 
     /**
      * Constructs a new WorkingMemory instance.
@@ -81,9 +82,9 @@ export class WorkingMemory extends ComputerChip {
             const stats = [];
             const upgradeOptions = [
                 UpgradeOption.createNumberSelection("Clock Frequency", 0,
-                    "The clock frequency of the processor.", this.getClockFrequency(),
-                    () => this.updateClock(this.getClockFrequency() + 1),
-                    () => this.updateClock(this.getClockFrequency() - 1)),
+                    "The clock frequency of the chip.", this.getClockFrequency(),
+                    () => this.safeIncrementClock(),
+                    () => this.safeDecrementClock()),
             ];
             this.chipMenuOptions = new ChipMenuOptions(stats, upgradeOptions);
         }
@@ -133,5 +134,18 @@ export class WorkingMemory extends ComputerChip {
      */
     private bankOf(address: number): DataCellArray {
         return this.dataBanks[Math.floor(address / (this.numberOfWords * this.wordSize))];
+    }
+    private safeIncrementClock(): number {
+        if (this.getClockFrequency() < (this.connectedChip.getClockFrequency() / 3))
+            return this.updateClock(this.getClockFrequency() + 1)
+        else
+            return this.getClockFrequency()
+    }
+
+    private safeDecrementClock(): number {
+        if (this.getClockFrequency() > 1)
+            return this.updateClock(this.getClockFrequency() - 1)
+        else
+            return this.getClockFrequency()
     }
 }

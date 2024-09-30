@@ -114,7 +114,7 @@ export class HUDEventHandler {
     /**
      * Handles the mouse move event.
      *
-     * @param event
+     * @param event The mouse event.
      * @private
      */
     private onMouseMove(event: MouseEvent): void {
@@ -124,6 +124,7 @@ export class HUDEventHandler {
 
     /**
      * Checks the hover state of the mouse.
+     *
      * @private
      */
     private checkHoverState(): void {
@@ -152,5 +153,6 @@ export class HUDEventHandler {
         this.app.camera.updateProjectionMatrix();
         this.hudCamera.updateProjectionMatrix();
         this.app.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.hud.reset();
     }
 }

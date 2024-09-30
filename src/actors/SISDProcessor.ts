@@ -6,9 +6,7 @@ import {Queue} from "../dataStructures/Queue";
 import {SISDCore} from "./macros/SISDCore";
 import {InstructionCache} from "./macros/InstructionCache";
 import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
-import {Stat} from "../dataStructures/Stat";
 import {UpgradeOption} from "../dataStructures/UpgradeOption";
-import {UpgradeOptionType} from "../dataStructures/UpgradeOption";
 
 /**
  * A Single Instruction, Single Data (SISD) processor.
@@ -27,8 +25,6 @@ export class SISDProcessor extends ComputerChip {
 
     private readonly instructionMemory: InstructionMemory;
     private readonly workingMemory: WorkingMemory;
-
-    private isPipelined: boolean;
 
     // used for computing SISDCore metrics
     private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(30);
@@ -52,7 +48,6 @@ export class SISDProcessor extends ComputerChip {
         super(position, scene, clockFrequency)
         this.instructionMemory = rom
         this.workingMemory = workingMemory
-        this.isPipelined = false;
         if (cacheSize > 0) {
             const coreDimensions = SISDCore.dimensions();
             const cacheDimensions = InstructionCache.dimensions(cacheSize);
@@ -83,16 +78,13 @@ export class SISDProcessor extends ComputerChip {
             const upgradeOptions = [
                 UpgradeOption.createNumberSelection("Clock Frequency", 0,
                     "The clock frequency of the processor.", this.getClockFrequency(),
-                    () => this.updateClock(this.getClockFrequency() + 1),
-                    () => this.updateClock(this.getClockFrequency() - 1)),
+                    () => this.safeIncrementClock(),
+                    () => this.safeDecrementClock()),
 
                 UpgradeOption.createNumberSelection("Cache Size", 0,
                     "The size of the cache memory.", this.cacheSize,
                     () => this.increaseCacheSize(),
                     () => this.decreaseCacheSize()),
-
-                UpgradeOption.createSingleValueSelection("Pipelining", 0,
-                    "Enables pipelining for the processor.", this.isPipelined),
             ];
             this.chipMenuOptions = new ChipMenuOptions(stats, upgradeOptions);
         }
@@ -140,14 +132,6 @@ export class SISDProcessor extends ComputerChip {
         this.highlightedTraces = [];
     }
 
-    /**
-     * Sets the clock frequency of the processor.
-     */
-    public setPipelined(): void {
-        this.isPipelined = true;
-        this.core.setPipelined();
-        this.updateClock(this.getClockFrequency() * 2);
-    }
 
     /**
      * Sets the clock frequency of the processor.
@@ -223,6 +207,20 @@ export class SISDProcessor extends ComputerChip {
             sum += this.previousRetiredInstructionCounts.get(i);
 
         return sum / size;
+    }
+
+    private safeIncrementClock(): number {
+        if (this.getClockFrequency() < ComputerChip.MAX_CLOCK_FREQUENCY)
+            return this.updateClock(this.getClockFrequency() + 1)
+        else
+            return this.getClockFrequency()
+    }
+
+    private safeDecrementClock(): number {
+        if (this.getClockFrequency() > 1)
+            return this.updateClock(this.getClockFrequency() - 1)
+        else
+            return this.getClockFrequency()
     }
 
     private increaseCacheSize(): number {

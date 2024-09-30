@@ -12,7 +12,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
 export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
     protected static readonly BUFFER_BASE_WIDTH: number = 0.8;
-    private static readonly INNER_SPACING = 0.01;
+    static readonly INNER_SPACING = 0.01;
     protected readonly noOpMesh: Mesh;
     protected readonly bufferHighlightGeometry: PlaneGeometry;
 
@@ -44,8 +44,9 @@ export class InstructionBuffer extends ComputerChipMacro {
      * @param bufferWidth The width of the instruction buffer.
      * @param spacing The spacing between instructions in the buffer.
      */
-    constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, delay: number = 0, reversed: boolean = false,
-                horizontal: boolean = false, bufferWidth: number = InstructionBuffer.BUFFER_BASE_WIDTH, spacing: number = InstructionBuffer.INNER_SPACING) {
+    constructor(parent: ComputerChip, size: number, xOffset: number = 0, yOffset: number = 0, delay: number = 0,
+                reversed: boolean = false, horizontal: boolean = false, bufferWidth: number = InstructionBuffer.BUFFER_BASE_WIDTH,
+                spacing: number = InstructionBuffer.INNER_SPACING) {
         super(parent, xOffset, yOffset);
         this.storedInstructions = new Queue<Instruction>(size);
         this.size = size;

@@ -9,9 +9,9 @@ import {
     Mesh,
     MeshBasicMaterial,
     PlaneGeometry,
-    Scene,
+    Scene, Texture,
     TextureLoader,
-    Vector2
+    Vector2, Vector3
 } from "three";
 import {Font, FontLoader} from "three/examples/jsm/loaders/FontLoader";
 import {TextGeometry} from "three/examples/jsm/geometries/TextGeometry";
@@ -188,23 +188,46 @@ export class DrawUtils {
 
     /**
      * Loads an image texture and applies it to a mesh of the specified dimensions.
-     * The mesh is passed to a callback function once loaded.
      *
      * @param {string} image - The URL of the image texture.
      * @param {number} width - The width of the resulting mesh.
      * @param {number} height - The height of the resulting mesh.
-     * @param {(mesh: Mesh) => void} callback - A function called with the created mesh once the image is loaded.
+     * @returns {Promise<Mesh>} - A promise that resolves with the created mesh.
      */
-    public static buildImageMesh(image: string, width: number, height: number, callback: (mesh: Mesh) => void): void {
+    public static async buildImageMesh(image: string, width: number, height: number): Promise<Mesh> {
         const geometry = new PlaneGeometry(width, height);  // Create a plane geometry with the given dimensions.
-        DrawUtils.textureLoader.load(image, texture => {
-            const material = new MeshBasicMaterial({
-                map: texture,
-                transparent: true,  // Allow for PNG transparency.
-            });
-            const mesh = new Mesh(geometry, material);
-            callback(mesh);  // Invoke the callback with the loaded mesh.
+
+        // Wrap the texture loading in a Promise
+        const texture = await new Promise<Texture>((resolve, reject) => {
+            DrawUtils.textureLoader.load(image, resolve, undefined, reject);
         });
+
+        const material = new MeshBasicMaterial({
+            map: texture,
+            transparent: true,  // Allow for PNG transparency.
+        });
+
+        return new Mesh(geometry, material);
+    }
+
+    /**
+     * Adds a background mesh to a given mesh with a specified material.
+     *
+     * @param {Mesh} mesh - The mesh to add a background to.
+     * @param {Vector2} position - The position of the mesh.
+     * @param {MeshBasicMaterial} material - The material to use for the background.
+     * @param padding - The padding to add around the mesh.
+     * @returns {Mesh} The created background mesh.
+     */
+    public static addBackgroundMesh(mesh: Mesh, position: Vector2, material: MeshBasicMaterial, padding: number = 0.05): Mesh {
+        mesh.geometry.computeBoundingBox();
+        const background = DrawUtils.buildQuadrilateralMesh(mesh.geometry.boundingBox.getSize(new Vector3()).x + padding,
+            mesh.geometry.boundingBox.getSize(new Vector3()).y + 0.03, material,
+            new Vector2(position.x + mesh.geometry.boundingBox.getSize(new Vector3()).x / 2,
+                position.y + mesh.geometry.boundingBox.getSize(new Vector3()).y / 2));
+        background.position.x = position.x + mesh.geometry.boundingBox.getSize(new Vector3()).x / 2;
+        background.position.y = position.y + mesh.geometry.boundingBox.getSize(new Vector3()).y / 2;
+        return background;
     }
 
     /**
@@ -225,6 +248,36 @@ export class DrawUtils {
 
         const material = new LineBasicMaterial({color: color});
         return new Line(geometry, material);  // Create and return the line.
+    }
+
+    /**
+     * Disposes of the geometry and material of a list of meshes.
+     *
+     * @param {...Mesh[]} meshes - The meshes to dispose of.
+     */
+    public static disposeMeshes(...meshes: Mesh[]): void {
+        meshes.forEach(mesh => this.disposeMesh(mesh));
+    }
+
+    /**
+     * Disposes of the geometry and material of a single mesh.
+     *
+     * @param {Mesh} mesh - The mesh to dispose of.
+     */
+    public static disposeMesh(mesh: Mesh): void {
+        // Dispose geometry
+        if (mesh.geometry) {
+            mesh.geometry.dispose();
+        }
+
+        // Dispose material
+        if (mesh.material) {
+            if (Array.isArray(mesh.material)) {
+                mesh.material.forEach(material => material.dispose());
+            } else {
+                mesh.material.dispose();
+            }
+        }
     }
 
     /**

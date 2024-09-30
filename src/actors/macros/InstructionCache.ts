@@ -74,9 +74,9 @@ export class InstructionCache extends ComputerChipMacro {
         if (this.cacheLineContaining(address) != undefined) { // cache hit
             this.readTimeout = this.delay;
         } else if (!this.instructionMemory.isReadyToBeRead()) {
+            this.cacheLines.forEach(line => line.clearHighlights());
             return this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
         } else {
-            this.cacheLines.forEach(line => line.clearHighlights());
             this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
             this.cacheLines.push(this.cacheLines.shift());
         }

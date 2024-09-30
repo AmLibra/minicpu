@@ -12,7 +12,9 @@ import {HUD} from "./HUD";
  */
 export class App {
     /** The number of milliseconds in a second, used for app timing. */
-    public static readonly ONE_SECOND: number = 1000;
+    private static readonly ONE_SECOND: number = 1000;
+    private static readonly FPS: number = 60;
+    private static frameCount: number = 0;
 
     /** The main scene where all objects are placed. */
     scene: Scene = new Scene();
@@ -95,9 +97,16 @@ export class App {
     private startGameLoop(): void {
         setInterval(() => {
             if (this.paused) return;
-            this.gameActors.forEach(actor => actor.update());
+
+            this.gameActors.forEach(actor => {
+                const frameInterval = Math.round(App.FPS / actor.getClockFrequency());
+                if (App.frameCount % frameInterval === 0)
+                    actor.update();
+            });
+
             this.hud.update();
-        }, App.ONE_SECOND / this.cpus[0].getClockFrequency());
+            App.frameCount++;
+        }, App.ONE_SECOND / App.FPS);
     }
 
     /**
@@ -115,10 +124,9 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-1.405, 2.75], this.scene, 6, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.34, 2.8], this.scene, workingMemory, 3, 32);
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 9,
-            4);
+        const workingMemory = new WorkingMemory([-1.345, 2.75], this.scene, 20, 8, 4, 8);
+        const instructionMemory = new InstructionMemory([2.34, 1.47], this.scene, workingMemory, 10, 32);
+        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 60, 4);
         this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);
     }

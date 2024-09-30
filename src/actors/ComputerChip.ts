@@ -13,6 +13,7 @@ import {
 import {DrawUtils} from "../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
+import {App} from "../app";
 
 /**
  * Enumeration for the sides of a computer chip
@@ -24,7 +25,6 @@ export enum Side {
     TOP,
     BOTTOM
 }
-
 
 /**
  * Abstract class for computer chips
@@ -47,6 +47,7 @@ export abstract class ComputerChip {
     protected static readonly HUD_TEXT_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_LIGHT")});
     protected static readonly PIN_MATERIAL: MeshBasicMaterial = new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
 
+    protected static readonly MAX_CLOCK_FREQUENCY = 120;
     // The basic meshes of a computer chip
     protected bodyMesh: Mesh;
     protected selectedMesh: Mesh;

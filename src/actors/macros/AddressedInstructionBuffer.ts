@@ -23,6 +23,8 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private flaggedBuffers: number[] = [];
     private flaggedBufferMeshes: Mesh[] = [];
 
+    public connectedChip: ComputerChip;
+
     /**
      * Returns the highest instruction address that was reached in the instruction buffer.
      */
@@ -48,7 +50,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     public askForInstructionsAt(chip: ComputerChip, n: number, address: number): [number, MeshBasicMaterial] {
         if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
-
+        this.connectedChip = chip;
         const localAddress = this.toLocalAddress(address);
         if (address == this.requestedInstructionAddress && this.readTimeout > 0)
             return [-1, null];

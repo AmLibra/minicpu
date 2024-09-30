@@ -190,4 +190,16 @@ export class ComputerChipMenu {
     private renderSingleValueSelection(option: UpgradeOption, x: number, y: number): void {
         return; // TODO: Implement this
     }
+
+    /**
+     * Destroys the ComputerChipMenu.
+     */
+    public destroy() {
+        this.scene.remove(this.menuMesh, this.title);
+        this.closeButton.dispose();
+        this.buttons.forEach(button => button.dispose());
+        this.chipMenuButtons.forEach(button => button.dispose());
+        this.chipMenuMeshes.forEach(mesh => this.scene.remove(mesh));
+        DrawUtils.disposeMeshes(this.menuMesh, this.title, ...this.chipMenuMeshes);
+    }
 }

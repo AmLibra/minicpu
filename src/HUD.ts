@@ -7,6 +7,7 @@ import {AbstractButton} from "./hudElements/AbstractButton";
 import {HUDEventHandler} from "./hudElements/HUDEventHandler";
 import {HUDProcessorStats} from "./hudElements/HUDProcessorStats";
 import {ComputerChipMenu} from "./hudElements/ComputerChipMenu";
+import {PlayerStats} from "./hudElements/PlayerStats";
 
 /**
  * Heads-Up Display (HUD) for showing game information.
@@ -19,6 +20,11 @@ export class HUD {
     /** The color for highlighted HUD elements. */
     static readonly HOVER_COLOR: MeshBasicMaterial =
         new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("LIGHT")});
+
+    /** The color for menu elements. */
+    static readonly MENU_COLOR: MeshBasicMaterial =
+        new MeshBasicMaterial({color: DrawUtils.COLOR_PALETTE.get("MEDIUM_DARK")});
+
     /** The factor to scale the button by when hovering. */
     static readonly HOVER_SCALE_FACTOR: number = 1.1;
 
@@ -43,6 +49,9 @@ export class HUD {
 
     /** The menu element that shows up when clicking on a chip */
     private menu: ComputerChipMenu;
+
+    /** The player stats. */
+    private playerStats: PlayerStats;
 
     /** The HUD scene and camera. */
     private hudScene: Scene;
@@ -124,7 +133,18 @@ export class HUD {
                 () => this.togglePauseState()),
             ...this.menu.getButtons()
         );
+        this.playerStats = new PlayerStats(this.hudScene, this.playerStatsPosition());
         return this;
+    }
+
+    /**
+     * Resets the HUD.
+     */
+    public reset(): void {
+        this.HUDProcessorStats.clear();
+        this.buttons.forEach(button => button.destroy());
+        this.menu.destroy();
+        this.initializeHUDScene();
     }
 
     /**
@@ -162,6 +182,13 @@ export class HUD {
      */
     private statsPosition(): Vector2 {
         return new Vector2(this.hudCamera.left + 0.1, this.hudCamera.top - 0.3);
+    }
+
+    /**
+     * Computes the position of the player stats.
+     */
+    private playerStatsPosition(): Vector2 {
+        return new Vector2(this.hudCamera.right - 0.3, this.hudCamera.top - 0.1);
     }
 
     /**

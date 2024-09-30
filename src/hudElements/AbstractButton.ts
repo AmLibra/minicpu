@@ -1,4 +1,5 @@
 import {Mesh, Scene} from "three";
+import {DrawUtils} from "../DrawUtils";
 
 /**
  * Abstract class for buttons used in the Heads-Up Display.
@@ -20,17 +21,18 @@ export abstract class AbstractButton {
      * Returns whether the button is clickable.
      */
     public isClickable(): boolean {
-        if (this.onClick === undefined)
-            return false;
-        return true;
+        return this.onClick !== undefined;
     }
 
     /**
      * Returns whether the button is hoverable.
      */
     public isHoverable(): boolean {
-        if (this.onHover === undefined || this.onUnhover === undefined)
-            return false;
-        return true;
+        return !(this.onHover === undefined || this.onUnhover === undefined);
+    }
+
+    public destroy() {
+        this.scene.remove(this.getHitbox());
+        DrawUtils.disposeMesh(this.getHitbox());
     }
 }
