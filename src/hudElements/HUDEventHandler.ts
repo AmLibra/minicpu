@@ -168,6 +168,7 @@ export class HUDEventHandler {
      * @private
      */
     private onTouchStart(event: TouchEvent): void {
+        event.preventDefault();  // Prevent default browser behavior
         const touch = event.touches[0];
         this.mouseDown = true;
         this.initialMousePosition.set(touch.clientX, touch.clientY);
@@ -184,6 +185,7 @@ export class HUDEventHandler {
      */
     private onTouchMove(event: TouchEvent): void {
         if (!this.mouseDown) return;  // Only process if touch is active (similar to mouseDown)
+        event.preventDefault();  // Prevent default browser behavior
 
         const touch = event.touches[0];
         const deltaX = (touch.clientX - this.initialMousePosition.x) / window.innerWidth;
@@ -194,9 +196,6 @@ export class HUDEventHandler {
 
         // Update the initial position
         this.initialMousePosition.set(touch.clientX, touch.clientY);
-
-        // Prevent default to avoid scrolling
-        event.preventDefault();
     }
 
     /**
