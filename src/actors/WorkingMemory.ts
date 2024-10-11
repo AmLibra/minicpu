@@ -136,6 +136,12 @@ export class WorkingMemory extends ComputerChip {
     private bankOf(address: number): DataCellArray {
         return this.dataBanks[Math.floor(address / (this.numberOfWords * this.wordSize))];
     }
+
+    /**
+     * Safely increments the clock frequency of the working memory.
+     *
+     * @private
+     */
     private safeIncrementClock(): number {
         if (this.connectedChip && (this.getClockFrequency() < (this.connectedChip.getClockFrequency() / 3)))
             return this.updateClock(this.getClockFrequency() + 1)
@@ -143,6 +149,11 @@ export class WorkingMemory extends ComputerChip {
             return this.getClockFrequency()
     }
 
+    /**
+     * Safely decrements the clock frequency of the working memory.
+     *
+     * @private
+     */
     private safeDecrementClock(): number {
         if (this.getClockFrequency() > 1)
             return this.updateClock(this.getClockFrequency() - 1)

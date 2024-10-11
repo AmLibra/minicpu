@@ -98,6 +98,13 @@ export class HUD {
     }
 
     /**
+     * Returns the menu for the computer chip.
+     */
+    public getComputerChipMenu(): ComputerChipMenu {
+        return this.menu;
+    }
+
+    /**
      * Selects an actor.
      *
      * @param actor The actor to select.
@@ -188,13 +195,20 @@ export class HUD {
      * Computes the position of the player stats.
      */
     private playerStatsPosition(): Vector2 {
-        return new Vector2(this.hudCamera.right - 0.3, this.hudCamera.top - 0.1);
+        return new Vector2(this.hudCamera.right - 0.3, this.hudCamera.top - 0.1 - (this.isMobileRatio() ? 0.1 : 0));
     }
 
     /**
      *  Computes the position of the pause button.
      */
     private pauseButtonPosition(): Vector2 {
-        return new Vector2(this.hudCamera.right - 0.1, this.hudCamera.top - 0.1);
+        return new Vector2(this.hudCamera.right - 0.1, this.hudCamera.top - 0.1 - (this.isMobileRatio() ? 0.1 : 0));
+    }
+
+    /**
+     * Determines if the aspect ratio is mobile.
+     */
+    private isMobileRatio(): boolean {
+        return window.innerWidth / window.innerHeight < 0.8;
     }
 }

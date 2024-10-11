@@ -28,6 +28,12 @@ export class HUDEventHandler {
         document.addEventListener('mousemove', this.onMouseDrag);
         document.addEventListener('mouseup', this.onMouseUp);
         document.addEventListener('wheel', this.onMouseWheel);
+
+        // Touch event listeners (similar to mouse)
+        document.addEventListener('touchstart', this.onTouchStart.bind(this), false);
+        document.addEventListener('touchmove', this.onTouchMove.bind(this), false);
+        document.addEventListener('touchend', this.onTouchEnd.bind(this), false);
+
         window.addEventListener('resize', () => this.onWindowResize());
     }
 
@@ -37,7 +43,6 @@ export class HUDEventHandler {
      * @private
      */
     private updateMouseCoordinates(event: MouseEvent): void {
-        event.preventDefault();
         this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
         this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     }
@@ -50,14 +55,37 @@ export class HUDEventHandler {
      */
     private onMouseClick(event: MouseEvent): void {
         this.updateMouseCoordinates(event);
-        this.raycaster.setFromCamera(this.mouse, this.app.camera);
-        this.app.gameActors.forEach(actor => {
-            if (this.raycaster.intersectObject(actor.getHitBoxMesh()).length > 0) this.hud.selectActor(actor);
-        });
+
         this.raycaster.setFromCamera(this.mouse, this.hudCamera);
-        this.buttons.concat(this.chipMenuButtons).forEach(button => {
+
+        this.chipMenuButtons.forEach(button => {
             if (!button.isClickable()) return;
-            if (this.raycaster.intersectObject(button.getHitbox()).length > 0) button.onClick();
+            if (this.raycaster.intersectObject(button.getHitbox()).length > 0) {
+                button.onClick();
+                return;
+            }
+        });
+
+        this.buttons.forEach(button => {
+            if (!button.isClickable()) return;
+            if (this.raycaster.intersectObject(button.getHitbox()).length > 0) {
+                button.onClick();
+                return;
+            }
+        });
+
+        if (this.raycaster.intersectObject(
+            this.hud.getComputerChipMenu().backgroundMeshHitbox()).length > 0
+        )
+            return;
+
+        this.raycaster.setFromCamera(this.mouse, this.app.camera);
+
+        this.app.gameActors.forEach(actor => {
+            if (this.raycaster.intersectObject(actor.getHitBoxMesh()).length > 0) {
+                this.hud.selectActor(actor);
+                return;
+            }
         });
     }
 
@@ -93,21 +121,16 @@ export class HUDEventHandler {
      * Handles the mouse drag event.
      * @param event The mouse drag event.
      */
-    private onMouseDrag = (event: MouseEvent) => {
+    private onMouseDrag = (event: MouseEvent): void => {
         if (!this.mouseDown) return;
+
         const deltaX = (event.clientX - this.initialMousePosition.x) / window.innerWidth;
         const deltaY = (event.clientY - this.initialMousePosition.y) / window.innerHeight;
-        const aspectRatio = window.innerWidth / window.innerHeight;
 
-        const scaleX = aspectRatio * HUD.SCROLL_SPEED / this.app.camera.zoom;
-        const scaleY = HUD.SCROLL_SPEED / this.app.camera.zoom;
+        // Move the camera
+        this.moveCamera(deltaX, deltaY);
 
-        this.app.camera.position.x -= deltaX * scaleX;
-        this.app.camera.position.x = Math.max(-HUD.MAX_CAMERA_POSITION_X, this.app.camera.position.x);
-        this.app.camera.position.x = Math.min(HUD.MAX_CAMERA_POSITION_X, this.app.camera.position.x);
-        this.app.camera.position.y += deltaY * scaleY;
-        this.app.camera.position.y = Math.max(-HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
-        this.app.camera.position.y = Math.min(HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
+        // Update the initial position
         this.initialMousePosition.set(event.clientX, event.clientY);
     }
 
@@ -139,6 +162,55 @@ export class HUDEventHandler {
     }
 
     /**
+     * Handles the touch start event for mobile devices.
+     *
+     * @param event
+     * @private
+     */
+    private onTouchStart(event: TouchEvent): void {
+        const touch = event.touches[0];
+        this.mouseDown = true;
+        this.initialMousePosition.set(touch.clientX, touch.clientY);
+
+        // Call mouse down logic
+        this.onMouseDown({clientX: touch.clientX, clientY: touch.clientY} as MouseEvent);
+    }
+
+    /**
+     * Handles the touch move event for mobile devices.
+     *
+     * @param event The touch event.
+     * @private
+     */
+    private onTouchMove(event: TouchEvent): void {
+        if (!this.mouseDown) return;  // Only process if touch is active (similar to mouseDown)
+
+        const touch = event.touches[0];
+        const deltaX = (touch.clientX - this.initialMousePosition.x) / window.innerWidth;
+        const deltaY = (touch.clientY - this.initialMousePosition.y) / window.innerHeight;
+
+        // Move the camera
+        this.moveCamera(deltaX, deltaY);
+
+        // Update the initial position
+        this.initialMousePosition.set(touch.clientX, touch.clientY);
+
+        // Prevent default to avoid scrolling
+        event.preventDefault();
+    }
+
+    /**
+     * Handles the touch end event for mobile devices.
+     *
+     * @private
+     */
+    private onTouchEnd(): void {
+        this.mouseDown = false;
+        this.onMouseUp();
+    }
+
+
+    /**
      * Handles the window resize event.
      *
      * @private
@@ -154,5 +226,25 @@ export class HUDEventHandler {
         this.hudCamera.updateProjectionMatrix();
         this.app.renderer.setSize(window.innerWidth, window.innerHeight);
         this.hud.reset();
+    }
+
+    /**
+     * Moves the camera based on the input deltas.
+     *
+     * @param deltaX The change in X direction.
+     * @param deltaY The change in Y direction.
+     */
+    private moveCamera(deltaX: number, deltaY: number): void {
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        const scaleX = aspectRatio * HUD.SCROLL_SPEED / this.app.camera.zoom;
+        const scaleY = HUD.SCROLL_SPEED / this.app.camera.zoom;
+
+        this.app.camera.position.x -= deltaX * scaleX;
+        this.app.camera.position.x = Math.max(-HUD.MAX_CAMERA_POSITION_X, this.app.camera.position.x);
+        this.app.camera.position.x = Math.min(HUD.MAX_CAMERA_POSITION_X, this.app.camera.position.x);
+
+        this.app.camera.position.y += deltaY * scaleY;
+        this.app.camera.position.y = Math.max(-HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
+        this.app.camera.position.y = Math.min(HUD.MAX_CAMERA_POSITION_Y, this.app.camera.position.y);
     }
 }

@@ -157,7 +157,7 @@ export class SISDProcessor extends ComputerChip {
     }
 
     displayName(): string {
-        return "Single Core Processor";
+        return "CPU";
     }
 
     update() {
@@ -221,7 +221,9 @@ export class SISDProcessor extends ComputerChip {
     }
 
     private safeDecrementClock(): number {
-        if (this.getClockFrequency() > 1 && this.getClockFrequency() > this.instructionMemory.getClockFrequency() * 3)
+        if (this.getClockFrequency() > 1
+            && this.getClockFrequency() > this.instructionMemory.getClockFrequency() * 3
+            && this.getClockFrequency() > this.workingMemory.getClockFrequency() * 3)
             return this.updateClock(this.getClockFrequency() - 1)
         else
             return this.getClockFrequency()

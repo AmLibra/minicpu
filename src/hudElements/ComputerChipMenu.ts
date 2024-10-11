@@ -62,6 +62,13 @@ export class ComputerChipMenu {
     }
 
     /**
+     * Returns the background mesh of the menu.
+     */
+    public backgroundMeshHitbox(): Mesh {
+        return this.menuMesh;
+    }
+
+    /**
      * Used to show the menu.
      *
      * @param chip The chip to display information about.
