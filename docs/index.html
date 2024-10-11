@@ -3,13 +3,17 @@
 <head>
     <title>MiniCPU</title>
     <style>
+        html, body {
+            overscroll-behavior: none;  /* Prevents the pull-to-refresh gesture */
+        }
+
         body {
             margin: 0;
         }
 
         canvas {
             display: block;
-            touch-action: manipulation;
+            touch-action: none;
         }
     </style>
 </head>
