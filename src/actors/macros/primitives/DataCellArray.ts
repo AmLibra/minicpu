@@ -40,7 +40,7 @@ export class DataCellArray extends ComputerChipMacro {
     private readonly registerNames?: string[];
 
     /** Flag indicating whether memory operations should be instant without any delay. */
-    private readonly noDelay: boolean;
+    private readonly delay: number;
 
     /** The zero register index. */
     private readonly zeroRegister: number;
@@ -62,16 +62,17 @@ export class DataCellArray extends ComputerChipMacro {
      * @param yOffset The y-offset in the 3D space where the data cell array should be positioned.
      * @param numberOfWords The number of words in the data cell array.
      * @param wordSize The number of cells in each word.
-     * @param noDelay Whether the data cell array should operate without any simulated delay.
+     * @param delay The memory operation delay in clock cycles.
+     * @param zeroRegister The index of the zero register in the array.
      * @param registerNames An optional array of names for each register in the array.
      * @param bankName An optional name for the bank of registers or memory array.
      */
     constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4,
-                noDelay: boolean = false, zeroRegister: number, registerNames?: string[], bankName?: string) {
+                delay: number = 0, zeroRegister: number, registerNames?: string[], bankName?: string) {
         super(parent, xOffset, yOffset);
         this.numberOfWords = numberOfWords;
         this.wordSize = wordSize;
-        this.noDelay = noDelay;
+        this.delay = delay;
         this.zeroRegister = zeroRegister;
         this.bankName = bankName;
         this.registerNames = registerNames;
@@ -112,7 +113,7 @@ export class DataCellArray extends ComputerChipMacro {
      * @returns {boolean}
      */
     public isReady(): boolean {
-        if (this.noDelay) return true;
+        if (this.delay == 0) return true;
         return this.ready;
     }
 
@@ -123,7 +124,7 @@ export class DataCellArray extends ComputerChipMacro {
      * @param address The address of the memory operation
      */
     public askForMemoryOperation(chip: ComputerChip, address: number): void {
-        if (this.noDelay)
+        if (this.delay == 0)
             throw new Error("There is no need to ask for memory operations when there is no delay");
         if (this.memoryOperationTimeout > 0)
             return;
@@ -163,7 +164,7 @@ export class DataCellArray extends ComputerChipMacro {
         this.memoryArray[address] = value;
         DrawUtils.updateText(this.liveMeshes[address], value.toString(), true);
         this.clearHighlights();
-        if (this.noDelay)
+        if (this.delay == 0)
             this.highlightCell(address, chipMacro);
         this.ready = false;
     }
@@ -173,7 +174,7 @@ export class DataCellArray extends ComputerChipMacro {
             this.memoryOperationTimeout--;
             this.ready = this.memoryOperationTimeout <= 0;
         }
-        if (this.noDelay && this.highlightMeshes.length > 0)
+        if (this.delay == 0 && this.highlightMeshes.length > 0)
             this.clearHighlights();
     }
 
@@ -383,7 +384,7 @@ export class DataCellArray extends ComputerChipMacro {
      * @throws {Error} If the data array is not ready.
      */
     private checkIfReady(): void {
-        if (!this.noDelay && !this.ready)
+        if (!(this.delay === 0) && !this.ready)
             throw new Error("Data array from " + this.parent.displayName() + " is not ready to be read");
     }
 }

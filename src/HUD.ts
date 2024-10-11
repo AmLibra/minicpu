@@ -129,7 +129,7 @@ export class HUD {
         this.HUDProcessorStats = new HUDProcessorStats(this.hudScene, this.statsPosition(), this.app.cpus);
         this.menu = new ComputerChipMenu(this.hudScene, this.hudCamera, () => this.hideMenu());
         this.buttons.push(
-            new PauseButton(this.hudScene, this.pauseButtonPosition(), HUD.BASE_COLOR,
+            new PauseButton(this.hudScene, this.pauseButtonPosition(), HUD.BASE_COLOR, this.app.paused,
                 () => this.togglePauseState()),
             ...this.menu.getButtons()
         );

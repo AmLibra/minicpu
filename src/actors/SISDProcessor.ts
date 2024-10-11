@@ -27,9 +27,11 @@ export class SISDProcessor extends ComputerChip {
     private readonly workingMemory: WorkingMemory;
 
     // used for computing SISDCore metrics
-    private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(30);
+    private previousRetiredInstructionCounts: Queue<number> = new Queue<number>(50);
     private retiredInstructionCount: number = 0;
     private accumulatedInstructionCount: number = 0;
+    private IPC: number = 0;
+    private IPS: number = 0;
 
     private highlightedTraces: Group[] = [];
 
@@ -137,14 +139,14 @@ export class SISDProcessor extends ComputerChip {
      * Sets the clock frequency of the processor.
      */
     public getIPC(): number {
-        return this.calculateAverageInstructionCount();
+        return this.IPC;
     }
 
     /**
      * Gets the instructions per second (IPS) of the processor.
      */
     public getIPS(): number {
-        return this.calculateAverageInstructionCount() * this.getClockFrequency();
+        return this.IPS;
     }
 
     /**
@@ -162,6 +164,8 @@ export class SISDProcessor extends ComputerChip {
         this.core.update();
         this.iCache?.update();
         this.updateRetiredInstructionCounters();
+        this.IPC = this.calculateAverageInstructionCount();
+        this.IPS = this.IPC * this.getClockFrequency();
     }
 
     initializeGraphics(): void {
@@ -217,7 +221,7 @@ export class SISDProcessor extends ComputerChip {
     }
 
     private safeDecrementClock(): number {
-        if (this.getClockFrequency() > 1)
+        if (this.getClockFrequency() > 1 && this.getClockFrequency() > this.instructionMemory.getClockFrequency() * 3)
             return this.updateClock(this.getClockFrequency() - 1)
         else
             return this.getClockFrequency()

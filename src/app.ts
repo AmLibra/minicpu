@@ -125,7 +125,7 @@ export class App {
      */
     private addGameActors(): void {
         const workingMemory = new WorkingMemory([-1.345, 2.75], this.scene, 20, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.34, 1.47], this.scene, workingMemory, 10, 32);
+        const instructionMemory = new InstructionMemory([2.34, 1.47], this.scene, workingMemory, 10, 3, 32);
         const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 60, 4);
         this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);

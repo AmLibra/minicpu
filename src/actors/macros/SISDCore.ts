@@ -75,7 +75,7 @@ export class SISDCore extends ComputerChipMacro {
         this.registers = new DataCellArray(this.parent, this.position.x + this.width / 2 - registerDims.width / 2
             - SISDCore.INNER_SPACING_L - aluDims.width,
             this.position.y + this.height / 2 - aluDims.height / 2, ISA.REGISTER_SIZE,
-            1, true, ISA.ZERO_REGISTER, registerNames);
+            1, 0, ISA.ZERO_REGISTER, registerNames);
 
         this.IOInterface = new IOInterface(this.parent, this.registers, this.workingMemory,
             this.position.x + this.width / 2 - ioInterfaceWidth / 2 - registerDims.width - SISDCore.INNER_SPACING_L * 2 - aluDims.width,

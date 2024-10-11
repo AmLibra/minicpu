@@ -14,10 +14,7 @@ module.exports = {
             {
                 test: /\.tsx?$/,
                 use: [{
-                    loader: 'ts-loader',
-                    options: {
-                        transpileOnly: true, // Skip type checking for speed
-                    },
+                    loader: 'ts-loader'
                 }],
                 exclude: /node_modules/,
             }
@@ -51,10 +48,7 @@ module.exports = {
         watchFiles: ['src/**/*', 'docs/**/*', 'res/**/*'], // Watch these directories for changes
     },
 
-    cache: {
-        type: 'filesystem',
-        cacheDirectory: path.resolve(__dirname, '.webpack_cache')
-    }
+    cache: false, // Disable caching
 };
 
 

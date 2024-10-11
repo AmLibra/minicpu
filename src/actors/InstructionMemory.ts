@@ -23,14 +23,16 @@ export class InstructionMemory extends ComputerChip {
      * @param scene The scene to which the instruction memory belongs.
      * @param workingMemory The working memory of the computer.
      * @param clockFrequency The clock frequency of the computer.
+     * @param delay The delay of the instruction memory.
      * @param size The size of the instruction memory.
      */
-    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, size: number = 16) {
+    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, delay: number,
+                size: number = 16) {
         super(position, scene, clockFrequency);
         this.size = size;
         this.instructionBuffer = new AddressedInstructionBuffer(this, size,
             InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
-            0, 1)
+            0, delay);
         this.CodeGen = new CodeGenerator(workingMemory, size, this.instructionBuffer);
         this.initializeGraphics();
     }
@@ -80,7 +82,7 @@ export class InstructionMemory extends ComputerChip {
     }
 
     private safeIncrementClock(): number {
-        if (this.getClockFrequency() < (this.instructionBuffer.connectedChip.getClockFrequency() / 3))
+        if (this.instructionBuffer.connectedChip && this.getClockFrequency() < (this.instructionBuffer.connectedChip.getClockFrequency() / 3))
             return this.updateClock(this.getClockFrequency() + 1)
         else
             return this.getClockFrequency()

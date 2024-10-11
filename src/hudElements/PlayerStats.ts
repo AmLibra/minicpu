@@ -9,6 +9,7 @@ export class PlayerStats {
     private valueMesh: Mesh;
     private bgMesh: Mesh;
     private power: number;
+    private dirtyMesh = false; // Used to determine if the mesh needs to be updated.
 
     constructor(private readonly scene: Scene, private position: Vector2) {
         this.power = PlayerStats.INITIAL_POWER;
@@ -32,7 +33,10 @@ export class PlayerStats {
      * Updates the player stats.
      */
     public update(): void {
-        DrawUtils.updateText(this.valueMesh, this.power.toString(), false);
+        if (this.dirtyMesh) {
+            DrawUtils.updateText(this.valueMesh, this.power.toString(), false);
+            this.dirtyMesh = false;
+        }
     }
 
     /**

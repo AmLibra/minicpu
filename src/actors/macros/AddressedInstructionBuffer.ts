@@ -63,7 +63,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             if (this.storedInstructions.get(i))
                 this.highlightBuffer(i);
 
-        this.readTimeout = chip.getClockFrequency() / this.parent.getClockFrequency();
+        this.readTimeout = this.delay;
         return [localAddress, this.instructionMaterial(this.storedInstructions.get(localAddress))];
     }
 

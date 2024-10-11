@@ -13,11 +13,14 @@
   "license": "ISC",
   "devDependencies": {
     "@types/three": "^0.159.0",
+    "path-browserify": "^1.0.1",
+    "thread-loader": "^4.0.4",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.3.3",
-    "webpack": "^5.89.0",
+    "typescript": "^5.6.3",
+    "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "webpack-dev-server": "^4.15.1",
+    "worker-loader": "^3.0.8"
   },
   "dependencies": {
     "three": "^0.159.0"

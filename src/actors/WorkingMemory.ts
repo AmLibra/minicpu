@@ -54,6 +54,7 @@ export class WorkingMemory extends ComputerChip {
      * @param address The memory address on which the operation is requested.
      */
     public askForMemoryOperation(chip: ComputerChip, address: number): void {
+        this.connectedChip = chip;
         this.bankOf(address).askForMemoryOperation(chip, address % this.bankOf(address).getSize());
     }
 
@@ -117,7 +118,7 @@ export class WorkingMemory extends ComputerChip {
                 startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
                 (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2,
                 this.numberOfWords, this.wordSize,
-                false, undefined, cellNames, `B${DrawUtils.toHex(i)}`);
+                10, undefined, cellNames, `B${DrawUtils.toHex(i)}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }
@@ -136,7 +137,7 @@ export class WorkingMemory extends ComputerChip {
         return this.dataBanks[Math.floor(address / (this.numberOfWords * this.wordSize))];
     }
     private safeIncrementClock(): number {
-        if (this.getClockFrequency() < (this.connectedChip.getClockFrequency() / 3))
+        if (this.connectedChip && (this.getClockFrequency() < (this.connectedChip.getClockFrequency() / 3)))
             return this.updateClock(this.getClockFrequency() + 1)
         else
             return this.getClockFrequency()
