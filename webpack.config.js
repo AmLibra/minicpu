@@ -1,9 +1,15 @@
 const path = require('path');
 
 module.exports = {
-    mode: 'development',
+    mode: 'production',
     entry: './src/app.ts',
     devtool: 'inline-source-map',
+    optimization: {
+        minimize: true,
+        splitChunks: {
+            chunks: 'all',
+        }
+    },
     module: {
         rules: [
             {
@@ -27,7 +33,7 @@ module.exports = {
         }
     },
     output: {
-        filename: 'bundle.js',
+        filename: '[name].bundle.js',
         path: path.resolve(__dirname, 'docs'),
         publicPath: '/'
     },
