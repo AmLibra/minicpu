@@ -21,11 +21,14 @@ export class PlayerStats {
      */
     public async initializeGraphics(): Promise<void> {
         this.powerImg = await DrawUtils.buildImageMesh(PlayerStats.POWER_IMG, 0.1, 0.1);
-        this.powerImg.position.set(this.position.x, this.position.y, 0);
-        this.valueMesh = DrawUtils.buildTextMesh(this.power.toString(), this.position.x - 0.1, this.position.y, HUD.TEXT_SIZE, HUD.BASE_COLOR);
-        this.bgMesh = DrawUtils.addBackgroundMesh(this.valueMesh,
-            new Vector2(this.valueMesh.position.x + 0.03, this.valueMesh.position.y), HUD.MENU_COLOR,
-            0.1);
+        this.valueMesh = DrawUtils.buildTextMesh(this.power.toString(), this.position.x, this.position.y, HUD.TEXT_SIZE, HUD.BASE_COLOR, false);
+        this.valueMesh.geometry.computeBoundingBox();
+        if (this.valueMesh.geometry.boundingBox === null)
+            throw new Error("Bounding box is null");
+        this.powerImg.position.set(this.valueMesh.position.x + this.valueMesh.geometry.boundingBox.max.x - this.valueMesh.geometry.boundingBox.min.x + 0.05,
+            this.valueMesh.position.y + (this.valueMesh.geometry.boundingBox.max.y - this.valueMesh.geometry.boundingBox.min.y) /2,
+            0);
+        this.bgMesh = DrawUtils.addBackgroundMesh(this.valueMesh, new Vector2(this.valueMesh.position.x + 0.04, this.valueMesh.position.y), HUD.MENU_COLOR, 0.1);
         this.scene.add(this.powerImg, this.valueMesh, this.bgMesh);
     }
 

@@ -11,25 +11,40 @@ import {SISDProcessor} from "../SISDProcessor";
  * Represents the I/O interface of a computer chip, handling I/O operations with instructions.
  */
 export class IOInterface extends InstructionBuffer {
-    private registers: DataCellArray;
-    private memory: WorkingMemory;
+    private readonly registers: DataCellArray[];
+    private memory: WorkingMemory | undefined;
 
     /**
      * Creates an instance of the IOInterface.
      *
      * @param {ComputerChip} parent The parent computer chip component.
      * @param {DataCellArray} registers The registers associated with the I/O interface.
-     * @param {WorkingMemory} memory The working memory associated with the I/O interface.
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} bufferWidth The width of the instruction buffer.
      * @param {boolean} horizontal Determines if the buffer is oriented horizontally.
      */
-    constructor(parent: ComputerChip, registers: DataCellArray, memory: WorkingMemory, xOffset: number = 0,
+    constructor(parent: ComputerChip, registers: DataCellArray[], xOffset: number = 0,
                 yOffset: number = 0, bufferWidth: number = IOInterface.BUFFER_BASE_WIDTH, horizontal: boolean = true) {
         super(parent, 1, xOffset, yOffset, 0, false, horizontal, bufferWidth, 0);
         this.registers = registers;
+    }
+
+    /**
+     * Sets the working memory to be used by the I/O interface.
+     *
+     * @param {WorkingMemory} memory The working memory to be used.
+     */
+
+    public setWorkingMemory(memory: WorkingMemory | undefined): void {
         this.memory = memory;
+    }
+
+    /**
+     * Flushes the instruction buffer.
+     */
+    public flush(): void {
+        this.clear();
     }
 
     /**
@@ -46,18 +61,23 @@ export class IOInterface extends InstructionBuffer {
      *
      * @param {Instruction} instruction The instruction to process.
      */
-    public processIO(instruction: Instruction): void {
+    public processIO(instruction: Instruction | undefined): void {
+        if (instruction == undefined || this.memory == undefined)
+            return;
+
         if (this.isReady())
             this.enqueueInstruction(instruction);
 
         const storedInstruction = this.storedInstructions.peek();
-        if (this.memory.isReady(storedInstruction.getAddress()))
+        if (storedInstruction == undefined)
+            return;
+        if (this.memory.isReady(storedInstruction.getAddress()!))
             this.executeInstruction(storedInstruction);
         else {
-            this.memory.askForMemoryOperation(this.parent, storedInstruction.getAddress());
+            this.memory.askForMemoryOperation(this.parent, storedInstruction.getAddress()!);
             if (this.parent instanceof SISDProcessor) {
                 (this.parent as SISDProcessor).highlightMainMemoryTrace(
-                    Math.floor(storedInstruction.getAddress() / this.memory.wordSize), IOInterface.MEMORY_MATERIAL);
+                    Math.floor(storedInstruction.getAddress()!), IOInterface.MEMORY_MATERIAL);
             }
         }
     }
@@ -105,11 +125,16 @@ export class IOInterface extends InstructionBuffer {
      * @private
      */
     private executeInstruction(storedInstruction: Instruction): void {
+        if (this.memory == undefined)
+            return;
+
         const resultReg = storedInstruction.getResultReg();
         if (storedInstruction.getOpcode() == "LOAD") {
-            this.registers.write(resultReg, this.memory.read(storedInstruction.getAddress()));
+            const regPerBank = this.registers[0].getSize();
+            const reg = this.registers[Math.floor(resultReg / regPerBank)];
+            reg.write(resultReg % regPerBank, this.memory.read(storedInstruction.getAddress()!));
         } else if (storedInstruction.getOpcode() == "STORE")
-            this.memory.write(storedInstruction.getAddress(), resultReg);
+            this.memory.write(storedInstruction.getAddress()!, resultReg);
         this.storedInstructions.dequeue();
         if (this.parent instanceof SISDProcessor)
             (this.parent as SISDProcessor).notifyInstructionRetired();
@@ -126,7 +151,7 @@ export class IOInterface extends InstructionBuffer {
         this.liveMeshes = [];
         this.clearHighlights();
         const mesh = this.buildBufferTextMesh(0);
-        this.liveMeshes[0] = mesh;
+        this.liveMeshes[0] = mesh
         this.scene.add(mesh);
     }
 
@@ -137,6 +162,6 @@ export class IOInterface extends InstructionBuffer {
      * @private
      */
     private shortMemoryInstruction(instruction: Instruction): string {
-        return (instruction.getOpcode() == "LOAD" ? "LD " : "ST ") + "[" + DrawUtils.toHex(instruction.getAddress()) + "]";
+        return (instruction.getOpcode() == "LOAD" ? "LD " : "ST ") + "[" + DrawUtils.toHex(instruction.getAddress()!) + "]";
     }
 }

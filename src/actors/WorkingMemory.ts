@@ -4,6 +4,7 @@ import {DataCellArray} from "./macros/primitives/DataCellArray";
 import {DrawUtils} from "../DrawUtils";
 import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
 import {UpgradeOption} from "../dataStructures/UpgradeOption";
+import {App} from "../app";
 
 /**
  * Represents the working memory of a computer chip, consisting of multiple data banks.
@@ -12,29 +13,43 @@ export class WorkingMemory extends ComputerChip {
     public readonly size: number;
     public readonly numberOfBanks: number;
     public readonly numberOfWords: number;
-    public readonly wordSize: number;
 
     private dataBanks: DataCellArray[] = [];
     private static readonly BANK_SPACING: number = 0.04;
+    private static readonly DELAY: number = 10;
     private connectedChip: ComputerChip;
 
     /**
      * Constructs a new WorkingMemory instance.
      *
-     * @param position The position of the working memory in the scene.
-     * @param scene The Three.js scene to which the working memory will be added.
+     * @param app The main application class.
      * @param clockFrequency The clock frequency of the working memory.
      * @param numberOfBanks The number of data banks in the working memory.
      * @param numberOfWords The number of words in each data bank.
-     * @param wordSize The size of each word in the data banks.
      */
-    constructor(position: [number, number], scene: Scene, clockFrequency: number, numberOfBanks: number = 2, numberOfWords: number = 4, wordSize: number = 4) {
-        super(position, scene, clockFrequency);
+    constructor(private app: App, clockFrequency: number, numberOfBanks: number = 2, numberOfWords: number = 4) {
+        super([0, 0], app.scene, clockFrequency);
         this.numberOfWords = numberOfWords;
         this.numberOfBanks = numberOfBanks;
-        this.wordSize = wordSize;
-        this.size = numberOfBanks * numberOfWords * wordSize;
-        this.initializeGraphics();
+        this.size = numberOfBanks * numberOfWords;
+    }
+
+    /**
+     * Computes the dimensions of the instruction memory
+     */
+    public dimensions(): { width: number, height: number } {
+        const cellArrayDims = DataCellArray.dimensions(this.numberOfWords);
+        return {
+            width: cellArrayDims.width * this.numberOfBanks + WorkingMemory.BANK_SPACING * (this.numberOfBanks - 1) + WorkingMemory.CONTENTS_MARGIN * 2,
+            height: cellArrayDims.height + WorkingMemory.CONTENTS_MARGIN * 2 + WorkingMemory.INNER_SPACING + WorkingMemory.TEXT_SIZE
+        }
+    }
+
+    /**
+     * Changes the position of the instruction memory.
+     */
+    public setPosition(position: [number, number]): void {
+        this.position = {x: position[0], y: position[1]};
     }
 
     /**
@@ -101,30 +116,36 @@ export class WorkingMemory extends ComputerChip {
     }
 
     initializeGraphics(): void {
-        const cellArrayDimensions = DataCellArray.dimensions(this.numberOfWords, this.wordSize);
+        const cellArrayDimensions = DataCellArray.dimensions(this.numberOfWords);
         const bodyHeight = cellArrayDimensions.height + WorkingMemory.CONTENTS_MARGIN * 2
             + WorkingMemory.INNER_SPACING + WorkingMemory.TEXT_SIZE;
         let bodyWidth = cellArrayDimensions.width * this.numberOfBanks + WorkingMemory.CONTENTS_MARGIN * 2
             + (this.numberOfBanks - 1) * WorkingMemory.BANK_SPACING;
 
         const startOffset = -bodyWidth / 2 + cellArrayDimensions.width / 2 + WorkingMemory.CONTENTS_MARGIN;
-        const bankSize = this.numberOfWords * this.wordSize;
+        const bankSize = this.numberOfWords;
         for (let i = 0; i < this.numberOfBanks; i++) {
-            const cellNames = [];
+            const cellNames : string[] = [];
             for (let j = 0; j < bankSize; j++)
                 cellNames.push(DrawUtils.toHex(i * bankSize + j));
 
             const dataBank = new DataCellArray(this,
                 startOffset + i * (cellArrayDimensions.width + WorkingMemory.BANK_SPACING),
                 (-WorkingMemory.INNER_SPACING - WorkingMemory.TEXT_SIZE) / 2,
-                this.numberOfWords, this.wordSize,
-                10, undefined, cellNames, `B${DrawUtils.toHex(i)}`);
+                this.numberOfWords, WorkingMemory.DELAY, undefined, cellNames, `DB${i}`);
             dataBank.initializeGraphics();
             this.dataBanks[i] = dataBank;
         }
 
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawPins(this.bodyMesh, Side.BOTTOM, this.numberOfBanks * this.numberOfWords);
+        this.drawPins(this.bodyMesh!, Side.BOTTOM, this.numberOfBanks);
+    }
+
+    disposeGraphics(): void {
+        super.disposeBodyMesh();
+        this.clearTracesAndPins(Side.BOTTOM);
+        this.dataBanks.forEach(dataBank => dataBank.dispose());
+        this.app.removeGameActor(this);
     }
 
     /**
@@ -134,7 +155,7 @@ export class WorkingMemory extends ComputerChip {
      * @returns The data bank containing the specified address.
      */
     private bankOf(address: number): DataCellArray {
-        return this.dataBanks[Math.floor(address / (this.numberOfWords * this.wordSize))];
+        return this.dataBanks[Math.floor(address / this.numberOfWords)];
     }
 
     /**

@@ -61,7 +61,7 @@ export class HUD {
     private readonly buttons: AbstractButton[] = [];
 
     /** The currently selected and highlighted actor. */
-    private selectedActor: ComputerChip;
+    private selectedActor: ComputerChip | undefined;
 
     /** Event handler for the HUD. */
     private eventHandler: HUDEventHandler;
@@ -169,6 +169,7 @@ export class HUD {
      * @private
      */
     private showMenu(): void {
+        if (!this.selectedActor) return;
         this.menu.showMenu(this.selectedActor);
         this.eventHandler.chipMenuButtons = this.menu.getMenuButtons();
     }
@@ -195,7 +196,7 @@ export class HUD {
      * Computes the position of the player stats.
      */
     private playerStatsPosition(): Vector2 {
-        return new Vector2(this.hudCamera.right - 0.3, this.hudCamera.top - 0.1 - (this.isMobileRatio() ? 0.1 : 0));
+        return new Vector2(this.hudCamera.right - 0.4, this.hudCamera.top - 0.12 - (this.isMobileRatio() ? 0.1 : 0));
     }
 
     /**

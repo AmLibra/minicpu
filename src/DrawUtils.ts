@@ -42,7 +42,7 @@ export class DrawUtils {
     private static readonly FONT_DIR: string = "res/Courier_New_Bold.json";
 
     /** The font object loaded and used for rendering text. */
-    public static font: Font = null;
+    public static font: Font;
 
     /** The base height of the text, calculated after the font is loaded. */
     public static baseTextHeight: number;
@@ -66,8 +66,10 @@ export class DrawUtils {
             new FontLoader().load(this.FONT_DIR, (font: Font) => {
                 this.font = font;
                 // Calculate base text height and width using a sample character.
-                const mesh = this.buildTextMesh("M", 0, 0, 0.1, new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
+                const mesh =
+                    this.buildTextMesh("M", 0, 0, 0.1, new MeshBasicMaterial({color: this.COLOR_PALETTE.get("LIGHT")}));
                 mesh.geometry.computeBoundingBox();
+                if (!mesh.geometry.boundingBox) throw new Error("Font bounding box not found");
                 this.baseTextHeight = mesh.geometry.boundingBox.max.y - mesh.geometry.boundingBox.min.y;
                 this.baseTextWidth = mesh.geometry.boundingBox.max.x - mesh.geometry.boundingBox.min.x;
                 resolve();
@@ -113,15 +115,9 @@ export class DrawUtils {
         });
 
         const mesh = new Mesh(geometry, material);
-        geometry.computeBoundingBox();
-        const textWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
-        const textHeight = geometry.boundingBox.max.y - geometry.boundingBox.min.y;
-
-        mesh.position.set(
-            xOffset - (centered ? textWidth / 2 : 0),
-            yOffset - (centered ? textHeight / 2 : 0),
-            0
-        );
+        mesh.position.set(xOffset, yOffset, 0);
+        if (centered)
+            mesh.geometry.center();
 
         if (zRotation !== 0) {
             mesh.geometry.center().rotateZ(zRotation);
@@ -147,6 +143,17 @@ export class DrawUtils {
         });
         if (centered)
             mesh.geometry.center();
+    }
+
+    /**
+     * Updates the material of a given text mesh with a new material.
+     *
+     * @param {Mesh} mesh - The mesh whose material needs to be updated.
+     * @param {Material} material - The new material to apply to the mesh.
+     */
+    public static updateMaterial(mesh: Mesh, material: Material): void {
+        (mesh.material as Material).dispose();  // Dispose of the current material to prevent memory leaks.
+        mesh.material = material;
     }
 
     /**
@@ -221,7 +228,9 @@ export class DrawUtils {
      */
     public static addBackgroundMesh(mesh: Mesh, position: Vector2, material: MeshBasicMaterial, padding: number = 0.05): Mesh {
         mesh.geometry.computeBoundingBox();
-        const background = DrawUtils.buildQuadrilateralMesh(mesh.geometry.boundingBox.getSize(new Vector3()).x + padding,
+        if (!mesh.geometry.boundingBox) throw new Error("Bounding box not found");
+        const background = DrawUtils.buildQuadrilateralMesh(
+            mesh.geometry.boundingBox.getSize(new Vector3()).x + padding,
             mesh.geometry.boundingBox.getSize(new Vector3()).y + 0.03, material,
             new Vector2(position.x + mesh.geometry.boundingBox.getSize(new Vector3()).x / 2,
                 position.y + mesh.geometry.boundingBox.getSize(new Vector3()).y / 2));
@@ -287,6 +296,6 @@ export class DrawUtils {
      * @returns {string} The hexadecimal string representation of the value.
      */
     public static toHex(value: number): string {
-        return `0x${value.toString(16).toUpperCase().padStart(2, "0")}`;
+        return `0x${value.toString(16).toUpperCase().padStart(4, "0")}`;
     }
 }

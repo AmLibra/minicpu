@@ -13,9 +13,8 @@ import {ISA} from "../../../dataStructures/ISA";
  * Represents the Arithmetic Logic Unit (ALU) of a computer chip, performing arithmetic and logical operations.
  */
 export class ALU extends ComputerChipMacro {
-    private static readonly WIDTH = 0.2;
+    private static readonly WIDTH = 0.6;
     height: number = InstructionBuffer.BUFFER_HEIGHT;
-    width: number = 0.2;
     textSize: number = 0.03;
 
     private static readonly DISTANCE_TO_CENTER = 0.07;
@@ -29,8 +28,8 @@ export class ALU extends ComputerChipMacro {
     private branchStalling = false;
     private decoder: Decoder;
 
-    private instruction: Instruction;
-    private registers: DataCellArray;
+    private instruction: Instruction | null = null;
+    private registers: DataCellArray[];
 
     /**
      * Constructs a new ALU instance.
@@ -39,17 +38,32 @@ export class ALU extends ComputerChipMacro {
      * @param {DataCellArray} registers The registers associated with the ALU.
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
-     * @param {number} width The width of the ALU.
+     * @param width The width of the ALU.
      */
-    constructor(parent: ComputerChip, registers: DataCellArray, xOffset: number = 0, yOffset: number = 0) {
+    constructor(parent: ComputerChip, registers: DataCellArray[], xOffset: number = 0, yOffset: number = 0, width: number = ALU.WIDTH) {
         super(parent, xOffset, yOffset);
         this.registers = registers;
+        this.width = width;
         this.highlightGeometry = new PlaneGeometry(this.width, this.height);
     }
 
+    /**
+     * Returns the dimensions of the ALU.
+     */
     public static dimensions(): { width: number, height: number } {
         return {width: ALU.WIDTH, height: InstructionBuffer.BUFFER_HEIGHT};
     }
+
+    /**
+     * Flushes the ALU of any instructions currently being processed.
+     */
+    public flush(): void {
+        this.instruction = null;
+        this.branchStalling = false;
+        if (this.highlighted)
+            this.clearHighlights()
+    }
+
 
     /**
      * Checks if the ALU is ready for new instructions.
@@ -63,9 +77,10 @@ export class ALU extends ComputerChipMacro {
     /**
      * Processes an instruction by performing an arithmetic or logical operation.
      *
+     * @param decoder The decoder to use for branching.
      * @param {Instruction} instruction The instruction to process.
      */
-    public compute(decoder: Decoder, instruction: Instruction): void {
+    public compute(decoder: Decoder, instruction: Instruction | null): void {
         function computeALUResult(op1: number, op2: number, opcode: string): number {
             switch (opcode) {
                 case "ADDI":
@@ -93,12 +108,14 @@ export class ALU extends ComputerChipMacro {
         }
 
         this.instruction = instruction;
+        if (instruction == null)
+            return;
         this.drawALUText();
         this.highlight();
 
-        const op1 = this.registers.read(instruction.getOp1Reg());
-        const op2 = (instruction.isImmediate() ? instruction.getImmediate() :
-            this.registers.read(instruction.getOp2Reg()));
+        const op1 = this.read(instruction.getOp1Reg()!);
+        const op2 = (instruction.isImmediate() ? instruction.getImmediate()! :
+            this.read(instruction.getOp2Reg()!));
 
         if (this.branchStalling) {
             const result = computeALUResult(op1, op2, instruction.getOpcode());
@@ -115,7 +132,7 @@ export class ALU extends ComputerChipMacro {
         }
 
         const result = this.preventOverflow(computeALUResult(op1, op2, instruction.getOpcode()));
-        this.registers.write(instruction.getResultReg(), result, this);
+        this.write(instruction.getResultReg(), result);
         if (this.parent instanceof SISDProcessor)
             (this.parent as SISDProcessor).notifyInstructionRetired();
         this.instruction = null;
@@ -207,10 +224,12 @@ export class ALU extends ComputerChipMacro {
         }
 
         this.noOpMesh.visible = false;
+        if (this.instruction == null)
+            return;
         drawALUTextComponent(opcodeSymbol(this.instruction.getOpcode()), 0, ALU.OP_Y_OFFSET);
         drawALUTextComponent("R" + this.instruction.getOp1Reg(), ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
         drawALUTextComponent((this.instruction.isImmediate() ?
-                this.instruction.getImmediate().toString() : "R" + this.instruction.getOp2Reg()),
+                this.instruction.getImmediate()!.toString() : "R" + this.instruction.getOp2Reg()),
             -ALU.DISTANCE_TO_CENTER, ALU.OP_Y_OFFSET);
         drawALUTextComponent((this.instruction.isBranch() ? "DECODER" : "R" + this.instruction.getResultReg()),
             0, ALU.RES_Y_OFFSET);
@@ -226,5 +245,29 @@ export class ALU extends ComputerChipMacro {
     private preventOverflow(n: number): number {
         const result = n % ISA.MAX_BYTE_VALUE;
         return result >= 0 ? result : result + ISA.MAX_BYTE_VALUE;
+    }
+
+    /**
+     * Reads the value of a register.
+     *
+     * @param {number} register The register to read.
+     * @returns {number} The value of the register.
+     */
+    public read(register: number): number {
+        const regPerBank = this.registers[0].getSize()
+        const bank = Math.floor(register / regPerBank);
+        return this.registers[bank].read(register % regPerBank);
+    }
+
+    /**
+     * Writes a value to a register.
+     *
+     * @param {number} register The register to write to.
+     * @param {number} value The value to write to the register.
+     */
+    public write(register: number, value: number): void {
+        const regPerBank = this.registers[0].getSize()
+        const bank = Math.floor(register / regPerBank);
+        this.registers[bank].write(register % regPerBank, value, this);
     }
 }

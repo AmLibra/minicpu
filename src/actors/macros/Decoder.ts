@@ -45,13 +45,20 @@ export class Decoder extends InstructionBuffer {
     }
 
     /**
+     * Flushes the instruction buffer.
+     */
+    public flush(): void {
+        this.clear();
+    }
+
+    /**
      * Used to take or not a branch based on the result of a condition check.
      *
      * @param conditionResult The result of the condition check.
      */
     public takeBranch(conditionResult: boolean): void {
         if (conditionResult)
-            this.fetcher.setProgramCounter(this.storedInstructions.dequeue().getAddress());
+            this.fetcher.setProgramCounter(this.storedInstructions.dequeue()!.getAddress()!);
         else {
             this.storedInstructions.dequeue();
         }
@@ -77,7 +84,7 @@ export class Decoder extends InstructionBuffer {
             this.enqueueInstruction(instruction);
         }
 
-        if (this.pipelined && !this.storedInstructions.get(0).isBranch())
+        if (this.pipelined && !this.storedInstructions.get(0)!.isBranch())
             this.fetcher.next();
 
         if (executionUnitsReady)
@@ -104,8 +111,10 @@ export class Decoder extends InstructionBuffer {
      */
     private decodeInstruction(): void {
         const storedInstruction = this.storedInstructions.peek();
+        if (!storedInstruction)
+            return;
         if (storedInstruction.isArithmetic())
-            this.alu.compute(this, this.storedInstructions.dequeue());
+            this.alu.compute(this, this.storedInstructions.dequeue()!);
         else if (storedInstruction.isMemoryOperation()) {
             this.io.processIO(this.storedInstructions.dequeue());
         } else if (storedInstruction.isBranch()) {
@@ -120,6 +129,7 @@ export class Decoder extends InstructionBuffer {
             this.liveMeshes[0] = this.buildBufferTextMesh(0);
             this.scene.add(this.liveMeshes[0]);
         }
+        this.decode();
     }
 
     read(_readCount: number): Queue<Instruction> {

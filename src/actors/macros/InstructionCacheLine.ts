@@ -44,6 +44,15 @@ export class InstructionCacheLine extends ComputerChipMacro {
     }
 
     /**
+     * Clears the instruction stored in the cache line.
+     */
+    public clear(): void {
+        this.valid = false;
+        this.addressTag.set(0);
+        this.instructionBuffer.clear();
+    }
+
+    /**
      * Determines if the cache line is valid.
      *
      * @returns {boolean} True if the cache line is valid, false otherwise.
@@ -66,7 +75,7 @@ export class InstructionCacheLine extends ComputerChipMacro {
      *
      * @returns {Instruction} The instruction read from the cache line.
      */
-    public read(): Instruction {
+    public read(): Instruction | undefined {
         if (!this.valid)
             throw new Error("Invalid cache line read");
         return this.instructionBuffer.peek();

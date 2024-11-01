@@ -10,7 +10,7 @@ export class UpgradeOption {
     readonly cost: number;
     readonly type: UpgradeOptionType;
     readonly description: string;
-    readonly nestedOptions: UpgradeOption[] = [];
+    readonly nestedOptions: UpgradeOption[] | undefined;
     readonly onIncrease: () => number | boolean;
     readonly onDecrease: () => number | boolean;
     currentValue: number | boolean;

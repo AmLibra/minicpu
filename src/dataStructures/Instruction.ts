@@ -172,15 +172,15 @@ export class Instruction {
         return this.opcode;
     }
 
-    public getOp1Reg(): number {
+    public getOp1Reg(): number | undefined {
         return this.type !== InstructionType.MEMORY ? this.op1Reg : undefined;
     }
 
-    public getOp2Reg(): number {
+    public getOp2Reg(): number | undefined {
         return this.type !== InstructionType.MEMORY ? this.op2Reg : undefined;
     }
 
-    public getImmediate(): number {
+    public getImmediate(): number | undefined {
         return this.type === InstructionType.ALU_IMM ? this.immediate : undefined;
     }
 
@@ -188,7 +188,7 @@ export class Instruction {
         return this.resultReg;
     }
 
-    public getAddress(): number {
+    public getAddress(): number | undefined {
         return this.type !== InstructionType.ALU ? this.address : undefined;
     }
 

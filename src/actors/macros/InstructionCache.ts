@@ -10,7 +10,7 @@ import {MeshBasicMaterial} from "three";
  */
 export class InstructionCache extends ComputerChipMacro {
     private readonly cacheLines: InstructionCacheLine[];
-    private readonly instructionMemory: AddressedInstructionBuffer;
+    private instructionMemory: AddressedInstructionBuffer;
     private readonly delay: number;
     private static readonly INNER_SPACING = 0.01;
 
@@ -22,18 +22,15 @@ export class InstructionCache extends ComputerChipMacro {
      * Creates an instance of the InstructionCache.
      *
      * @param {ComputerChip} parent The parent computer chip component.
-     * @param instructionMemory The instruction buffer to fetch instructions from.
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
      * @param {number} size The number of lines in the cache.
      * @param {number} width The width of the cache lines.
      * @param delay The fetching delay of the instruction buffer.
      */
-    constructor(parent: ComputerChip, instructionMemory: AddressedInstructionBuffer,
-                xOffset: number = 0, yOffset: number = 0, size: number = 4, width: number = 0.9, delay: number = 1) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, size: number = 4, width: number = 0.9, delay: number = 1) {
         super(parent, xOffset, yOffset);
         this.delay = delay;
-        this.instructionMemory = instructionMemory;
         this.cacheLines = [];
         const cacheLineHeight = InstructionCacheLine.dimensions().height;
         const totalHeight = size * cacheLineHeight + (size - 1) * InstructionCache.INNER_SPACING;
@@ -44,6 +41,20 @@ export class InstructionCache extends ComputerChipMacro {
             this.cacheLines.push(new InstructionCacheLine(parent,
                 xOffset, startYOffset + i * (cacheLineHeight + InstructionCache.INNER_SPACING), width));
         }
+    }
+
+    /**
+     * Sets the instruction memory to be used by the cache.
+     */
+    public setInstructionMemory(instructionMemory: AddressedInstructionBuffer): void {
+        this.instructionMemory = instructionMemory;
+    }
+
+    /**
+     * Flushes the cache, clearing all instructions stored in it.
+     */
+    public flush(): void {
+        this.cacheLines.forEach(line => line.clear());
     }
 
     /**
@@ -63,7 +74,7 @@ export class InstructionCache extends ComputerChipMacro {
      *
      * @param {number} address The address of the instruction to be fetched.
      */
-    public askForInstructionAt(address: number): [number, MeshBasicMaterial] {
+    public askForInstructionAt(address: number): [number, MeshBasicMaterial | null] {
         if (this.delay == 0)
             throw new Error("No delay instruction buffers are always ready to be read");
         if (address == this.requestedAddress && this.readTimeout > 0)
@@ -77,8 +88,8 @@ export class InstructionCache extends ComputerChipMacro {
             this.cacheLines.forEach(line => line.clearHighlights());
             return this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
         } else {
-            this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address), address);
-            this.cacheLines.push(this.cacheLines.shift());
+            this.cacheLines[0].write(this.instructionMemory.fetchInstructionAt(address)!, address);
+            this.cacheLines.push(this.cacheLines.shift()!);
         }
         return [-1, null];
     }
@@ -89,7 +100,7 @@ export class InstructionCache extends ComputerChipMacro {
      * @param {number} address The address of the instruction to be read.
      * @returns {Instruction} The instruction at the given address.
      */
-    public fetchInstructionAt(address: number): Instruction {
+    public fetchInstructionAt(address: number): Instruction | undefined {
         if (this.delay != 0 && !this.isReadyToBeRead(address))
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
         const line = this.cacheLineContaining(address);

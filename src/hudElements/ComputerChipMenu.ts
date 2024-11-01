@@ -20,6 +20,8 @@ export class ComputerChipMenu {
     private chipMenuMeshes: Mesh[] = [];
     private chipMenuButtons: TextButton[] = [];
 
+    private rightmostStatX: number = 0;
+
     /**
      * Initializes the ComputerChipMenu.
      *
@@ -29,15 +31,13 @@ export class ComputerChipMenu {
      */
     constructor(private scene: Scene, private hudCamera: OrthographicCamera, onClose: () => void) {
         let closeX = this.hudCamera.right - 0.2;
-        let closeY = this.hudCamera.bottom + 0.53;
+        let closeY = this.hudCamera.bottom + 0.5;
         this.menuMesh = DrawUtils.buildQuadrilateralMesh(hudCamera.right * 2, hudCamera.top * 0.8, ComputerChipMenu.MENU_COLOR,
             new Vector2(this.hudCamera.position.x, this.hudCamera.position.y - this.hudCamera.top * 0.8)
         );
         this.menuMesh.visible = false;
 
-        this.title = DrawUtils.buildTextMesh("undefined", 0, closeY,
-            HUD.TEXT_SIZE, HUD.HOVER_COLOR, false);
-        this.title.geometry.center();
+        this.title = DrawUtils.buildTextMesh("undefined", this.hudCamera.left + 0.1, closeY, HUD.TEXT_SIZE, HUD.HOVER_COLOR, false);
         this.title.visible = false;
 
         this.closeButton = new TextButton(this.scene, "[X]", new Vector2(closeX, closeY), () => onClose());
@@ -74,7 +74,8 @@ export class ComputerChipMenu {
      * @param chip The chip to display information about.
      */
     public showMenu(chip: ComputerChip): void {
-        DrawUtils.updateText(this.title, chip ? "[" + chip.displayName() + "]" : "undefined", true);
+        DrawUtils.updateText(this.title, chip ? chip.displayName() : "undefined", false);
+        this.title.position.x = this.hudCamera.left + 0.1;
         this.menuMesh.visible = true;
         this.title.visible = true;
         this.closeButton.mesh.visible = true;
@@ -89,6 +90,7 @@ export class ComputerChipMenu {
         this.title.visible = false;
         this.closeButton.mesh.visible = false;
         this.clearMenu();
+        this.rightmostStatX = 0;
     }
 
     private renderChipMenu(chipMenu: ChipMenuOptions): void {
@@ -123,26 +125,52 @@ export class ComputerChipMenu {
 
     private renderStats(chipMenu: ChipMenuOptions): void {
         chipMenu.stats.forEach((stat, index) => {
-            const text = `${stat.name}: ${stat.value ? stat.value : ""}${stat.unit}`;
-            const y = this.hudCamera.bottom + 0.40 - (index + 1) * 0.06;
-            const x = this.hudCamera.left + 0.15;
+            const text = `${stat.name}: ${stat.value ? stat.value : ""}${stat.unit ? stat.unit : ""}`;
+            const y = this.title.position.y - 0.05 - (index + 1) * 0.06;
+            const x = this.hudCamera.left + 0.1;
             const mesh = DrawUtils.buildTextMesh(text, x, y, HUD.TEXT_SIZE / 2, HUD.HOVER_COLOR, false);
+            mesh.geometry.computeBoundingBox();
+            if (mesh.geometry.boundingBox === null) {
+                throw new Error("Bounding box is null");
+            }
+            const maxX = mesh.geometry.boundingBox.max.x;
+            if (maxX > this.rightmostStatX) {
+                this.rightmostStatX = maxX;
+            }
+            const minX = mesh.geometry.boundingBox.min.x;
+            if (stat.button) {
+                const button = stat.button
+                                   .withScene(this.scene)
+                                   .withPosition(new Vector2(x + maxX - minX + 0.05, y))
+                                   .withTextSize(HUD.TEXT_SIZE / 2)
+                                   .withCentered(false)
+                                   .build();
+                this.chipMenuButtons.push(button);
+                button.mesh.geometry.computeBoundingBox();
+                if (button.mesh.geometry.boundingBox === null) {
+                    throw new Error("Bounding box is null");
+                }
+                const buttonMaxX = button.mesh.geometry.boundingBox.max.x;
+                if (buttonMaxX > this.rightmostStatX) {
+                    this.rightmostStatX = buttonMaxX;
+                }
+            }
             this.scene.add(mesh);
             this.chipMenuMeshes.push(mesh);
         });
     }
 
     private renderOptionTitle(option: UpgradeOption, index: number, optionCount: number): [number, number] {
-        const text = "[" + option.name + "]";
-        const canvasWidth = this.hudCamera.right - this.hudCamera.left;
+        const text = option.name;
+        const canvasWidth = this.hudCamera.right - this.hudCamera.left - this.rightmostStatX;
         const y = this.hudCamera.bottom + 0.40;
 
-        let x: number;
+        let x: number = this.rightmostStatX + 0.1;
         if (optionCount === 1) {
-            x = this.hudCamera.left + canvasWidth / 2; // Center if only one option
+            x += this.hudCamera.left + canvasWidth / 2; // Center if only one option
         } else {
             const spacing = canvasWidth * 0.4 / (optionCount - 1);
-            x = this.hudCamera.left + canvasWidth * 0.3 + index * spacing;
+            x += this.hudCamera.left + canvasWidth * 0.3 + index * spacing;
         }
 
         const mesh = DrawUtils.buildTextMesh(text, x, y, HUD.TEXT_SIZE / 2, HUD.HOVER_COLOR, false);
@@ -156,7 +184,7 @@ export class ComputerChipMenu {
     private renderDescription(description: string, x: number, y: number): void {
         // Split the description into multiple lines if it is too long, only split at spaces.
         const maxLineLength = 20;
-        let lines = [];
+        let lines: string[] = [];
         for (let i = 0; i < description.length; i += maxLineLength) {
             let line = description.substring(i, i + maxLineLength);
             if (line.length === maxLineLength) {

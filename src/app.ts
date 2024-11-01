@@ -16,6 +16,21 @@ export class App {
     private static readonly FPS: number = 60;
     private static frameCount: number = 0;
 
+    // CPU initial parameters
+    private static readonly CPU_POSITION: [number, number] = [0, 0];
+    private static readonly CPU_CLOCK_FREQUENCY: number = 30;
+    private static readonly CPU_CACHE_SIZE: number = 6;
+
+    // Instruction Memory initial parameters
+    private static readonly INSTRUCTION_MEMORY_CLOCK_FREQUENCY: number = 5;
+    private static readonly INSTRUCTION_MEMORY_DELAY: number = 3;
+    private static readonly INSTRUCTION_MEMORY_SIZE: number = 32;
+
+    // Memory initial parameters
+    private static readonly MEMORY_CLOCK_FREQUENCY: number = 5;
+    private static readonly MEMORY_BANKS: number = 12;
+    private static readonly MEMORY_WORDS_PER_BANK: number = 16;
+
     /** The main scene where all objects are placed. */
     scene: Scene = new Scene();
 
@@ -62,7 +77,7 @@ export class App {
     private setupRenderer(): WebGLRenderer {
         this.renderer = new WebGLRenderer({antialias: true, alpha: true});
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST"), 1);
+        this.renderer.setClearColor(DrawUtils.COLOR_PALETTE.get("DARKEST")!, 1);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.autoClear = false;
         document.body.appendChild(this.renderer.domElement);
@@ -124,11 +139,27 @@ export class App {
      * Adds game actors like the CPU and memory modules to the simulation.
      */
     private addGameActors(): void {
-        const workingMemory = new WorkingMemory([-1.345, 2.75], this.scene, 20, 8, 4, 8);
-        const instructionMemory = new InstructionMemory([2.34, 1.47], this.scene, workingMemory, 10, 3, 32);
-        const cpu = new SISDProcessor([0, 0], this.scene, instructionMemory, workingMemory, 60, 4);
+        const workingMemory = new WorkingMemory(this, App.MEMORY_CLOCK_FREQUENCY, App.MEMORY_BANKS, App.MEMORY_WORDS_PER_BANK);
+        const workingMemorySize = App.MEMORY_BANKS * App.MEMORY_WORDS_PER_BANK;
+        const instructionMemory = new InstructionMemory(this, App.INSTRUCTION_MEMORY_CLOCK_FREQUENCY,
+            App.INSTRUCTION_MEMORY_DELAY, workingMemorySize, App.INSTRUCTION_MEMORY_SIZE);
+        const cpu = new SISDProcessor(App.CPU_POSITION, this.scene, App.CPU_CLOCK_FREQUENCY, App.CPU_CACHE_SIZE);
+        // sleep for a bit to allow the CPU to initialize
+        cpu.connectToInstructionMemory(instructionMemory);
+        cpu.connectToWorkingMemory(workingMemory);
+
         this.cpus.push(cpu);
         this.gameActors.push(cpu, instructionMemory, workingMemory);
+    }
+
+    /**
+     * Removes a game actor from the simulation.
+     */
+    public removeGameActor(actor: ComputerChip): void {
+        const index = this.gameActors.indexOf(actor);
+        if (index > -1) {
+            this.gameActors.splice(index, 1);
+        }
     }
 }
 

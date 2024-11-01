@@ -11,7 +11,7 @@ import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUti
  */
 export class InstructionBuffer extends ComputerChipMacro {
     public static readonly BUFFER_HEIGHT: number = 0.11;
-    protected static readonly BUFFER_BASE_WIDTH: number = 0.8;
+    public static readonly BUFFER_BASE_WIDTH: number = 0.8;
     static readonly INNER_SPACING = 0.01;
     protected readonly noOpMesh: Mesh;
     protected readonly bufferHighlightGeometry: PlaneGeometry;
@@ -67,6 +67,14 @@ export class InstructionBuffer extends ComputerChipMacro {
             this.width, this.horizontal ? this.height : this.rectangleSize);
     }
 
+    /**
+     * Returns the dimensions of the instruction buffer.
+     *
+     * @param size The size of the instruction buffer.
+     * @param horizontal Whether the instruction buffer is oriented horizontally.
+     * @param spacing The spacing between instructions in the buffer.
+     * @returns The dimensions of the instruction buffer.
+     */
     public static dimensions(size: number, horizontal: boolean, spacing: number = InstructionBuffer.INNER_SPACING): {
         width: number,
         height: number
@@ -76,6 +84,15 @@ export class InstructionBuffer extends ComputerChipMacro {
             width: horizontal ? spaceNeeded : InstructionBuffer.BUFFER_BASE_WIDTH,
             height: horizontal ? InstructionBuffer.BUFFER_BASE_WIDTH : spaceNeeded
         };
+    }
+
+    /**
+     * Sets the position of the instruction buffer.
+     *
+     * @param position The new position of the instruction buffer
+     */
+    public setPosition(position: [number, number]): void {
+        this.position = {x: position[0], y: position[1]};
     }
 
     /**
@@ -107,7 +124,7 @@ export class InstructionBuffer extends ComputerChipMacro {
     /**
      * Peeks at the next instruction in the instruction buffer.
      */
-    public peek(): Instruction {
+    public peek(): Instruction | undefined {
         this.clearHighlights();
         if (this.storedInstructions.peek())
             this.highlightBuffer(0);
@@ -144,7 +161,7 @@ export class InstructionBuffer extends ComputerChipMacro {
         if (readCount > this.size)
             throw new Error("Cannot read more instructions than the size of the buffer");
         if (readCount > this.storedInstructions.size())
-            return;
+            return new Queue<Instruction>(0);
 
         const instructionsToRead = new Queue<Instruction>(readCount)
         this.storedInstructions.moveTo(instructionsToRead, readCount)
@@ -211,10 +228,10 @@ export class InstructionBuffer extends ComputerChipMacro {
         const yOffset = this.horizontal ? this.position.y : this.bufferMeshOffsets[index];
 
         if (this.storedInstructions.get(index)) {
-            const color = this.storedInstructions.get(index).isMemoryOperation() ?
-                ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index).isArithmetic() ?
+            const color = this.storedInstructions.get(index)!.isMemoryOperation() ?
+                ComputerChipMacro.MEMORY_MATERIAL : (this.storedInstructions.get(index)!.isArithmetic() ?
                     ComputerChipMacro.ALU_MATERIAL : ComputerChipMacro.BRANCH_MATERIAL);
-            return DrawUtils.buildTextMesh((replaceString ? replaceString : this.storedInstructions.get(index).toString())
+            return DrawUtils.buildTextMesh((replaceString ? replaceString : this.storedInstructions.get(index)!.toString())
                 , xOffset, yOffset,
                 ComputerChipMacro.TEXT_SIZE, color, true, this.horizontal ? Math.PI / 2 : 0
             );
@@ -270,7 +287,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             throw new Error("Index out of bounds");
 
         this.clearHighlights();
-        const color = this.instructionMaterial(this.storedInstructions.get(index));
+        const color = this.instructionMaterial(this.storedInstructions.get(index)!);
         const highlightMesh = new Mesh(this.bufferHighlightGeometry, color);
         highlightMesh.position.set(this.horizontal ? this.bufferMeshOffsets[index] : this.position.x,
             this.horizontal ? this.position.y : this.bufferMeshOffsets[index], 0.01);
@@ -284,8 +301,9 @@ export class InstructionBuffer extends ComputerChipMacro {
     clearHighlights() {
         super.clearHighlights();
         this.highlightedBufferMeshes.forEach(index => {
-            if (!this.storedInstructions.get(index)) return;
-            this.liveMeshes[index].material = this.instructionMaterial(this.storedInstructions.get(index));
+            if (this.storedInstructions.get(index) != undefined) {
+                this.liveMeshes[index].material = this.instructionMaterial(this.storedInstructions.get(index)!);
+            }
         });
         this.highlightedBufferMeshes = [];
     }
@@ -300,7 +318,7 @@ export class InstructionBuffer extends ComputerChipMacro {
             ? this.position.x + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.width / 2)
             : this.position.y + (this.reversed ? -1 : 1) * (this.rectangleSize / 2 - this.height / 2);
 
-        let geometries = [];
+        let geometries : PlaneGeometry[] = [];
         for (let i = 0; i < this.size; ++i) {
             const offset = startOffset + (this.reversed ? -1 : 1) * i * (this.rectangleSize + this.spacing);
             const geometry = this.bufferHighlightGeometry.clone();

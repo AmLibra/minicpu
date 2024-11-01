@@ -1,5 +1,4 @@
 import {ComputerChipMacro} from "./primitives/ComputerChipMacro";
-import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 import {ComputerChip} from "../ComputerChip";
 import {Counter} from "./primitives/Counter";
 import {InstructionBuffer} from "./primitives/InstructionBuffer";
@@ -7,6 +6,7 @@ import {Instruction} from "../../dataStructures/Instruction";
 import {Queue} from "../../dataStructures/Queue";
 import {InstructionCache} from "./InstructionCache";
 import {SISDProcessor} from "../SISDProcessor";
+import {AddressedInstructionBuffer} from "./AddressedInstructionBuffer";
 
 /**
  * Represents the instruction fetcher of a computer chip, handling the fetching of instructions.
@@ -14,8 +14,8 @@ import {SISDProcessor} from "../SISDProcessor";
 export class InstructionFetcher extends ComputerChipMacro {
     private static readonly WIDTH = 0.9;
     private static readonly SPACING = 0.01;
-    private readonly instructionMemory: AddressedInstructionBuffer;
-    private iCache: InstructionCache;
+    private instructionMemory: AddressedInstructionBuffer | undefined;
+    private readonly iCache: InstructionCache | undefined;
 
     private readonly pc: Counter;
     private readonly instructionBuffer: InstructionBuffer;
@@ -27,16 +27,12 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {ComputerChip} parent The parent computer chip component.
      * @param {number} xOffset The x offset from the parent's position.
      * @param {number} yOffset The y offset from the parent's position.
-     * @param {AddressedInstructionBuffer} instructionMemory The instruction memory associated with the instruction
-     *     fetcher.
      * @param {number} width The width of the instruction fetcher.
      * @param iCache The instruction cache associated with the instruction fetcher.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0,
-                instructionMemory: AddressedInstructionBuffer, width: number = InstructionFetcher.WIDTH,
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, width: number = InstructionFetcher.WIDTH,
                 iCache?: InstructionCache) {
         super(parent, xOffset, yOffset);
-        this.instructionMemory = instructionMemory;
         this.iCache = iCache;
         this.height = InstructionBuffer.BUFFER_HEIGHT;
         this.width = width;
@@ -48,13 +44,33 @@ export class InstructionFetcher extends ComputerChipMacro {
     }
 
     /**
+     * Sets the instruction memory to be used by the instruction fetcher.
+     *
+     * @param {AddressedInstructionBuffer | undefined} instructionMemory The instruction memory to be used.
+     */
+    public setInstructionMemory(instructionMemory: AddressedInstructionBuffer | undefined): void {
+        this.instructionMemory = instructionMemory;
+    }
+
+
+    /**
+     * Flushes the instruction buffer.
+     */
+    public flush(): void {
+        this.instructionBuffer.clear();
+        this.fetchingAddress = -1;
+        this.pc.set(0);
+        this.pc.update();
+    }
+
+    /**
      * Reads the next instruction from the instruction buffer.
      *
      * @returns {Instruction} The next instruction to be executed.
      */
-    public read(): Instruction {
+    public read(): Instruction | undefined {
         const instruction = this.instructionBuffer.read(1);
-        return instruction ? instruction.dequeue() : null;
+        return instruction ? instruction.dequeue() : undefined;
     }
 
     /**
@@ -95,8 +111,10 @@ export class InstructionFetcher extends ComputerChipMacro {
     private checkMemoryIsReady(address: number): boolean {
         if (this.iCache)
             return this.iCache.isReadyToBeRead(address);
-        else
+        else if (this.instructionMemory != undefined)
             return this.instructionMemory.isReadyToBeRead();
+        else
+            return false;
     }
 
     /**
@@ -105,10 +123,14 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {number} address The address of the instruction to be fetched.
      */
     private askForInstructionsAt(address: number): void {
-        let [index, material] = this.iCache ? this.iCache.askForInstructionAt(address) : this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
+        if (this.instructionMemory == undefined)
+            return;
+
+        let [index, material] = this.iCache ? this.iCache.askForInstructionAt(address) :
+            this.instructionMemory.askForInstructionsAt(this.parent, 1, address);
         if (index != -1 && this.parent instanceof SISDProcessor) {
             const cpu = this.parent as SISDProcessor;
-            cpu.highlightInstructionMemoryTrace(index, material);
+            cpu.highlightInstructionMemoryTrace(index, material!);
         }
     }
 
@@ -118,7 +140,10 @@ export class InstructionFetcher extends ComputerChipMacro {
      * @param {number} address The address of the instruction to be fetched.
      * @returns {Instruction} The instruction at the given address.
      */
-    private fetchInstructionAt(address: number): Instruction {
+    private fetchInstructionAt(address: number): Instruction | undefined {
+        if (this.instructionMemory == undefined)
+            throw new Error("Instruction memory not set");
+
         if (this.iCache)
             return this.iCache.fetchInstructionAt(address);
         else

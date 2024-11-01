@@ -1,6 +1,5 @@
 import {Instruction} from "./Instruction";
 import {Queue} from "./Queue";
-import {WorkingMemory} from "../actors/WorkingMemory";
 import {ISA} from "./ISA";
 import {AddressedInstructionBuffer} from "../actors/macros/AddressedInstructionBuffer";
 
@@ -18,7 +17,6 @@ export class CodeGenerator {
     public static readonly MAX_SEQUENCE_SIZE: number = 7;
 
     private readonly instructionStream: Queue<Instruction>;
-    private readonly workingMemory: WorkingMemory;
 
     private forLoopProbability: number = 0.3;
     private branchProbability: number = 0.2;
@@ -28,13 +26,12 @@ export class CodeGenerator {
     /**
      * Creates a new code generator.
      *
-     * @param workingMemory The working memory of the computer.
      * @param size The size of the instruction memory.
-     * @param instructionBuffer
+     * @param instructionBuffer The addressed instruction buffer.
+     * @param workingMemorySize The size of the working memory.
      */
-    constructor(workingMemory: WorkingMemory, private size: number, private instructionBuffer: AddressedInstructionBuffer) {
+    constructor(private size: number, private instructionBuffer: AddressedInstructionBuffer, private workingMemorySize: number) {
         this.instructionStream = new Queue<Instruction>();
-        this.workingMemory = workingMemory;
     }
 
     /**
@@ -62,7 +59,7 @@ export class CodeGenerator {
             }
             if (Math.random() < this.forLoopProbability) {
                 if (Math.random() < this.initializeRegistersProbability) {
-                    const n = ISA.REGISTER_SIZE - 1;
+                    const n = ISA.REGISTER_COUNT - 1;
                     this.initializeRegistersWorkload(n).moveTo(this.instructionStream);
                     addedInstructions += n;
                 }
@@ -149,7 +146,7 @@ export class CodeGenerator {
         for (let i = 0; i < n; ++i) {
             const randomResultRegister = this.randomFromSet(resultRegisters);
             queue.enqueue(Instruction.memory("STORE", randomResultRegister,
-                this.getRandom(this.workingMemory.size)));
+                this.getRandom(this.workingMemorySize)));
             if (resultRegisters.size > 1)
                 resultRegisters.delete(randomResultRegister);
         }
@@ -310,7 +307,7 @@ export class CodeGenerator {
 
         do {
             if (attempts++ >= maxAttempts) throw new Error('Max attempts reached in randomReg');
-            randomRegisterNumber = this.getRandom(ISA.REGISTER_SIZE, 1); // 0 is reserved for the zero register.
+            randomRegisterNumber = this.getRandom(ISA.REGISTER_COUNT, 1); // 0 is reserved for the zero register.
         } while (excepted && excepted.includes(randomRegisterNumber));
 
         return randomRegisterNumber;
@@ -335,7 +332,7 @@ export class CodeGenerator {
                 count++;
             }
             // Move to the next register, wrap around if necessary
-            randomRegisterNumber = (randomRegisterNumber + 1) % ISA.REGISTER_SIZE;
+            randomRegisterNumber = (randomRegisterNumber + 1) % ISA.REGISTER_COUNT;
         }
 
         return randomRegisterNumbers;
@@ -348,10 +345,10 @@ export class CodeGenerator {
      * @private
      */
     private randomConsecutiveAddresses(n: number): number[] {
-        const randomAddress = this.getRandom(this.workingMemory.size);
+        const randomAddress = this.getRandom(this.workingMemorySize);
         const randomAddresses: number[] = [];
         for (let i = 0; i < n; ++i)
-            randomAddresses.push((randomAddress + i) % this.workingMemory.size);
+            randomAddresses.push((randomAddress + i) % this.workingMemorySize);
         return randomAddresses;
     }
 

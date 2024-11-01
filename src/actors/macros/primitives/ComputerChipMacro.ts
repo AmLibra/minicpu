@@ -16,7 +16,7 @@ export abstract class ComputerChipMacro {
     protected readonly parent: ComputerChip;
 
     /** The position of the macro component within the scene. */
-    protected readonly position: { x: number; y: number };
+    protected position: { x: number; y: number };
 
     /** The height and width of the macro component. */
     height: number;

@@ -137,7 +137,7 @@ export class Queue<T> {
     moveTo(to: Queue<T>, count: number = this.size()): void {
         for (let i = 0; i < Math.min(count, to.maxSize); ++i) {
             if (this.isEmpty() || to.isFull()) break;
-            to.enqueue(this.dequeue());
+            to.enqueue(this.dequeue()!);
         }
     }
 

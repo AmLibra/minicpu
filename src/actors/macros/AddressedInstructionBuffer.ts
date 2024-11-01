@@ -21,7 +21,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private highlightedJumpPCs: number[] = [];
 
     private flaggedBuffers: number[] = [];
-    private flaggedBufferMeshes: Mesh[] = [];
+    private flaggedBufferMeshes: (Mesh | null) [] = [];
 
     public connectedChip: ComputerChip;
 
@@ -47,7 +47,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      * @param n the number of instructions to fetch
      * @param address the address of the first instruction to fetch
      */
-    public askForInstructionsAt(chip: ComputerChip, n: number, address: number): [number, MeshBasicMaterial] {
+    public askForInstructionsAt(chip: ComputerChip, n: number, address: number): [number, MeshBasicMaterial | null] {
         if (this.delay == 0)
             throw new Error("There is no need to ask for instructions when there is no delay");
         this.connectedChip = chip;
@@ -64,7 +64,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
                 this.highlightBuffer(i);
 
         this.readTimeout = this.delay;
-        return [localAddress, this.instructionMaterial(this.storedInstructions.get(localAddress))];
+        return [localAddress, this.instructionMaterial(this.storedInstructions.get(localAddress)!)];
     }
 
     /**
@@ -72,7 +72,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
      *
      * @param address the address of the instruction to fetch
      */
-    public fetchInstructionAt(address: number): Instruction {
+    public fetchInstructionAt(address: number): Instruction | undefined {
         if (this.delay != 0 && !this.isReadyToBeRead())
             throw new Error(`Instruction buffer from ${this.parent.displayName()} is not ready to be read`);
 
@@ -81,7 +81,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
 
 
         if (!instruction)
-            return;
+            return undefined;
 
         this.clearHighlights();
         this.updateJumpInstructionGraphics();
@@ -158,6 +158,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
         // Update flagged buffer indices and their mesh positions
         this.flaggedBuffers = this.flaggedBuffers.map(index => index - nPositions);
         this.flaggedBufferMeshes.forEach((mesh, index) => {
+            if (mesh === null) return;
             const newIndex = this.flaggedBuffers[index];
             if (newIndex >= 0) {
                 mesh.position.y = this.bufferMeshOffsets[newIndex];
@@ -189,6 +190,15 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
             addressMesh.geometry.dispose();
         }
         this.addressMeshes = [];
+
+        this.jumpInstructions.clear();
+        this.highlightedJumpPCs = [];
+        this.flaggedBuffers = [];
+        this.flaggedBufferMeshes.forEach(mesh => {
+            if (mesh === null) return;
+            this.scene.remove(mesh);
+            mesh.geometry.dispose();
+        });
     }
 
     /**
@@ -237,7 +247,7 @@ export class AddressedInstructionBuffer extends InstructionBuffer {
     private updateJumpInstructionGraphics(): void {
         this.jumpInstructions.forEach((instruction, pc) => {
             const localPc = this.toLocalAddress(pc);
-            const localInstructionAddress = this.toLocalAddress(instruction.getAddress());
+            const localInstructionAddress = this.toLocalAddress(instruction.getAddress()!);
             if (!(this.highlightedJumpPCs.includes(pc)) &&
                 this.isAddressInRange(localPc) && this.isAddressInRange(localInstructionAddress)) {
                 this.highlightedJumpPCs.push(pc);

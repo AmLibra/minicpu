@@ -1,10 +1,9 @@
-import {Scene} from "three";
 import {ComputerChip, Side} from "./ComputerChip";
-import {WorkingMemory} from "./WorkingMemory";
 import {AddressedInstructionBuffer} from "./macros/AddressedInstructionBuffer";
 import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
 import {UpgradeOption} from "../dataStructures/UpgradeOption";
 import {CodeGenerator} from "../dataStructures/CodeGenerator";
+import {App} from "../app";
 
 /**
  * The InstructionMemory class represents the instruction memory of the computer.
@@ -19,22 +18,20 @@ export class InstructionMemory extends ComputerChip {
     /**
      * Creates a new instruction memory.
      *
-     * @param position The position of the instruction memory.
-     * @param scene The scene to which the instruction memory belongs.
-     * @param workingMemory The working memory of the computer.
+     * @param app The main application class.
      * @param clockFrequency The clock frequency of the computer.
      * @param delay The delay of the instruction memory.
+     * @param workingMemorySize The size of the working memory.
      * @param size The size of the instruction memory.
      */
-    constructor(position: [number, number], scene: Scene, workingMemory: WorkingMemory, clockFrequency: number, delay: number,
+    constructor(private app: App, clockFrequency: number, delay: number, workingMemorySize: number,
                 size: number = 16) {
-        super(position, scene, clockFrequency);
+        super([0, 0], app.scene, clockFrequency);
         this.size = size;
         this.instructionBuffer = new AddressedInstructionBuffer(this, size,
             InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
             0, delay);
-        this.CodeGen = new CodeGenerator(workingMemory, size, this.instructionBuffer);
-        this.initializeGraphics();
+        this.CodeGen = new CodeGenerator(size, this.instructionBuffer, workingMemorySize);
     }
 
     /**
@@ -42,6 +39,26 @@ export class InstructionMemory extends ComputerChip {
      */
     public getInstructionBuffer(): AddressedInstructionBuffer {
         return this.instructionBuffer;
+    }
+
+    /**
+     * Computes the dimensions of the instruction memory
+     */
+    public dimensions(): { width: number, height: number } {
+        return {
+            width: this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2,
+            height: this.instructionBuffer.height + InstructionMemory.CONTENTS_MARGIN * 2
+        }
+    }
+
+    /**
+     * Changes the position of the instruction memory.
+     */
+    public setPosition(position: [number, number]): void {
+        this.position = {x: position[0], y: position[1]};
+        this.instructionBuffer
+            .setPosition([position[0] + InstructionMemory.ADDRESS_MARGIN * 0.6 + InstructionMemory.INNER_SPACING - InstructionMemory.CONTENTS_MARGIN,
+            position[1]]);
     }
 
     getMenuOptions(): ChipMenuOptions {
@@ -77,8 +94,15 @@ export class InstructionMemory extends ComputerChip {
         const bodyWidth = this.instructionBuffer.width + InstructionMemory.CONTENTS_MARGIN * 2
             + InstructionMemory.ADDRESS_MARGIN;
         this.buildBodyMesh(bodyWidth, bodyHeight);
-        this.drawPins(this.bodyMesh, Side.LEFT, this.size);
+        this.drawPins(this.bodyMesh!, Side.LEFT, this.size);
         this.instructionBuffer.initializeGraphics();
+    }
+
+    disposeGraphics(): void {
+        super.disposeBodyMesh();
+        this.clearTracesAndPins(Side.LEFT);
+        this.instructionBuffer.dispose();
+        this.app.removeGameActor(this);
     }
 
     private safeIncrementClock(): number {

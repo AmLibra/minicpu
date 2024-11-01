@@ -13,7 +13,6 @@ import {
 import {DrawUtils} from "../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 import {ChipMenuOptions} from "../dataStructures/ChipMenuOptions";
-import {App} from "../app";
 
 /**
  * Enumeration for the sides of a computer chip
@@ -49,15 +48,17 @@ export abstract class ComputerChip {
 
     protected static readonly MAX_CLOCK_FREQUENCY = 120;
     // The basic meshes of a computer chip
-    protected bodyMesh: Mesh;
-    protected selectedMesh: Mesh;
+    protected bodyMesh: Mesh | undefined;
+    protected selectedMesh: Mesh | undefined;
 
     // The positions of the pins on the chip per side
     public readonly pinPositions: Map<Side, Vector2[]>;
     public readonly pinGeometries: Map<Side, BufferGeometry[]>;
+    private readonly pinsMeshes: Map<Side, Mesh>;
+    private readonly traces: Map<Side, Group>;
 
     public readonly scene: Scene;
-    readonly position: { x: number; y: number };
+    position: { x: number; y: number };
     private clockFrequency: number = 1;
     protected chipMenuOptions: ChipMenuOptions;
 
@@ -73,6 +74,8 @@ export abstract class ComputerChip {
         this.clockFrequency = clockFrequency;
         this.pinPositions = new Map<Side, Vector2[]>();
         this.pinGeometries = new Map<Side, BufferGeometry[]>();
+        this.pinsMeshes = new Map<Side, Mesh>();
+        this.traces = new Map<Side, Group>();
     }
 
     /**
@@ -119,14 +122,14 @@ export abstract class ComputerChip {
      * Gets the hit box mesh of the chip
      */
     public getHitBoxMesh(): Mesh {
-        return this.bodyMesh;
+        return this.bodyMesh!;
     }
 
     /**
      * Selects the chip and shows the selected mesh
      */
     public select(): ComputerChip {
-        this.scene.add(this.selectedMesh);
+        this.scene.add(this.selectedMesh!);
         return this;
     }
 
@@ -134,7 +137,7 @@ export abstract class ComputerChip {
      * Deselects the chip and hides the selected mesh
      */
     public deselect(): undefined {
-        this.scene.remove(this.selectedMesh);
+        this.scene.remove(this.selectedMesh!);
         return undefined;
     }
 
@@ -167,13 +170,15 @@ export abstract class ComputerChip {
             const pinGeometry = new PlaneGeometry(ComputerChip.PIN_WIDTH, ComputerChip.PIN_WIDTH * 2);
             if (!horizontal) pinGeometry.rotateZ(Math.PI / 2); // Rotate for left/right sides
             pinGeometry.translate(xOffset, yOffset, 0);
-            this.pinGeometries.get(side).push(pinGeometry);
-            this.pinPositions.get(side).push(new Vector2(xOffset, yOffset));
+            this.pinGeometries.get(side)!.push(pinGeometry);
+            this.pinPositions.get(side)!.push(new Vector2(xOffset, yOffset));
         }
         // Merge pin geometries and add to the scene
-        const mergedGeometry = BufferGeometryUtils.mergeGeometries(this.pinGeometries.get(side));
+        const mergedGeometry = BufferGeometryUtils.mergeGeometries(this.pinGeometries.get(side)!);
         if (!mergedGeometry) throw new Error("Failed to merge geometries");
-        this.scene.add(new Mesh(mergedGeometry, ComputerChip.PIN_MATERIAL));
+        const mergedMesh = new Mesh(mergedGeometry, ComputerChip.PIN_MATERIAL);
+        this.scene.add(mergedMesh);
+        this.pinsMeshes.set(side, mergedMesh);
     }
 
     /**
@@ -190,7 +195,7 @@ export abstract class ComputerChip {
     protected buildTrace(pinPosition1: Vector2, side1: Side, pinPosition2: Vector2, side2: Side, offset: number, material ?: MeshBasicMaterial): Line {
         // Calculate extended start and end points
         const extendedStart = this.calculateExtendedPoint(pinPosition1, side1, offset);
-        const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, 0.02);
+        const extendedEnd = this.calculateExtendedPoint(pinPosition2, side2, ComputerChip.PIN_WIDTH * 2);
         const intermediatePoint = new Vector2(
             side1 === Side.TOP || side1 === Side.BOTTOM ? extendedEnd.x : extendedStart.x,
             side1 === Side.TOP || side1 === Side.BOTTOM ? extendedStart.y : extendedEnd.y
@@ -200,7 +205,9 @@ export abstract class ComputerChip {
         const points = [
             new Vector3(pinPosition1.x, pinPosition1.y, 0), // Start to extended start
             new Vector3(extendedStart.x, extendedStart.y, 0), // Extended start to intermediate
+
             new Vector3(intermediatePoint.x, intermediatePoint.y, 0), // Intermediate to extended end
+
             new Vector3(extendedEnd.x, extendedEnd.y, 0), // Extended end to end
             new Vector3(pinPosition2.x, pinPosition2.y, 0)
         ];
@@ -221,13 +228,12 @@ export abstract class ComputerChip {
      * @param baseOffset The base offset for the trace
      * @param pinSpacing The spacing between the pins
      * @param dimension The dimension to draw the trace in
-     * @param inverted Whether the trace should be inverted
      * @protected
      */
     protected drawTrace(index: number, material: MeshBasicMaterial, thisSide: Side, other: ComputerChip,
-                        otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y', inverted: boolean = false): Line {
-        const thisPins = this.pinPositions.get(thisSide);
-        const otherPins = other.pinPositions.get(otherSide);
+                        otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y'): Line {
+        const thisPins = this.pinPositions.get(thisSide)!;
+        const otherPins = other.pinPositions.get(otherSide)!;
         let startIndexThisSide = 0;
         let startIndexOtherSide = 0;
 
@@ -241,7 +247,7 @@ export abstract class ComputerChip {
         let adjustedIndexOtherSide = index >= startIndexOtherSide ? index : startIndexOtherSide - (startIndexOtherSide - index);
         adjustedIndexThisSide = Math.min(adjustedIndexThisSide, thisPins.length - 1);
         adjustedIndexOtherSide = Math.min(adjustedIndexOtherSide, otherPins.length - 1);
-        const offset = inverted ?
+        const offset = dimension === 'x' ?
             baseOffset + (pinSpacing * (thisPins.length - 1) - pinSpacing * Math.abs(adjustedIndexThisSide - startIndexThisSide))
             : baseOffset + (pinSpacing * Math.abs(adjustedIndexThisSide - startIndexThisSide));
 
@@ -257,14 +263,29 @@ export abstract class ComputerChip {
      * @param baseOffset The base offset for the traces
      * @param pinSpacing The spacing between the pins
      * @param dimension The dimension to draw the traces in
-     * @param inverted Whether the traces should be inverted
      * @protected
      */
-    protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y', inverted: boolean = false): void {
+    protected drawTraces(thisSide: Side, other: ComputerChip, otherSide: Side, baseOffset: number, pinSpacing: number, dimension: 'x' | 'y'): void {
         const traces = new Group();
-        for (let i = 0; i < this.pinPositions.get(thisSide).length; i++)
-            traces.add(this.drawTrace(i, ComputerChip.PIN_MATERIAL, thisSide, other, otherSide, baseOffset, pinSpacing, dimension, inverted));
+        for (let i = 0; i < this.pinPositions.get(thisSide)!.length; i++)
+            traces.add(this.drawTrace(i, ComputerChip.PIN_MATERIAL, thisSide, other, otherSide, baseOffset, pinSpacing, dimension));
+        this.traces.set(thisSide, traces);
         this.scene.add(traces);
+    }
+
+    /**
+     * Clears the traces and pins for a given side
+     *
+     * @param side The side to clear
+     * @protected
+     */
+    protected clearTracesAndPins(side: Side): void {
+        if (!this.pinsMeshes.get(side)) return;
+        DrawUtils.disposeMesh(this.pinsMeshes.get(side)!);
+        this.scene.remove(this.pinsMeshes.get(side)!);
+        if (!this.traces.get(side)) return;
+        this.scene.remove(this.traces.get(side)!);
+        this.traces.get(side)!?.children.forEach(trace => DrawUtils.disposeMesh(trace as Mesh));
     }
 
     /**
@@ -303,6 +324,16 @@ export abstract class ComputerChip {
         this.buildSelectedMesh();
     }
 
+    protected disposeBodyMesh(): void {
+        if (!this.bodyMesh || !this.selectedMesh) return;
+        this.scene.remove(this.bodyMesh);
+        this.scene.remove(this.selectedMesh);
+        DrawUtils.disposeMesh(this.bodyMesh);
+        DrawUtils.disposeMesh(this.selectedMesh);
+        this.bodyMesh = undefined;
+        this.selectedMesh = undefined;
+    }
+
     /**
      * Updates the clock frequency of the chip
      *
@@ -320,6 +351,7 @@ export abstract class ComputerChip {
      * @protected
      */
     private buildSelectedMesh(): void {
+        if (!this.bodyMesh) return;
         const bodyHeight = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.height : 0;
         const bodyWidth = this.bodyMesh.geometry instanceof PlaneGeometry ? this.bodyMesh.geometry.parameters.width : 0;
         this.selectedMesh = new Mesh(new PlaneGeometry(bodyWidth + 0.01, bodyHeight + 0.01), ComputerChip.HUD_TEXT_MATERIAL);

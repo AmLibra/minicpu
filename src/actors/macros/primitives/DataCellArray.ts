@@ -1,6 +1,6 @@
 import {ComputerChipMacro} from "./ComputerChipMacro";
 import {ComputerChip} from "../../ComputerChip";
-import {BufferGeometry, Mesh, PlaneGeometry} from "three";
+import {BufferGeometry, Mesh, MeshBasicMaterial, PlaneGeometry} from "three";
 import {DrawUtils} from "../../../DrawUtils";
 import * as BufferGeometryUtils from "three/examples/jsm/utils/BufferGeometryUtils";
 import {ALU} from "./ALU";
@@ -9,14 +9,17 @@ import {ALU} from "./ALU";
  * Represents an array of data cells, used to simulate memory or registers within a computer chip simulation.
  */
 export class DataCellArray extends ComputerChipMacro {
-    /** The side length of each register cell in the array. */
-    private static readonly REGISTER_SIDE_LENGTH: number = 0.11;
+    public static readonly BUFFER_HEIGHT: number = 0.11;
+    protected static readonly BUFFER_WIDTH: number = 0.3;
 
     /** The spacing between each cell in the array. */
     private static readonly INNER_SPACING = 0.01;
 
     /** The initial value with which each register in the array is filled. */
     private static readonly INITIAL_REG_VALUE: number = 0;
+
+    private readonly initialTextMaterial = ComputerChipMacro.TEXT_MATERIAL.clone();
+    private readonly recentlyUpdatedMeshes: Mesh[] = [];
 
     /** An array of tuples representing the x and y positions of each cell in the 3D space. */
     private readonly cellPositions: [number, number][] = [];
@@ -27,8 +30,6 @@ export class DataCellArray extends ComputerChipMacro {
     /** The number of words (groups of cells) in the array. */
     private readonly numberOfWords: number;
 
-    /** The size of each word, in cells. */
-    private readonly wordSize: number;
 
     /** An array representing the memory values stored in each cell. */
     private readonly memoryArray: number[];
@@ -43,13 +44,13 @@ export class DataCellArray extends ComputerChipMacro {
     private readonly delay: number;
 
     /** The zero register index. */
-    private readonly zeroRegister: number;
+    private readonly zeroRegister: number | undefined;
 
     /** Indicates whether the data cell array is ready for a read or write operation. */
     private ready: boolean = false;
 
     /** The index of the currently highlighted memory cell, if any. */
-    private highlightedMemoryCell: number = 0;
+    private highlightedMemoryCell: number = -1;
 
     /** A timeout counter used to simulate operation delay. */
     private memoryOperationTimeout: number = 0;
@@ -61,27 +62,25 @@ export class DataCellArray extends ComputerChipMacro {
      * @param xOffset The x-offset in the 3D space where the data cell array should be positioned.
      * @param yOffset The y-offset in the 3D space where the data cell array should be positioned.
      * @param numberOfWords The number of words in the data cell array.
-     * @param wordSize The number of cells in each word.
      * @param delay The memory operation delay in clock cycles.
      * @param zeroRegister The index of the zero register in the array.
      * @param registerNames An optional array of names for each register in the array.
      * @param bankName An optional name for the bank of registers or memory array.
      */
-    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4, wordSize: number = 4,
-                delay: number = 0, zeroRegister: number, registerNames?: string[], bankName?: string) {
+    constructor(parent: ComputerChip, xOffset: number = 0, yOffset: number = 0, numberOfWords: number = 4,
+                delay: number = 0, zeroRegister: number | undefined, registerNames?: string[], bankName?: string) {
         super(parent, xOffset, yOffset);
         this.numberOfWords = numberOfWords;
-        this.wordSize = wordSize;
         this.delay = delay;
         this.zeroRegister = zeroRegister;
         this.bankName = bankName;
         this.registerNames = registerNames;
-        this.memoryArray = new Array(this.numberOfWords * this.wordSize).fill(DataCellArray.INITIAL_REG_VALUE);
-        this.width = DataCellArray.REGISTER_SIDE_LENGTH * this.numberOfWords
-            + DataCellArray.INNER_SPACING * (this.numberOfWords - 1);
-        this.height = DataCellArray.REGISTER_SIDE_LENGTH * this.wordSize
-            + DataCellArray.INNER_SPACING * (this.wordSize - 1);
-        this.cellHighlightGeometry = new PlaneGeometry(DataCellArray.REGISTER_SIDE_LENGTH, DataCellArray.REGISTER_SIDE_LENGTH);
+        this.memoryArray = new Array(this.numberOfWords).fill(DataCellArray.INITIAL_REG_VALUE);
+        this.width = DataCellArray.BUFFER_WIDTH;
+        this.height = DataCellArray.BUFFER_HEIGHT * numberOfWords + DataCellArray.INNER_SPACING * (numberOfWords - 1);
+        this.cellHighlightGeometry = new PlaneGeometry(DataCellArray.BUFFER_WIDTH, DataCellArray.BUFFER_HEIGHT);
+        this.initialTextMaterial.transparent = true;
+        this.initialTextMaterial.opacity = 0.2;
     }
 
     /**
@@ -89,12 +88,11 @@ export class DataCellArray extends ComputerChipMacro {
      * This is useful for positioning the data cell array in the scene relative to other dataStructures.
      *
      * @param numberOfWords The number of words in the data cell array.
-     * @param wordSize The number of cells in each word.
      */
-    public static dimensions(numberOfWords: number, wordSize: number): { width: number, height: number } {
+    public static dimensions(numberOfWords: number): { width: number, height: number } {
         return {
-            width: DataCellArray.REGISTER_SIDE_LENGTH * numberOfWords + DataCellArray.INNER_SPACING * (numberOfWords - 1),
-            height: DataCellArray.REGISTER_SIDE_LENGTH * wordSize + DataCellArray.INNER_SPACING * (wordSize - 1)
+            width: DataCellArray.BUFFER_WIDTH,
+            height: DataCellArray.BUFFER_HEIGHT * numberOfWords + DataCellArray.INNER_SPACING * (numberOfWords - 1)
         }
     }
 
@@ -162,7 +160,7 @@ export class DataCellArray extends ComputerChipMacro {
         if (address === this.zeroRegister)
             return;
         this.memoryArray[address] = value;
-        DrawUtils.updateText(this.liveMeshes[address], value.toString(), true);
+        DrawUtils.updateText(this.liveMeshes[address], DrawUtils.toHex(value), true);
         this.clearHighlights();
         if (this.delay == 0)
             this.highlightCell(address, chipMacro);
@@ -176,6 +174,22 @@ export class DataCellArray extends ComputerChipMacro {
         }
         if (this.delay == 0 && this.highlightMeshes.length > 0)
             this.clearHighlights();
+        if (this.recentlyUpdatedMeshes.length > 0) {
+            const toRemove: number[] = [];
+            this.recentlyUpdatedMeshes.forEach((mesh, index) => {
+                const baseMaterial = mesh.material as MeshBasicMaterial;
+                if (!baseMaterial.transparent) {
+                    baseMaterial.transparent = true;
+                }
+                baseMaterial.opacity -= 0.01;
+                if (baseMaterial.opacity <= this.initialTextMaterial.opacity) {
+                    baseMaterial.opacity = this.initialTextMaterial.opacity;
+                    toRemove.push(index);
+                }
+                DrawUtils.updateMaterial(mesh, baseMaterial);
+            });
+            toRemove.forEach(index => this.recentlyUpdatedMeshes.splice(index, 1));
+        }
     }
 
     initializeGraphics(): void {
@@ -198,7 +212,10 @@ export class DataCellArray extends ComputerChipMacro {
     clearHighlights() {
         super.clearHighlights();
         if (this.highlightedMemoryCell >= 0 && this.liveMeshes[this.highlightedMemoryCell]) {
-            this.liveMeshes[this.highlightedMemoryCell].material = ComputerChipMacro.TEXT_MATERIAL;
+            this.liveMeshes[this.highlightedMemoryCell].material = ComputerChipMacro.TEXT_MATERIAL.clone()
+            if (!this.recentlyUpdatedMeshes.includes(this.liveMeshes[this.highlightedMemoryCell])) {
+                this.recentlyUpdatedMeshes.push(this.liveMeshes[this.highlightedMemoryCell]);
+            }
             this.highlightedMemoryCell = -1;
         }
     }
@@ -216,8 +233,8 @@ export class DataCellArray extends ComputerChipMacro {
         if (this.memoryArray[index] == DataCellArray.INITIAL_REG_VALUE) {
             const position = this.cellPositions[index];
             const textMesh = DrawUtils.buildTextMesh(
-                this.memoryArray[index].toString(), position[0], position[1] - DataCellArray.REGISTER_SIDE_LENGTH / 2 + DrawUtils.baseTextHeight / 2
-                , DataCellArray.TEXT_SIZE, ComputerChipMacro.TEXT_MATERIAL, false);
+                DrawUtils.toHex(this.memoryArray[index]), position[0], position[1] - DataCellArray.BUFFER_HEIGHT / 2 + DrawUtils.baseTextHeight / 2
+                , DataCellArray.TEXT_SIZE, this.initialTextMaterial.clone(), false);
             textMesh.geometry.center();
             return textMesh;
         } else
@@ -241,7 +258,7 @@ export class DataCellArray extends ComputerChipMacro {
         const position = this.cellPositions[index];
         highlightMesh.position.set(position[0], position[1], 0);
 
-        this.liveMeshes[index].material = ComputerChipMacro.BODY_MATERIAL;
+        this.liveMeshes[index].material = ComputerChipMacro.BODY_MATERIAL; // back to normal opacity
 
         this.highlightedMemoryCell = index;
         this.addHighlightMesh(highlightMesh);
@@ -286,7 +303,7 @@ export class DataCellArray extends ComputerChipMacro {
      * @private
      */
     private getStartPositionX(): number {
-        return this.position.x - this.width / 2 + DataCellArray.REGISTER_SIDE_LENGTH / 2;
+        return this.position.x - this.width / 2 + DataCellArray.BUFFER_WIDTH / 2;
     }
 
     /**
@@ -294,7 +311,7 @@ export class DataCellArray extends ComputerChipMacro {
      * @private
      */
     private getStartPositionY(): number {
-        return this.position.y + this.height / 2 - DataCellArray.REGISTER_SIDE_LENGTH / 2;
+        return this.position.y - this.height / 2 + DataCellArray.BUFFER_HEIGHT / 2;
     }
 
     /**
@@ -309,28 +326,11 @@ export class DataCellArray extends ComputerChipMacro {
      */
     private generateGeometries(registerGeometries: BufferGeometry[], registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, startX: number, startY: number): void {
         for (let i = 0; i < this.numberOfWords; i++) {
-            for (let j = 0; j < this.wordSize; j++) {
-                const [xOffset, yOffset] = this.calculateOffsets(startX, startY, j, i);
-                this.createCellGeometry(registerGeometries, xOffset, yOffset);
-                this.createNameGeometry(registerNamesGeometries, registerNames, j, i, xOffset, yOffset);
-                this.cellPositions.push([xOffset, yOffset]);
-            }
+            const yOffset = startY + i * (DataCellArray.BUFFER_HEIGHT + DataCellArray.INNER_SPACING);
+            this.createCellGeometry(registerGeometries, startX, yOffset);
+            this.createNameGeometry(registerNamesGeometries, registerNames, i, startX, yOffset);
+            this.cellPositions.push([startX, yOffset]);
         }
-    }
-
-    /**
-     * Calculates the x and y offsets for a register cell in the array.
-     *
-     * @param startX The x-coordinate of the start position of the data cell array.
-     * @param startY The y-coordinate of the start position of the data cell array.
-     * @param rowIndex The index of the row in the array.
-     * @param columnIndex The index of the column in the array.
-     * @private
-     */
-    private calculateOffsets(startX: number, startY: number, rowIndex: number, columnIndex: number): [number, number] {
-        const xOffset = startX + columnIndex * (DataCellArray.REGISTER_SIDE_LENGTH + DataCellArray.INNER_SPACING);
-        const yOffset = startY - rowIndex * (DataCellArray.REGISTER_SIDE_LENGTH + DataCellArray.INNER_SPACING);
-        return [xOffset, yOffset];
     }
 
     /**
@@ -352,18 +352,16 @@ export class DataCellArray extends ComputerChipMacro {
      *
      * @param registerNamesGeometries The array of geometries for the register names.
      * @param registerNames An optional array of names for each register in the array.
-     * @param rowIndex The index of the row in the array.
-     * @param columnIndex The index of the column in the array.
+     * @param index The index of the column in the array.
      * @param xOffset The x-offset for the register name.
      * @param yOffset The y-offset for the register name.
      * @private
      */
-    private createNameGeometry(registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, rowIndex: number, columnIndex: number, xOffset: number, yOffset: number): void {
-        const registerName = registerNames ?
-            registerNames[columnIndex * this.wordSize + rowIndex]
-            : DrawUtils.toHex(rowIndex * this.numberOfWords + columnIndex);
-        const registerNameGeometry = DrawUtils.buildTextMesh(registerName, 0, 0, DataCellArray.TEXT_SIZE / 2, DataCellArray.BODY_MATERIAL).geometry.center()
-                                              .translate(xOffset, yOffset + DataCellArray.REGISTER_SIDE_LENGTH / 2 - DrawUtils.baseTextHeight / 4, 0);
+    private createNameGeometry(registerNamesGeometries: BufferGeometry[], registerNames: string[] | undefined, index: number, xOffset: number, yOffset: number): void {
+        const registerName = registerNames ? registerNames[index] : DrawUtils.toHex(index);
+        const registerNameGeometry =
+            DrawUtils.buildTextMesh(registerName, 0, 0, DataCellArray.TEXT_SIZE / 2, DataCellArray.BODY_MATERIAL).geometry.center()
+                     .translate(xOffset, yOffset + DataCellArray.BUFFER_HEIGHT / 2 - DrawUtils.baseTextHeight / 4, 0);
         registerNamesGeometries.push(registerNameGeometry);
     }
 
