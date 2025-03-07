@@ -1,4 +1,4 @@
-#Mini CPU
+# Mini CPU
 
 A game/demo for people curious about how their CPUs work.
 
