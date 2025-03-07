@@ -1,3 +1,7 @@
+#Mini CPU
+
+A game/demo for people curious about how their CPUs work.
+
 Live demo at https://amlibra.github.io/minicpu/ ! (Make sure to have WebGL enabled in your browser)
 
 
